@@ -1,0 +1,16 @@
+# SealedSecret made by infra/seal.py from the store `yyc` (map: infra/secrets.txt). Don't edit: re-seal.
+# cert: infra/sealed-secrets-talos.pem sha256:81f61330757d262c
+---
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: ghcr-pull
+  namespace: feishu-index
+spec:
+  encryptedData:
+    .dockerconfigjson: AgAXgJGEqc3J/slIQ6xu4FeWrEXnBiaxHAKysPi4zxCBcrCkgMxUIPV5fxgRzlE5jR5Nuv+8ZsVRV6sgCyI2/78HKIyeO5gf6IHtzfF4IvCuik74+y6c2AK/MEVxGCFzfWpu1iRn8wJYLK7GCoKmooYrprebLx1rIHkRwQSbZEh8bzrwob5frf+1/BSzvPvvQEctkXZbqpyUuDk82NbzJzUomT9V+JVhSUKxXHYvPX8iAjHERPGUvE2S6K7sHa4uWCu/mkbfxtFiSaxITZgNOtqaQPHrepG9v4LD0nhpnekXalUSXW8FnctYZvUyRnGxcuFFG45quSw3Q4NVMetc5DtGd7A3L4WkpV5MGbzWUWsnf9pxE3fLsG3C2x+53/nfsM8l6utz0tD4CR3RB2SLoUJT1iXYyCAXrfSkfEXYRoxfg5oMItbLwCyVER4ab64Qf98YW9e80YObMtqsyuoFS+uUhIvm1VHzLQtDqQrUAyU1M3wDMKmCe8Nu5MH9ruvTMpBGTqZIk0JEYMiQ43RJ8Pq/OG7DSCizjBka/mF7eMtIUym6GkP+o3RFyoemOLul0B9jBDs0RLTr9hsqUC+kIs56DxVp4C5wVoBwvwFwK7AcYl6T1Yl7+Ly2lHssp6Rc2gVjuFNr+lTvG2I7qgt13TRrOdSDdfpro7r9iIotfDMENmoLYXsNNoD3Li0pUQccd+wMuDpBjmuHQzcCivNMs3LpgSODcAEvu+72qLhcRoXKJxh7IX9tPB3R0RQlmpg2jPdwEhWxKjzF5QNLd4ytmzKgRC/hANwSvF8D9FQ+YiIv3bwQpL2FFjKVbVb15/nasQT8xb1e9AhxgMXF8ix6IxYoEoQY0zzEiVZOIl4mWVXO9MWgz2SZoy3VDIXGIrGkPC1+i5mW82/+JhZ6xyHGjEVcKohr32tTD+7vcJ+oJl30hiU=
+  template:
+    metadata:
+      name: ghcr-pull
+      namespace: feishu-index
+    type: kubernetes.io/dockerconfigjson

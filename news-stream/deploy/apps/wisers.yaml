@@ -1,0 +1,103 @@
+# WiseSearch relay (news-stream/wisers/relay.py; Deyao, 2026-10-13): a page at newswatch.yyc-internal.com/app/wisers/ with
+# WiseSearch's search options that relays searches to YYC's WisersOne account through one headless Chrome holding the
+# saved session. Its own Access app (deploy/cloudflare/tofu/access.tf) lets in YYC's users (the one access
+# catalogue, the store's YYC_CATALOGUE_JSON); the pod checks the Access token too (signature, issuer, ACCESS_AUD). The tunnel sends ^/app/wisers here (tofu/tunnels.tf ingress).
+# One replica, deployed with no gap (Deyao, 2026-10-16): WisersOne allows one session per user (a login ends the older
+# one), so a rollout hands the saved session over in Postgres instead of logging in again: the new pod starts (maxSurge
+# 1) and is ready at once, its requests wait for the leader lock (a Postgres advisory lock); the old pod (maxUnavailable
+# 0) drains on SIGTERM (healthz 503, WISERS_DRAIN_SECS of serving, then what is queued), saves the session, closes its
+# browser and releases the lock (relay.py docstring; tests/test_wisers_rollout.py). All its state (session, jobs, saved
+# responses, documents, images, downloads, logs) is in Postgres (wisers/store.py; Deyao, 2026-11-08: state in the
+# application layer, no volume), so it runs on any node; searches are jobs there, so the new pod answers for a search
+# the old one finishes while draining (Deyao, 2026-10-20: "requests time out too fast"; tests/test_wisers_jobs.py).
+# Port stats (8898): the search log's counts, the session's state (held / logged_out) and its health (the health check every
+# WISERS_PROBE_SECS, default 300: one free call that also logs in again in the background; failed calls of the last 15 min;
+# logins of the hour; events.jsonl in the store) for the monitor, inside the cluster only
+# (the tunnel goes to http). The WisersOne account is dedicated to the relay (company decision, Deyao 2026-10-21): it holds the
+# session long-term and logs in again by itself when it expires; manual take-back: README "WiseSearch 轉接".
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wisers
+  namespace: yyc
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxSurge: 1, maxUnavailable: 0}
+  selector:
+    matchLabels: {app: wisers}
+  template:
+    metadata:
+      annotations: {yyc/secrets-rev: "2026-10-29 WISERS_PG_PASSWORD yyc_readonly"}  # bump to roll the pods after a Secret change
+      labels: {app: wisers}
+    spec:
+      terminationGracePeriodSeconds: 330  # the drain: WISERS_DRAIN_SECS + the search in flight (WISERS_SEARCH_SECS at most)
+      securityContext: {runAsUser: 10001, runAsGroup: 10001}
+      imagePullSecrets: [{name: ghcr-pull}]
+      containers:
+        - name: wisers
+          image: yyc-news-stream
+          command: [python3, /app/wisers/relay.py, --host, 0.0.0.0, --port, "8899", --prefix, /app/wisers/]
+          ports: [{name: http, containerPort: 8899}, {name: stats, containerPort: 8898}]
+          envFrom: [{secretRef: {name: wisers}}]
+          env:
+            - {name: DATABASE_URL, valueFrom: {secretKeyRef: {name: db-app, key: uri}}}  # its state (wisers/store.py, namespace wisers)
+            - {name: WISERS_DRAIN_SECS, value: "5"}
+            - {name: WISERS_SEARCH_SECS, value: "240"}  # one Wisers search at most (the longest measured: 36 s)
+            - {name: WISERS_STATS_PORT, value: "8898"}
+            - {name: ACCESS_AUD, value: af0134321afca2f355d7782cb0ad2a2c06e8f901208d8e8d3bd121941d3e5cab}
+            # Access service tokens as "client id=label". The one entry is the deleted token yyc-mcp-wisers (Access no
+            # longer issues it); drop the line with the relay's next restart (a change here restarts the relay)
+            - {name: WISERS_SERVICE_CLIENT_IDS, value: "c87ecef50542abf86def7138418299be.access=yyc-mcp"}
+            # yyc-mcp inside the cluster: SHA-256 of its token YYC_WISERS_INTERNAL_TOKEN (store yyc) as "sha256=label"
+            - {name: WISERS_INTERNAL_TOKENS, value: "34c11444efa09d04ce5cf66901270fb110159208a25e6b13ca85c1c12cc21f73=yyc-mcp"}
+            # YYC's corpus, read-only (wisers/fulltext.py: full text before a Wisers open)
+            - {name: WISERS_PG_HOST, value: pg-rw.db.svc.cluster.local}
+            - {name: WISERS_PG_USER, value: yyc_readonly}
+            - {name: WISERS_PG_DB, value: app}
+          readinessProbe:  # 503 while draining
+            httpGet: {path: /healthz, port: http}
+            periodSeconds: 2
+            failureThreshold: 1
+          livenessProbe:
+            httpGet: {path: /livez, port: http}
+            initialDelaySeconds: 20
+            periodSeconds: 30
+            timeoutSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 560Mi   # 465 Mi working set on 9 Nov (1.2x; the limit stays)
+              ephemeral-storage: 50Mi
+            limits:
+              cpu: '1'
+              memory: 832Mi
+              ephemeral-storage: 2Gi
+          volumeMounts:
+            - {name: shm, mountPath: /dev/shm}
+      volumes:
+        - {name: shm, emptyDir: {medium: Memory, sizeLimit: 256Mi}}
+      priorityClassName: serving
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wisers
+  namespace: yyc
+spec:
+  selector: {app: wisers}
+  ports: [{name: http, port: 8899, targetPort: http}, {name: stats, port: 8898, targetPort: stats}]
+---
+# a singleton with a session handover: a node is emptied by a rollout restart (the new pod first), never an eviction,
+# so a bare `kubectl drain` waits here (tests/test_rollouts.py Disruptions)
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: wisers
+  namespace: yyc
+spec:
+  maxUnavailable: 0
+  selector:
+    matchLabels: {app: wisers}

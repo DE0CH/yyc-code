@@ -1,0 +1,58 @@
+# The event picker: the default event (as /api/guests without event), another event's list, the choice remembered
+# across launches, and back.
+appId: dev.de0ch.yycnametags
+name: switch events
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+    arguments:
+      apiBase: "http://127.0.0.1:8787"
+      testToken: "test-token"
+- extendedWaitUntil:
+    visible: "共 6 位嘉賓"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: { id: "eventPicker", text: ".*Surgical Futures Forum.*" }
+    timeout: 15000
+- takeScreenshot: 07-default-event
+- tapOn: { id: "eventPicker" }
+- extendedWaitUntil:
+    visible: { id: "event-yyc-health-summit" }
+    timeout: 10000
+- assertVisible: ".*YYC Health Innovation Summit.*"
+- takeScreenshot: 07-picker
+- tapOn: { id: "event-yyc-health-summit" }
+- extendedWaitUntil:
+    visible: "共 2 位嘉賓"
+    timeout: 30000
+- assertVisible: { id: "eventPicker", text: ".*YYC 醫療創新峰會.*" }
+- assertVisible: ".*Siu Ming LEE.*"
+- assertVisible: ".*李嘉欣.*"
+- assertNotVisible: ".*Jing HUANG.*"
+# the search index is the new event's: 李 → Lee
+- tapOn: { id: "searchField" }
+- inputText: "李"
+- assertVisible: "找到 2 位（共 2 位）"
+- takeScreenshot: 07-other-event
+
+# remembered on the next launch
+- launchApp:
+    arguments:
+      apiBase: "http://127.0.0.1:8787"
+      testToken: "test-token"
+- extendedWaitUntil:
+    visible: "共 2 位嘉賓"
+    timeout: 30000
+- assertVisible: { id: "eventPicker", text: ".*YYC 醫療創新峰會.*" }
+
+- tapOn: { id: "eventPicker" }
+- extendedWaitUntil:
+    visible: { id: "event-surgical-futures-forum" }
+    timeout: 10000
+- tapOn: { id: "event-surgical-futures-forum" }
+- extendedWaitUntil:
+    visible: "共 6 位嘉賓"
+    timeout: 30000
+- assertVisible: ".*Jing HUANG.*"
+- takeScreenshot: 07-back

@@ -1,0 +1,24 @@
+// The site's Worker, on YYC's own Cloudflare account (EXPENSES.md; account id from CLOUDFLARE_ACCOUNT_ID at deploy).
+// Reached through Worker yyc-edge on newswatch.yyc-internal.com (Deyao's zone), which forwards with the X-YYC-Edge secret.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "yyc-web",
+  "main": "src/server.ts",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "preview_urls": false,
+  // the rendering runs next to the database (YYC's Postgres in Hetzner fsn1; aws-eu-central-1, Frankfurt, is the nearest
+  // placement region), so a page's queries are short; only the
+  // finished HTML travels to the reader. Static files are served from every edge location.
+  "placement": { "mode": "targeted", "region": "aws:eu-central-1" },
+  "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "49bbded22edd4623b06f2c713a0255e3" }],
+  // the search dictionary, OpenCC data and learned words shared by every isolate (src/server/search/searchtext.ts)
+  "kv_namespaces": [{ "binding": "SEARCH_CACHE", "id": "3ff865ca3bb1492f885347b573b40a85" }],
+  "durable_objects": { "bindings": [{ "name": "LIVE", "class_name": "LiveHub" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["LiveHub"] }],
+  "observability": { "enabled": true },
+  // YYC's TikTok video bucket (tiktok_video.py; Hetzner Object Storage, project yyc): the item page's presigned links
+  // (server/video.ts). The key pair is the Worker's secrets VIDEO_S3_ACCESS_KEY / VIDEO_S3_SECRET_KEY (README "TikTok videos")
+  "vars": { "VIDEO_S3_ENDPOINT": "https://fsn1.your-objectstorage.com", "VIDEO_S3_REGION": "fsn1", "VIDEO_S3_BUCKET": "yyc-tiktok-videos" }
+}

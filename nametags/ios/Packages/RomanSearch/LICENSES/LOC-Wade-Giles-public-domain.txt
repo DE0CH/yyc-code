@@ -1,0 +1,8 @@
+Library of Congress, Pinyin Conversion Project, "New Chinese Romanization Guidelines",
+section "Correspondence of Wade-Giles to Pinyin": https://www.loc.gov/catdir/pinyin/romcover.html
+
+The table is a work of the United States Government (the Library of Congress) and is not subject to copyright
+in the United States (17 U.S.C. § 105); the Library of Congress states that its own works are in the public
+domain and free to use and reuse (https://www.loc.gov/legal/). RomanSearch uses the table's 396 Wade-Giles /
+Pinyin syllable pairs, extracted by Scripts/GenerateTable.swift and pinned by the SHA-256 of that extraction in
+Scripts/generate.sh.

@@ -1,0 +1,22 @@
+# The news stream's way out: every HTTP(S) client in its pods (curl_cffi/libcurl, urllib, Chrome, yt-dlp, ffmpeg,
+# Node with NODE_USE_ENV_PROXY) goes through the socks pool by domain name (socks.yaml, socks/README.md "HTTP proxy,
+# same port"), so a job never looks up an outside name or cares about IPv4 or IPv6. Names inside the cluster
+# (*.cluster.local: Postgres, flagd, wisers, the AI server) and private addresses go direct; the Kubernetes API's
+# address 10.45.0.1 is listed on its own (the monitor calls it by address, and Python's urllib ignores CIDR ranges). An explicit proxy in the
+# code (IPRoyal's residential, the ISP proxy) still wins over these.
+# Added to the workloads by the patches in kustomization.yaml (envFrom). Not on whatsapp (Deyao, 2026-11-04: its live
+# WhatsApp Web session stays on the address it was made from). wisers is on (2026-11-04): if WisersOne ends the session
+# for the new address, the relay logs in again by itself (wisers/relay.py relogin).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: outbound
+  namespace: yyc
+data:
+  HTTP_PROXY: http://socks.egress.svc.cluster.local:1080
+  HTTPS_PROXY: http://socks.egress.svc.cluster.local:1080
+  http_proxy: http://socks.egress.svc.cluster.local:1080
+  https_proxy: http://socks.egress.svc.cluster.local:1080
+  NO_PROXY: localhost,127.0.0.1,::1,.cluster.local,.svc,kubernetes.default,10.45.0.1,10.0.0.0/8,169.254.0.0/16
+  no_proxy: localhost,127.0.0.1,::1,.cluster.local,.svc,kubernetes.default,10.45.0.1,10.0.0.0/8,169.254.0.0/16
+  NODE_USE_ENV_PROXY: "1"

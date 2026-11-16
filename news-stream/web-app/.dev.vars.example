@@ -1,0 +1,4 @@
+# local `npm run dev`: copy to .dev.vars (git-ignored). The Worker's secrets (wrangler secret put in production).
+EDGE_SECRET=
+LIVE_SECRET=dev-live
+JARVIS_LIVE_SECRET=dev-jarvis

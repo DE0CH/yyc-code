@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>WhatsApp Delivery Options</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+HK:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Layout: the YYC news-stream report frame (dark bar, tinted ground, white panels); sticky section nav on desktop, cards stack on phones. */
+:root{
+  --bg:#EEF1F4; --surface:#fff; --ink:#1B2430; --text:#1B2430; --muted:#5F6B7A; --line:#D7DDE4; --border:#D7DDE4;
+  --bar:#1F2A44; --bar-ink:#E9EEF6; --bar-muted:#9FB0C8; --accent:#2F6FDB; --code:#F2F4F7;
+  --good:#1E7A4F; --good-bg:#E3F3EA; --warn:#8A5A00; --warn-bg:#FBF0D9; --bad:#A23A2E; --bad-bg:#F8E3E0; --hl:#FFF3B8;
+  --sans:"Noto Sans HK",system-ui,-apple-system,"Segoe UI",sans-serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#121722; --surface:#1A2130; --ink:#E6EAF0; --text:#E6EAF0; --muted:#93A0B2; --line:#2A3344; --border:#2A3344;
+  --bar:#0E1424; --bar-ink:#E6EAF0; --bar-muted:#8796AE; --accent:#6E9BEA; --code:#141A27;
+  --good:#7FD3A5; --good-bg:#16302A; --warn:#E9C46A; --warn-bg:#33291A; --bad:#F09A8E; --bad-bg:#3A1F1E; --hl:#4A4220; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121722; --surface:#1A2130; --ink:#E6EAF0; --text:#E6EAF0; --muted:#93A0B2; --line:#2A3344; --border:#2A3344;
+  --bar:#0E1424; --bar-ink:#E6EAF0; --bar-muted:#8796AE; --accent:#6E9BEA; --code:#141A27;
+  --good:#7FD3A5; --good-bg:#16302A; --warn:#E9C46A; --warn-bg:#33291A; --bad:#F09A8E; --bad-bg:#3A1F1E; --hl:#4A4220; color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink)}
+body{font:16px/1.65 var(--sans)}
+a{color:var(--accent)}
+header.top{background:var(--bar);color:var(--bar-ink);padding-block:20px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header.top .in{max-width:1180px;margin:0 auto}
+header.top .kick{font:500 12px/1.4 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--bar-muted);margin:0 0 6px}
+header.top h1{margin:0;font-size:clamp(22px,4vw,30px);line-height:1.25;text-wrap:balance}
+header.top p.sub{margin:8px 0 0;color:var(--bar-muted);font-size:15px;max-width:70ch}
+.wrap{max-width:1180px;margin:0 auto;padding-block:16px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+nav.toc{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+nav.toc a{font-size:14px;padding:4px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink);text-decoration:none}
+main{min-width:0;display:flex;flex-direction:column;gap:18px}
+section{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:6px 18px 18px;overflow-wrap:anywhere;min-width:0}
+section h2{font-size:21px;margin:16px 0 10px;scroll-margin-top:12px;text-wrap:balance;display:flex;gap:10px;align-items:baseline}
+section h2 .n{font:500 14px var(--mono);color:var(--accent)}
+section h3{font-size:16px;margin:18px 0 6px}
+section p,section li{max-width:78ch}
+ul,ol{padding-left:22px;margin:6px 0} li{margin:5px 0}
+code{font:13px var(--mono);background:var(--code);padding:1px 4px;border-radius:4px}
+sup a.cite{text-decoration:none;font:500 11px var(--mono);padding:0 1px}
+sup+.sep{font-size:11px;vertical-align:super}
+.cap{font-size:14px;color:var(--muted)}
+.facts li{margin:8px 0}
+.decide{margin:16px 0 4px;padding:12px 16px 14px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+.decide h3{margin:4px 0 6px}
+.vol{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:6px 18px;margin:8px 0}
+.vol .v{display:flex;justify-content:space-between;gap:10px;border-bottom:1px dashed var(--line);padding:4px 0;font-variant-numeric:tabular-nums}
+.vol .k{font-weight:500} .vol .d{font:14px var(--mono);color:var(--muted)} .vol .d b{color:var(--ink)}
+.vol .total{border-bottom:2px solid var(--ink)}
+.cards{display:grid;grid-template-columns:1fr;gap:14px;margin:10px 0}
+@media (min-width:900px){.cards{grid-template-columns:1fr 1fr}}
+.card{border:1px solid var(--line);border-radius:10px;padding:12px 14px;min-width:0;background:var(--surface)}
+.card header{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:6px}
+.card h3{margin:0;font-size:16px}
+.card dl{margin:0} .card dt{font:500 12px var(--mono);letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-top:10px}
+.card dd{margin:2px 0 0;font-size:15px}
+.cost .card dd{font-variant-numeric:tabular-nums}
+.tag{font:500 12px var(--mono);padding:2px 8px;border-radius:999px;background:var(--bg);color:var(--muted);white-space:nowrap}
+.tag.good{background:var(--good-bg);color:var(--good)} .tag.warn{background:var(--warn-bg);color:var(--warn)} .tag.bad{background:var(--bad-bg);color:var(--bad)}
+pre.msg{font:14px/1.6 var(--mono);background:var(--code);border:1px solid var(--line);border-radius:8px;padding:10px 12px;overflow-x:auto;white-space:pre-wrap}
+.refs ol{font-size:14px;padding-left:28px} .refs li{margin:8px 0}
+.refs .meta{display:block;color:var(--muted);font-size:13px}
+.badge{font:500 11px var(--mono);padding:1px 6px;border-radius:4px;background:var(--bg);color:var(--muted);border:1px solid var(--line)}
+.badge.b-firstparty{color:var(--good)} .badge.b-gov{color:var(--accent)} .badge.b-vendor{color:var(--warn)}
+footer{color:var(--muted);font-size:13px;margin-top:6px}
+#backbtn{position:fixed;bottom:calc(22px + env(safe-area-inset-bottom,0px));right:calc(22px + env(safe-area-inset-right,0px));z-index:50;display:none;align-items:center;gap:7px;background:var(--accent);color:var(--surface);border:none;border-radius:999px;padding:10px 18px;font:600 .9rem/1 var(--sans);cursor:pointer}
+#backbtn.show{display:inline-flex}
+.flash{animation:flashbg 1.6s ease-out}
+@keyframes flashbg{0%{background:var(--hl)}100%{background:transparent}}
+@media (prefers-reduced-motion:reduce){.flash{animation:none}}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (min-width:1000px){.wrap{display:grid;grid-template-columns:220px minmax(0,1fr);gap:22px}
+  nav.toc{flex-direction:column;position:sticky;top:16px;align-self:start;margin:0} nav.toc a{border-radius:8px}}
+</style>
+</head>
+<body>
+<header class="top"><div class="in">
+<p class="kick">YYC news stream · research · 16 Oct 2026</p>
+<h1>WhatsApp delivery for YYC's streams: every route, with costs</h1>
+<p class="sub">Telegram carries every filed item today. This compares the ways to send the same alerts on WhatsApp, at YYC's measured volume. Prepared by Claude for Deyao; investigation only, nothing built or bought.</p>
+</div></header>
+<div class="wrap">
+<nav class="toc" aria-label="Sections">
+<a href="#summary">Summary &amp; decisions</a><a href="#today">Today's volume</a><a href="#routes">Routes</a><a href="#meta">Meta's rules</a><a href="#cost">Monthly cost</a><a href="#shape">Shape &amp; ban risk</a><a href="#isolation">Expense evidence</a><a href="#refs">Sources</a>
+</nav>
+<main>
+<section id="summary">
+<h2><span class="n">1</span>Summary</h2>
+<ul class="facts">
+<li><b>Official route (Meta's Cloud API):</b> every alert to a Hong Kong number outside a 24-hour window the reader opened is a paid template message: USD 0.026 as a utility template, USD 0.0732 as a marketing template<sup><a class="cite" href="#ref-1">1</a></sup><span class=\"sep\">,</span><sup><a class="cite" href="#ref-2">2</a></sup>. Since 1 October 2026 the free messages inside a reader-opened window are also charged after 1,000 per number per month<sup><a class="cite" href="#ref-2">2</a></sup>.</li>
+<li><b>Cost at YYC's measured volume</b> (486 filed items on 15 Oct across the 8 streams with a Telegram channel<sup><a class="cite" href="#ref-3">3</a></sup>), one WhatsApp message per item as on Telegram: USD 3,790.80/month for 10 readers of every stream and USD 18,201.30/month for 50, at Meta's utility rate (Claude's calculation from Meta's rates; section 5).</li>
+<li><b>Official groups</b> (Groups API) hold at most 8 people, need an Official Business Account (blue tick), and bill each delivered member as one message<sup><a class="cite" href="#ref-4">4</a></sup><span class=\"sep\">,</span><sup><a class="cite" href="#ref-5">5</a></sup>. They cost the same as one-to-one messages.</li>
+<li><b>WhatsApp Channels</b> (the Telegram-channel analogue) have no posting endpoint in Meta's Cloud API<sup><a class="cite" href="#ref-6">6</a></sup>, and every channel is public: "It's not possible to create a private channel."<sup><a class="cite" href="#ref-7">7</a></sup></li>
+<li><b>Unofficial route</b> (a linked WhatsApp account driven by Baileys, whatsmeow, whatsapp-web.js or a hosted wrapper) posts into ordinary groups of up to 1,024 members<sup><a class="cite" href="#ref-8">8</a></sup> for a flat USD 0 to 40/month<sup><a class="cite" href="#ref-9">9</a></sup><span class=\"sep\">,</span><sup><a class="cite" href="#ref-10">10</a></sup><span class=\"sep\">,</span><sup><a class="cite" href="#ref-11">11</a></sup>, with no per-message charge. WhatsApp's Terms forbid automated messaging and non-personal use<sup><a class="cite" href="#ref-12">12</a></sup>, and its Help Center says linked unofficial clients can be temporarily or permanently banned<sup><a class="cite" href="#ref-13">13</a></sup>.</li>
+<li><b>K-Matrix today</b> posts its alerts into three ordinary WhatsApp groups from a plain +852 mobile number, all 201 archived alerts from that one sender<sup><a class="cite" href="#ref-14">14</a></sup>.</li>
+</ul>
+
+<div class="decide">
+<h3>Decisions for Deyao</h3>
+<ol>
+<li><b>Official or unofficial.</b> Official: Meta's per-message charges (USD 473.85 to 18,201.30 a month in the scenarios below), a YYC Meta business portfolio, business verification with YYC's documents, opt-in records. Unofficial: a flat fee or nothing, ordinary groups like K-Matrix's, but against WhatsApp's Terms with a ban risk on the sending number.</li>
+<li><b>Delivery shape.</b> One group per stream (readers join by invite link; works on both routes, up to 8 people per group on the official route) or per-reader subscriptions (a reader messages the YYC number and picks streams; official route only in practice).</li>
+<li><b>One message per item, or batches.</b> Telegram sends one message per item. On the official route cost scales with message count; sending one message per stream per half hour cuts 486 messages a day to 159 (15 Oct) (Claude's count; section 5).</li>
+<li><b>The sending number.</b> A new number used only for this: a Hong Kong SIM must be real-name registered<sup><a class="cite" href="#ref-15">15</a></sup>; on the official route the number stops working in the normal WhatsApp app<sup><a class="cite" href="#ref-16">16</a></sup>.</li>
+<li><b>Who receives it.</b> Staff only, or clients too. Clients raise the opt-in requirement<sup><a class="cite" href="#ref-17">17</a></sup> and, on the unofficial route, put a ban on YYC's client-facing number in front of clients (Claude's inference).</li>
+</ol>
+</div>
+</section>
+
+<section id="today">
+<h2><span class="n">2</span>What YYC sends today, and how much</h2>
+<p>Each stream posts every filed item to its own private Telegram channel as one message: a sentiment mark, the headline, the source, and a 詳情 link to the item page; a sent message is never deleted or edited<sup><a class="cite" href="#ref-18">18</a></sup>.</p>
+<p>Items filed per stream (by the time each post was first seen, Hong Kong time)<sup><a class="cite" href="#ref-3">3</a></sup>:</p>
+<div class="vol">
+<div class="v"><span class="k">CEHK</span><span class="d">312 · 317 · 157 · <b>132</b></span></div>
+<div class="v"><span class="k">WFC 宏福苑</span><span class="d">35 · 20 · 36 · <b>90</b></span></div>
+<div class="v"><span class="k">FSHK</span><span class="d">52 · 50 · 82 · <b>88</b></span></div>
+<div class="v"><span class="k">ECE 選委選舉</span><span class="d">0 · 0 · 41 · <b>50</b></span></div>
+<div class="v"><span class="k">Galbot 香港</span><span class="d">0 · 0 · 0 · <b>41</b></span></div>
+<div class="v"><span class="k">POL 政治花絮</span><span class="d">14 · 12 · 20 · <b>29</b></span></div>
+<div class="v"><span class="k">Galbot 內地</span><span class="d">0 · 0 · 0 · <b>29</b></span></div>
+<div class="v"><span class="k">HKIC</span><span class="d">8 · 15 · 25 · <b>27</b></span></div>
+<div class="v total"><span class="k">All 8 streams</span><span class="d">421 · 414 · 361 · <b>486</b></span></div>
+</div>
+<p class="cap">12 · 13 · 14 · <b>15 October 2026</b>. 15 October is the first full day with all 8 channel streams live; the cost figures below use it. CEHK's drop from 14 October follows threshold changes; ECE and the Galbot split started on 14–15 October.</p>
+<p>Half-hour slots with at least one item on 15 October: 159 across the 8 streams (CEHK 27, WFC 30, ECE 24, FSHK 23, HKIC 18, Galbot 香港 17, POL 17, Galbot 內地 3)<sup><a class="cite" href="#ref-3">3</a></sup>.</p>
+</section>
+
+<section id="routes">
+<h2><span class="n">3</span>Every route, side by side</h2>
+<div class="cards">
+
+<article class="card">
+<header><h3>A. Meta Cloud API, one-to-one</h3><span class="tag good">official</span></header>
+<dl>
+<dt>Sends to</dt><dd>Individual WhatsApp users. A business may start a conversation only with a template message; free-form messages are allowed only inside a 24-hour window opened by the user's own message<sup><a class="cite" href="#ref-2">2</a></sup>.</dd>
+<dt>Price (HK numbers)</dt><dd>Marketing USD 0.0732, utility USD 0.026, authentication USD 0.026, service USD 0.026 per delivered message; utility drops to USD 0.0247 above 150,000 a month<sup><a class="cite" href="#ref-1">1</a></sup>. Service messages: first 1,000 per business number per month free<sup><a class="cite" href="#ref-2">2</a></sup>. No platform fee.</dd>
+<dt>YYC provides</dt><dd>A Meta business portfolio and developer app<sup><a class="cite" href="#ref-19">19</a></sup>, a Messaging account with a payment method<sup><a class="cite" href="#ref-20">20</a></sup>, a phone number able to receive an SMS or voice call that is not in use on WhatsApp<sup><a class="cite" href="#ref-16">16</a></sup>, opt-in from each reader<sup><a class="cite" href="#ref-17">17</a></sup>. Business verification raises the limits<sup><a class="cite" href="#ref-21">21</a></sup>.</dd>
+<dt>Limits</dt><dd>250 unique users per 24 hours outside windows for a new portfolio; 2,000 after business verification<sup><a class="cite" href="#ref-21">21</a></sup>. Enough for 50 readers.</dd>
+<dt>Risks</dt><dd>Meta may re-categorise a utility template as marketing (2.8 times the price)<sup><a class="cite" href="#ref-22">22</a></sup>. Quality rating: blocks and reports can rate-limit the number<sup><a class="cite" href="#ref-17">17</a></sup>.</dd>
+<dt>Expense isolation</dt><dd>A Messaging account holds YYC's templates and billing details<sup><a class="cite" href="#ref-20">20</a></sup>; a YYC-only portfolio with its own payment method makes Meta's billing records YYC's alone (Claude's inference).</dd>
+</dl>
+</article>
+
+<article class="card">
+<header><h3>B. Meta Cloud API, Groups API</h3><span class="tag good">official</span></header>
+<dl>
+<dt>Sends to</dt><dd>Groups the business creates. Readers join through an invite link. At most 8 participants per group, up to 10,000 groups per business number, text and media and templates; interactive messages, edits and deletes are not supported<sup><a class="cite" href="#ref-4">4</a></sup>.</dd>
+<dt>Eligibility</dt><dd>Official Business Account only<sup><a class="cite" href="#ref-4">4</a></sup>. OBA needs business verification, 30 days on the platform, two-step verification and an approved display name<sup><a class="cite" href="#ref-23">23</a></sup>. Not available on numbers shared with the WhatsApp Business app (Coexistence)<sup><a class="cite" href="#ref-4">4</a></sup>.</dd>
+<dt>Price</dt><dd>Charged per delivered member at that member's rate: a template to a group of 5 is 5 charges<sup><a class="cite" href="#ref-5">5</a></sup>. Any member's message opens a window for the whole group; since 1 October 2026 utility templates inside it are charged and non-template messages are free only within the number's 1,000-a-month free tier, one unit per delivered member<sup><a class="cite" href="#ref-5">5</a></sup>.</dd>
+<dt>Fit</dt><dd>Same cost as route A per reader. 10 readers of one stream need 2 groups (Claude's arithmetic from the 8-person cap).</dd>
+<dt>Expense isolation</dt><dd>As route A.</dd>
+</dl>
+</article>
+
+<article class="card">
+<header><h3>C. A BSP on top of the Cloud API</h3><span class="tag warn">official, plus a fee</span></header>
+<dl>
+<dt>Twilio</dt><dd>USD 0.005 per message, inbound or outbound, plus Meta's fee passed through; USD 0.001 per failed message<sup><a class="cite" href="#ref-24">24</a></sup>.</dd>
+<dt>Bird</dt><dd>Hong Kong, Meta's fee included: marketing USD 0.0782, utility USD 0.031, service USD 0.031 per message; monthly deposit plans from USD 15<sup><a class="cite" href="#ref-25">25</a></sup>.</dd>
+<dt>360dialog</dt><dd>EUR 49 per number per month (Regular) or EUR 99 (Premium, "Business verification in 48h"), plus Meta's fees<sup><a class="cite" href="#ref-26">26</a></sup>. Supports the Groups API<sup><a class="cite" href="#ref-27">27</a></sup>.</dd>
+<dt>Infobip</dt><dd>Hong Kong rates on its calculator: utility 3.525, marketing 10.12 (USD; Claude reads the unit as US cents per message, i.e. USD 0.0353 and USD 0.1012)<sup><a class="cite" href="#ref-28">28</a></sup>.</dd>
+<dt>Wati</dt><dd>Hong Kong plans: Growth HKD 899/month or HKD 8,388/year, Pro HKD 2,499/month, Business HKD 7,999/month<sup><a class="cite" href="#ref-29">29</a></sup>; per-message rates are shown only inside the logged-in account<sup><a class="cite" href="#ref-30">30</a></sup>.</dd>
+<dt>SleekFlow</dt><dd>US$49, 109 or 279 a month; WhatsApp numbers carry a separate monthly hosting fee and per-message fees<sup><a class="cite" href="#ref-31">31</a></sup>.</dd>
+<dt>respond.io</dt><dd>USD 79, 159 or 279 a month<sup><a class="cite" href="#ref-32">32</a></sup>.</dd>
+<dt>Gupshup</dt><dd>Its help article (marked "NOT UPDATED", 2024) gives a Gupshup fee of USD 0.001 per message plus Meta's fee<sup><a class="cite" href="#ref-33">33</a></sup>.</dd>
+<dt>What they add</dt><dd>Shared inbox, broadcast UI, faster verification, Coexistence with the WhatsApp Business app (Meta offers Coexistence only through a Solution Partner or Tech Provider<sup><a class="cite" href="#ref-34">34</a></sup>).</dd>
+<dt>Expense isolation</dt><dd>A YYC-only account at the BSP; its invoices show YYC's spend (Claude's inference).</dd>
+</dl>
+</article>
+
+<article class="card">
+<header><h3>D. WhatsApp Channels</h3><span class="tag bad">public only</span></header>
+<dl>
+<dt>What it is</dt><dd>One-way broadcast to an unlimited audience; followers cannot reply; followers do not see the admins' numbers<sup><a class="cite" href="#ref-35">35</a></sup>. Up to 16 admins can be invited<sup><a class="cite" href="#ref-36">36</a></sup>.</dd>
+<dt>Privacy</dt><dd>"All channels are publicly accessible. It's not possible to create a private channel." Anyone can see 30 days of updates<sup><a class="cite" href="#ref-7">7</a></sup>. Channels are not end-to-end encrypted by default<sup><a class="cite" href="#ref-37">37</a></sup>.</dd>
+<dt>Posting by a bot</dt><dd>No Cloud API endpoint for channels<sup><a class="cite" href="#ref-6">6</a></sup>. Unofficial clients can post: whatsapp-web.js lists Channels as supported<sup><a class="cite" href="#ref-38">38</a></sup>, Baileys has a newsletter module<sup><a class="cite" href="#ref-39">39</a></sup>, WAHA documents channel posting<sup><a class="cite" href="#ref-40">40</a></sup>, Whapi sells a Channels API<sup><a class="cite" href="#ref-9">9</a></sup>.</dd>
+<dt>Fit</dt><dd>YYC's monitoring of its clients would be public to anyone with the link or a directory search (Claude's inference from the public-only rule).</dd>
+</dl>
+</article>
+
+<article class="card">
+<header><h3>E. Self-hosted unofficial client</h3><span class="tag bad">against WhatsApp's Terms</span></header>
+<dl>
+<dt>Libraries</dt><dd>Baileys (WebSocket, Node; 11,346 stars; v7.0.0-rc14, 2026-07-29)<sup><a class="cite" href="#ref-39">39</a></sup>; whatsmeow (Go; 7,584 stars)<sup><a class="cite" href="#ref-41">41</a></sup>; whatsapp-web.js (Puppeteer; 22,737 stars; v1.34.7, 2026-04-24)<sup><a class="cite" href="#ref-38">38</a></sup>; WAHA (HTTP wrapper, release 2026-10-02)<sup><a class="cite" href="#ref-42">42</a></sup>; Evolution API (release 2025-12-05)<sup><a class="cite" href="#ref-43">43</a></sup>. YYC's own whatsapp-web skill already drives web.whatsapp.com for the K-Matrix watch.</dd>
+<dt>Sends to</dt><dd>Anything the app can: ordinary groups (create, invite link, add and remove members) and channels<sup><a class="cite" href="#ref-38">38</a></sup>. Groups hold up to 1,024 members<sup><a class="cite" href="#ref-8">8</a></sup>; a Community announcement group up to 2,000, with only admins posting<sup><a class="cite" href="#ref-44">44</a></sup>.</dd>
+<dt>Price</dt><dd>No per-message fee. Runs on the yyc cluster already billed to YYC; plus a SIM for the number.</dd>
+<dt>Risks</dt><dd>WhatsApp's Terms forbid "bulk messaging, auto-messaging" and "non-personal use" unless authorised<sup><a class="cite" href="#ref-12">12</a></sup>; WhatsApp states it takes legal action against automated or bulk messaging<sup><a class="cite" href="#ref-45">45</a></sup>. Bans reported in 2025–2026 (section 6).</dd>
+<dt>Expense isolation</dt><dd>Hetzner project yyc (existing) and the SIM's own bill or receipt.</dd>
+</dl>
+</article>
+
+<article class="card">
+<header><h3>F. Hosted unofficial API</h3><span class="tag bad">against WhatsApp's Terms</span></header>
+<dl>
+<dt>Whapi.Cloud</dt><dd>USD 40/month, or USD 29/month billed annually; "Full access to Groups, Channels &amp; Webhooks", no per-message charges<sup><a class="cite" href="#ref-9">9</a></sup>.</dd>
+<dt>Maytapi</dt><dd>USD 24 per phone per month (annual billing); groups and channels API<sup><a class="cite" href="#ref-10">10</a></sup>.</dd>
+<dt>GREEN-API</dt><dd>Business USD 12/month; Developer plan free, 3 chats only<sup><a class="cite" href="#ref-11">11</a></sup>.</dd>
+<dt>Ultramsg</dt><dd>USD 39/month<sup><a class="cite" href="#ref-46">46</a></sup>.</dd>
+<dt>Wassenger</dt><dd>From EUR 39.90/month; Meta template costs billed separately<sup><a class="cite" href="#ref-47">47</a></sup>.</dd>
+<dt>What they add</dt><dd>They host the linked session; YYC still provides the number and scans the QR (Claude's inference from the linked-device model).</dd>
+<dt>Expense isolation</dt><dd>A YYC-only subscription; the provider's invoice.</dd>
+</dl>
+</article>
+
+<article class="card">
+<header><h3>G. WhatsApp Business app, by hand</h3><span class="tag warn">manual</span></header>
+<dl>
+<dt>Sends to</dt><dd>Broadcast lists reach only contacts who saved the business number<sup><a class="cite" href="#ref-48">48</a></sup>; groups up to 1,024<sup><a class="cite" href="#ref-8">8</a></sup>.</dd>
+<dt>Price</dt><dd>Meta's API charges do not apply to the free Business app<sup><a class="cite" href="#ref-49">49</a></sup>.</dd>
+<dt>Fit</dt><dd>A person posts each of 486 items a day by hand (Claude's inference); automating the app is route E.</dd>
+</dl>
+</article>
+</div>
+</section>
+
+<section id="meta">
+<h2><span class="n">4</span>Meta's rules that decide the official route</h2>
+<h3>The 24-hour window and templates</h3>
+<ul>
+<li>Non-template messages "can only be sent in an open 24-hour customer service window, which opens and resets with each user message"; template messages can be delivered at any time<sup><a class="cite" href="#ref-2">2</a></sup>.</li>
+<li>Meta charges per delivered message, by category and by the recipient's country code<sup><a class="cite" href="#ref-2">2</a></sup>.</li>
+<li>From 1 October 2026: "Meta provides every business phone number with a free tier of 1,000 service messages per month"; charges start at the 1,001st<sup><a class="cite" href="#ref-2">2</a></sup>. Before that date service messages and utility templates inside the window were free<sup><a class="cite" href="#ref-49">49</a></sup>.</li>
+<li>Hong Kong became a standalone market on 1 July 2026; its utility and authentication rate went from USD 0.0113 to USD 0.026<sup><a class="cite" href="#ref-50">50</a></sup>.</li>
+<li>Free entry point: when a user messages from a Click-to-WhatsApp ad or a Facebook Page button, all messages in that window are free; "The FEP window may remain open for up to 7 days."<sup><a class="cite" href="#ref-2">2</a></sup> (Meta's marketing page still says 72 hours<sup><a class="cite" href="#ref-1">1</a></sup>.)</li>
+</ul>
+<h3>Is a news alert utility or marketing?</h3>
+<ul>
+<li>Utility must be "non-promotional" and "either specific to or requested by the user ... OR essential or critical to the user"<sup><a class="cite" href="#ref-22">22</a></sup>.</li>
+<li>Meta's utility example "Account Alerts or Updates": "important or time-sensitive updates or alerts or other information specific to purchased or subscribed products/services"<sup><a class="cite" href="#ref-22">22</a></sup>.</li>
+<li>Meta's marketing example "Awareness": "Generate awareness of your business, products, or services among customers who have subscribed"<sup><a class="cite" href="#ref-22">22</a></sup>.</li>
+<li>Since 9 April 2025 a template submitted as utility that Meta judges to be marketing is approved as marketing<sup><a class="cite" href="#ref-22">22</a></sup>.</li>
+<li>Claude's inference: a monitoring alert a reader subscribed to fits "alerts ... specific to subscribed services"; Meta decides at review, so the marketing rate is the upper bound.</li>
+</ul>
+<h3>Account, number and verification</h3>
+<ul>
+<li>A Cloud API number "cannot be used with WhatsApp Messenger"; a number already on WhatsApp must be deleted there first; it must have a country and area code and receive SMS or voice calls; landlines are listed but marked "Not Recommended"<sup><a class="cite" href="#ref-16">16</a></sup>.</li>
+<li>New portfolios can register 2 numbers; 20 after verification<sup><a class="cite" href="#ref-16">16</a></sup>.</li>
+<li>Business verification uploads official documents proving the business is registered; the accepted list is per country<sup><a class="cite" href="#ref-51">51</a></sup>.</li>
+<li>Without a payment method, Meta stops delivering service messages after the free tier<sup><a class="cite" href="#ref-2">2</a></sup>.</li>
+<li>Opt-in must name the business and say what the person is opting in to; website, SMS, phone and paper are accepted methods<sup><a class="cite" href="#ref-17">17</a></sup>.</li>
+<li>Business Messaging Policy: "Organizations that primarily publish news content must be registered as a News Page through Facebook."<sup><a class="cite" href="#ref-52">52</a></sup> Claude's inference: YYC is a PR consultancy, not primarily a news publisher, but its alerts are news content.</li>
+</ul>
+<h3>Format and receipts</h3>
+<ul>
+<li>Text messages carry a body and an optional link preview (<code>preview_url</code>)<sup><a class="cite" href="#ref-53">53</a></sup>. Telegram sends with previews off<sup><a class="cite" href="#ref-18">18</a></sup>.</li>
+<li>Status webhooks report sent, delivered and read, with pricing data on delivered or read<sup><a class="cite" href="#ref-5">5</a></sup>.</li>
+</ul>
+</section>
+
+<section id="cost">
+<h2><span class="n">5</span>Monthly cost at YYC's volume</h2>
+<p>Claude's calculation: messages = items a day on 15 October × 30 days × readers; Meta's Hong Kong rates<sup><a class="cite" href="#ref-1">1</a></sup> with the utility volume tier above 150,000; Twilio adds USD 0.005 a message<sup><a class="cite" href="#ref-24">24</a></sup>; Bird charges USD 0.031<sup><a class="cite" href="#ref-25">25</a></sup>. Unofficial routes are a flat fee whatever the count.</p>
+<div class="cards cost">
+<article class="card"><header><h3>Every stream, one message per item</h3><span class="tag">486/day per reader</span></header>
+<dl><dt>10 readers</dt><dd>145,800 msgs · utility <b>USD 3,790.80</b> · marketing USD 10,672.56 · Twilio USD 4,519.80 · Bird USD 4,519.80</dd>
+<dt>50 readers</dt><dd>729,000 msgs · utility <b>USD 18,201.30</b> · marketing USD 53,362.80 · Twilio USD 21,846.30 · Bird USD 22,599.00</dd></dl></article>
+<article class="card"><header><h3>Every stream, one message per stream per half hour</h3><span class="tag">159/day per reader</span></header>
+<dl><dt>10 readers</dt><dd>47,700 msgs · utility <b>USD 1,240.20</b> · marketing USD 3,491.64 · Twilio USD 1,478.70</dd>
+<dt>50 readers</dt><dd>238,500 msgs · utility <b>USD 6,085.95</b> · marketing USD 17,458.20 · Twilio USD 7,278.45</dd></dl></article>
+<article class="card"><header><h3>CEHK only, one message per item</h3><span class="tag">132/day per reader</span></header>
+<dl><dt>10 readers</dt><dd>39,600 msgs · utility <b>USD 1,029.60</b> · marketing USD 2,898.72</dd>
+<dt>50 readers</dt><dd>198,000 msgs · utility <b>USD 5,085.60</b> · marketing USD 14,493.60</dd></dl></article>
+<article class="card"><header><h3>One average stream per reader</h3><span class="tag">60.75/day per reader</span></header>
+<dl><dt>10 readers</dt><dd>18,225 msgs · utility <b>USD 473.85</b> · marketing USD 1,334.07</dd>
+<dt>50 readers</dt><dd>91,125 msgs · utility <b>USD 2,369.25</b> · marketing USD 6,670.35</dd></dl></article>
+<article class="card"><header><h3>Unofficial, any number of readers</h3><span class="tag">groups, flat fee</span></header>
+<dl><dt>Self-hosted</dt><dd>USD 0 on the existing cluster, plus the SIM</dd>
+<dt>Hosted</dt><dd>GREEN-API USD 12 · Maytapi USD 24 (annual) · Whapi USD 40 (USD 29 annual) · Ultramsg USD 39 · Wassenger EUR 39.90, per month<sup><a class="cite" href="#ref-11">11</a></sup><span class=\"sep\">,</span><sup><a class="cite" href="#ref-10">10</a></sup><span class=\"sep\">,</span><sup><a class="cite" href="#ref-9">9</a></sup><span class=\"sep\">,</span><sup><a class="cite" href="#ref-46">46</a></sup><span class=\"sep\">,</span><sup><a class="cite" href="#ref-47">47</a></sup></dd></dl></article>
+</div>
+<p class="cap">The 1,000 free service messages a month per number change none of these figures by more than USD 26 (1,000 × USD 0.026), and only for messages inside a window a reader opened (Claude's calculation). 360dialog adds EUR 49 a month flat instead of a per-message fee<sup><a class="cite" href="#ref-26">26</a></sup>.</p>
+</section>
+
+<section id="shape">
+<h2><span class="n">6</span>Delivery shape and the unofficial route's ban risk</h2>
+<h3>Group per stream vs per-reader subscription</h3>
+<ul>
+<li><b>Group per stream</b> (the Telegram shape): official route via the Groups API, 8 people per group, each member billed<sup><a class="cite" href="#ref-4">4</a></sup><span class=\"sep\">,</span><sup><a class="cite" href="#ref-5">5</a></sup>; unofficial route via ordinary groups of up to 1,024<sup><a class="cite" href="#ref-8">8</a></sup>, one message per item whatever the group size (Claude's inference from how group messages work). An announcement-only community group lets only admins post<sup><a class="cite" href="#ref-44">44</a></sup>.</li>
+<li><b>Per-reader subscription</b>: a reader messages YYC's number (for example "訂閱 CEHK"); that opens a 24-hour window<sup><a class="cite" href="#ref-2">2</a></sup> and is a record of opt-in<sup><a class="cite" href="#ref-17">17</a></sup>. Every alert after the window still needs a template<sup><a class="cite" href="#ref-2">2</a></sup>. On the unofficial route, messaging people one by one is where the reported bans happen: Baileys error 463 "Reachout Timelock" on "users who haven't been contacted before"<sup><a class="cite" href="#ref-54">54</a></sup>.</li>
+</ul>
+<h3>Message format (Claude's draft, Traditional Chinese)</h3>
+<pre class="msg">【CEHK】🔴👀 {標題}
+來源：{來源} · 評分 {分數}/100
+{一句理由}
+詳情：https://newswatch.yyc-internal.com/item/{id}</pre>
+<p class="cap">The same fields as Telegram<sup><a class="cite" href="#ref-18">18</a></sup>. On the official route this is a template with variables, submitted for approval<sup><a class="cite" href="#ref-22">22</a></sup>.</p>
+<h3>Ban risk on the unofficial route: the evidence</h3>
+<ul>
+<li>WhatsApp: linking an account to unofficial versions "violates our Terms of Service"; the account "might also be temporarily or permanently banned, or ... restrictions on your account, including the ability to link devices"<sup><a class="cite" href="#ref-13">13</a></sup>.</li>
+<li>WhatsApp: "Our products are not intended for bulk or automated messaging"; it takes "legal action against individuals or companies" linked to such abuse<sup><a class="cite" href="#ref-45">45</a></sup>.</li>
+<li>whatsapp-web.js: "it is not guaranteed you will not be blocked ... WhatsApp does not allow bots or unofficial clients"<sup><a class="cite" href="#ref-38">38</a></sup>. Baileys: "We discourage any stalkerware, bulk or automated messaging usage"<sup><a class="cite" href="#ref-39">39</a></sup>.</li>
+<li>Reports: a ban after a loop of <code>sendMessage</code> to many recipients (Baileys #2850, 2026-10-07)<sup><a class="cite" href="#ref-55">55</a></sup>; a 24-hour ban after about 3 messages to new contacts despite 20–35 s random delays (whatsapp-web.js #4008)<sup><a class="cite" href="#ref-56">56</a></sup>; an instant restriction when a blue-tick OBA number was linked to Baileys (Baileys #2805)<sup><a class="cite" href="#ref-57">57</a></sup>.</li>
+<li>Claude's inference: every report found concerns messaging people one by one or bulk lists; none concerns posting into the account's own groups that members joined by link, which is K-Matrix's pattern<sup><a class="cite" href="#ref-14">14</a></sup>. That lowers the risk; it does not remove it, and a ban takes the number and its groups with it.</li>
+<li>A Hong Kong SIM for the number must be real-name registered before activation<sup><a class="cite" href="#ref-15">15</a></sup>.</li>
+</ul>
+</section>
+
+<section id="isolation">
+<h2><span class="n">7</span>Expense evidence for the YYC claim</h2>
+<ul>
+<li><b>Meta direct:</b> a Meta business portfolio and Messaging account used only for YYC, Deyao's card as its payment method; Meta's billing for that account is the evidence (a Messaging account "holds your message templates and billing details"<sup><a class="cite" href="#ref-20">20</a></sup>).</li>
+<li><b>BSP:</b> a YYC-only BSP account; the BSP's invoice (Twilio, Bird and others bill Meta's fee and their own together<sup><a class="cite" href="#ref-24">24</a></sup><span class=\"sep\">,</span><sup><a class="cite" href="#ref-25">25</a></sup>).</li>
+<li><b>Hosted unofficial:</b> a YYC-only subscription; the provider's invoice.</li>
+<li><b>Self-hosted:</b> Hetzner project yyc (already on the list) plus the SIM's receipt.</li>
+<li>Whichever is chosen gets its line in EXPENSES.md (YYC rule).</li>
+</ul>
+</section>
+
+<section id="refs" class="refs">
+<h2><span class="n">8</span>Sources</h2>
+<p class="cap">Hover a number (tap on a phone) for the source card. Meta's developer pages were read on 16 October 2026 and show their own "Updated" dates. "Claude's inference" and "Claude's calculation" mark statements no source makes. First-party YYC data comes from the stream's own database on the yyc cluster.</p>
+<ol>
+<li id="ref-1" data-title="WhatsApp Business Platform Pricing (rate calculator: market Hong Kong, USD)" data-author="Meta Platforms" data-publisher="WhatsApp Business (whatsappbusiness.com)" data-date="2026-10-16" data-kind="accessed-only" data-type="First-party" data-url="https://whatsappbusiness.com/products/platform-pricing/"><span class="badge b-firstparty">First-party</span> <a href="https://whatsappbusiness.com/products/platform-pricing/" target="_blank" rel="noopener">WhatsApp Business Platform Pricing (rate calculator: market Hong Kong, USD)</a><span class="meta">Meta Platforms · WhatsApp Business (whatsappbusiness.com) · accessed 2026-10-16</span></li>
+<li id="ref-2" data-title="Pricing on the WhatsApp Business Platform" data-author="Meta Platforms" data-publisher="Meta for Developers" data-date="2026-09-30" data-kind="updated" data-type="First-party" data-url="https://developers.facebook.com/docs/whatsapp/pricing/"><span class="badge b-firstparty">First-party</span> <a href="https://developers.facebook.com/docs/whatsapp/pricing/" target="_blank" rel="noopener">Pricing on the WhatsApp Business Platform</a><span class="meta">Meta Platforms · Meta for Developers · updated 2026-09-30</span></li>
+<li id="ref-3" data-title="YYC news stream database: stream_items per stream and day (query run on the yyc cluster)" data-author="Claude for Deyao" data-publisher="YYC news stream (first-party data)" data-date="2026-10-16" data-kind="accessed-only" data-type="First-party" data-url="https://newswatch.yyc-internal.com/"><span class="badge b-firstparty">First-party</span> <a href="https://newswatch.yyc-internal.com/" target="_blank" rel="noopener">YYC news stream database: stream_items per stream and day (query run on the yyc cluster)</a><span class="meta">Claude for Deyao · YYC news stream (first-party data) · accessed 2026-10-16</span></li>
+<li id="ref-4" data-title="Groups API" data-author="Meta Platforms" data-publisher="Meta for Developers" data-date="2026-10-15" data-kind="updated" data-type="First-party" data-url="https://developers.facebook.com/docs/whatsapp/cloud-api/groups/"><span class="badge b-firstparty">First-party</span> <a href="https://developers.facebook.com/docs/whatsapp/cloud-api/groups/" target="_blank" rel="noopener">Groups API</a><span class="meta">Meta Platforms · Meta for Developers · updated 2026-10-15</span></li>
+<li id="ref-5" data-title="Groups API Pricing" data-author="Meta Platforms" data-publisher="Meta for Developers" data-date="2026-09-10" data-kind="updated" data-type="First-party" data-url="https://developers.facebook.com/docs/whatsapp/cloud-api/groups/pricing/"><span class="badge b-firstparty">First-party</span> <a href="https://developers.facebook.com/docs/whatsapp/cloud-api/groups/pricing/" target="_blank" rel="noopener">Groups API Pricing</a><span class="meta">Meta Platforms · Meta for Developers · updated 2026-09-10</span></li>
+<li id="ref-6" data-title="Can the Official WhatsApp API Post to a Channel?" data-author="Wapito" data-publisher="wapito.com" data-date="2026-09-15 (last reviewed)" data-kind="updated" data-type="Vendor" data-url="https://wapito.com/vs-cloud-api/post-to-channel/"><span class="badge b-vendor">Vendor</span> <a href="https://wapito.com/vs-cloud-api/post-to-channel/" target="_blank" rel="noopener">Can the Official WhatsApp API Post to a Channel?</a><span class="meta">Wapito · wapito.com · updated 2026-09-15 (last reviewed)</span></li>
+<li id="ref-7" data-title="About safety and privacy on channels for admins" data-author="WhatsApp" data-publisher="WhatsApp Help Center" data-date="2026-10-16" data-kind="accessed-only" data-type="First-party" data-url="https://faq.whatsapp.com/671443411431514"><span class="badge b-firstparty">First-party</span> <a href="https://faq.whatsapp.com/671443411431514" target="_blank" rel="noopener">About safety and privacy on channels for admins</a><span class="meta">WhatsApp · WhatsApp Help Center · accessed 2026-10-16</span></li>
+<li id="ref-8" data-title="How to add and remove group members" data-author="WhatsApp" data-publisher="WhatsApp Help Center" data-date="2026-10-16" data-kind="accessed-only" data-type="First-party" data-url="https://faq.whatsapp.com/841426356990637/?locale=en_US&amp;cms_platform=windows-desktop"><span class="badge b-firstparty">First-party</span> <a href="https://faq.whatsapp.com/841426356990637/?locale=en_US&amp;cms_platform=windows-desktop" target="_blank" rel="noopener">How to add and remove group members</a><span class="meta">WhatsApp · WhatsApp Help Center · accessed 2026-10-16</span></li>
+<li id="ref-9" data-title="WhatsApp API Pricing | Fixed Price, No Per-Message Fees" data-author="Whapi.Cloud" data-publisher="whapi.cloud" data-date="2026-10-16" data-kind="accessed-only" data-type="Vendor" data-url="https://whapi.cloud/price"><span class="badge b-vendor">Vendor</span> <a href="https://whapi.cloud/price" target="_blank" rel="noopener">WhatsApp API Pricing | Fixed Price, No Per-Message Fees</a><span class="meta">Whapi.Cloud · whapi.cloud · accessed 2026-10-16</span></li>
+<li id="ref-10" data-title="WhatsApp API Pricing | Fixed Price, No Hidden Fees per Message" data-author="Maytapi" data-publisher="maytapi.com" data-date="2026-10-16" data-kind="accessed-only" data-type="Vendor" data-url="https://maytapi.com/whatsapp-api-pricing"><span class="badge b-vendor">Vendor</span> <a href="https://maytapi.com/whatsapp-api-pricing" target="_blank" rel="noopener">WhatsApp API Pricing | Fixed Price, No Hidden Fees per Message</a><span class="meta">Maytapi · maytapi.com · accessed 2026-10-16</span></li>
+<li id="ref-11" data-title="Affordable WhatsApp API for Messaging Campaigns (Pricing Plans)" data-author="GREEN-API" data-publisher="green-api.com" data-date="2026-10-16" data-kind="accessed-only" data-type="Vendor" data-url="https://green-api.com/en"><span class="badge b-vendor">Vendor</span> <a href="https://green-api.com/en" target="_blank" rel="noopener">Affordable WhatsApp API for Messaging Campaigns (Pricing Plans)</a><span class="meta">GREEN-API · green-api.com · accessed 2026-10-16</span></li>
+<li id="ref-12" data-title="WhatsApp Terms of Service" data-author="WhatsApp" data-publisher="WhatsApp" data-date="2021-01-04 (effective date)" data-kind="published" data-type="First-party" data-url="https://www.whatsapp.com/legal/terms-of-service"><span class="badge b-firstparty">First-party</span> <a href="https://www.whatsapp.com/legal/terms-of-service" target="_blank" rel="noopener">WhatsApp Terms of Service</a><span class="meta">WhatsApp · 2021-01-04 (effective date)</span></li>
+<li id="ref-13" data-title="About unofficial apps" data-author="WhatsApp" data-publisher="WhatsApp Help Center" data-date="2026-10-16" data-kind="accessed-only" data-type="First-party" data-url="https://faq.whatsapp.com/1217634902127718"><span class="badge b-firstparty">First-party</span> <a href="https://faq.whatsapp.com/1217634902127718" target="_blank" rel="noopener">About unofficial apps</a><span class="meta">WhatsApp · WhatsApp Help Center · accessed 2026-10-16</span></li>
+<li id="ref-14" data-title="K-Matrix watch archive (kmatrix/archive.json on the yyc cluster): 201 alerts in the three K-Matrix &amp; YYC groups" data-author="Claude for Deyao" data-publisher="YYC news stream (first-party data)" data-date="2026-10-16" data-kind="accessed-only" data-type="First-party" data-url="https://github.com/DE0CH/YYC/tree/main/news-stream/kmatrix"><span class="badge b-firstparty">First-party</span> <a href="https://github.com/DE0CH/YYC/tree/main/news-stream/kmatrix" target="_blank" rel="noopener">K-Matrix watch archive (kmatrix/archive.json on the yyc cluster): 201 alerts in the three K-Matrix &amp; YYC groups</a><span class="meta">Claude for Deyao · YYC news stream (first-party data) · accessed 2026-10-16</span></li>
+<li id="ref-15" data-title="Real-name Registration Programme for Subscriber Identification Module (SIM) Cards" data-author="Office of the Communications Authority" data-publisher="OFCA (HKSAR Government)" data-date="2024-11-18 (last revision)" data-kind="updated" data-type="Gov" data-url="https://www.ofca.gov.hk/en/consumer_focus/guide/hot_topics/sim_registration/"><span class="badge b-gov">Gov</span> <a href="https://www.ofca.gov.hk/en/consumer_focus/guide/hot_topics/sim_registration/" target="_blank" rel="noopener">Real-name Registration Programme for Subscriber Identification Module (SIM) Cards</a><span class="meta">Office of the Communications Authority · OFCA (HKSAR Government) · updated 2024-11-18 (last revision)</span></li>
+<li id="ref-16" data-title="Business phone numbers" data-author="Meta Platforms" data-publisher="Meta for Developers" data-date="2026-05-21" data-kind="updated" data-type="First-party" data-url="https://developers.facebook.com/docs/whatsapp/cloud-api/phone-numbers/"><span class="badge b-firstparty">First-party</span> <a href="https://developers.facebook.com/docs/whatsapp/cloud-api/phone-numbers/" target="_blank" rel="noopener">Business phone numbers</a><span class="meta">Meta Platforms · Meta for Developers · updated 2026-05-21</span></li>
+<li id="ref-17" data-title="Get opt-in for WhatsApp" data-author="Meta Platforms" data-publisher="Meta for Developers" data-date="2026-06-16" data-kind="updated" data-type="First-party" data-url="https://developers.facebook.com/docs/whatsapp/overview/getting-opt-in/"><span class="badge b-firstparty">First-party</span> <a href="https://developers.facebook.com/docs/whatsapp/overview/getting-opt-in/" target="_blank" rel="noopener">Get opt-in for WhatsApp</a><span class="meta">Meta Platforms · Meta for Developers · updated 2026-06-16</span></li>
+<li id="ref-18" data-title="news-stream/README.md, Telegram channels and Telegram marks; telegram_alerts.py" data-author="Deyao / Claude" data-publisher="DE0CH/YYC repository" data-date="2026-10-15" data-kind="updated" data-type="First-party" data-url="https://github.com/DE0CH/YYC/blob/main/news-stream/README.md"><span class="badge b-firstparty">First-party</span> <a href="https://github.com/DE0CH/YYC/blob/main/news-stream/README.md" target="_blank" rel="noopener">news-stream/README.md, Telegram channels and Telegram marks; telegram_alerts.py</a><span class="meta">Deyao / Claude · DE0CH/YYC repository · updated 2026-10-15</span></li>
+<li id="ref-19" data-title="Get started (Cloud API)" data-author="Meta Platforms" data-publisher="Meta for Developers" data-date="2026-06-16" data-kind="updated" data-type="First-party" data-url="https://developers.facebook.com/docs/whatsapp/cloud-api/get-started/"><span class="badge b-firstparty">First-party</span> <a href="https://developers.facebook.com/docs/whatsapp/cloud-api/get-started/" target="_blank" rel="noopener">Get started (Cloud API)</a><span class="meta">Meta Platforms · Meta for Developers · updated 2026-06-16</span></li>
+<li id="ref-20" data-title="WhatsApp accounts and Messaging accounts" data-author="Meta Platforms" data-publisher="Meta for Developers" data-date="2026-08-05" data-kind="updated" data-type="First-party" data-url="https://developers.facebook.com/docs/whatsapp/overview/business-accounts/"><span class="badge b-firstparty">First-party</span> <a href="https://developers.facebook.com/docs/whatsapp/overview/business-accounts/" target="_blank" rel="noopener">WhatsApp accounts and Messaging accounts</a><span class="meta">Meta Platforms · Meta for Developers · updated 2026-08-05</span></li>
+<li id="ref-21" data-title="Messaging Limits" data-author="Meta Platforms" data-publisher="Meta for Developers" data-date="2026-05-21" data-kind="updated" data-type="First-party" data-url="https://developers.facebook.com/docs/whatsapp/messaging-limits/"><span class="badge b-firstparty">First-party</span> <a href="https://developers.facebook.com/docs/whatsapp/messaging-limits/" target="_blank" rel="noopener">Messaging Limits</a><span class="meta">Meta Platforms · Meta for Developers · updated 2026-05-21</span></li>
+<li id="ref-22" data-title="Template categorization" data-author="Meta Platforms" data-publisher="Meta for Developers" data-date="2026-09-15" data-kind="updated" data-type="First-party" data-url="https://developers.facebook.com/docs/whatsapp/updates-to-pricing/new-template-guidelines/"><span class="badge b-firstparty">First-party</span> <a href="https://developers.facebook.com/docs/whatsapp/updates-to-pricing/new-template-guidelines/" target="_blank" rel="noopener">Template categorization</a><span class="meta">Meta Platforms · Meta for Developers · updated 2026-09-15</span></li>
+<li id="ref-23" data-title="Official Business Accounts" data-author="Meta Platforms" data-publisher="Meta for Developers" data-date="2026-09-19" data-kind="updated" data-type="First-party" data-url="https://developers.facebook.com/docs/whatsapp/official-business-accounts/"><span class="badge b-firstparty">First-party</span> <a href="https://developers.facebook.com/docs/whatsapp/official-business-accounts/" target="_blank" rel="noopener">Official Business Accounts</a><span class="meta">Meta Platforms · Meta for Developers · updated 2026-09-19</span></li>
+<li id="ref-24" data-title="WhatsApp Messaging Pricing" data-author="Twilio" data-publisher="Twilio" data-date="2026-10-16" data-kind="accessed-only" data-type="Vendor" data-url="https://www.twilio.com/en-us/whatsapp/pricing"><span class="badge b-vendor">Vendor</span> <a href="https://www.twilio.com/en-us/whatsapp/pricing" target="_blank" rel="noopener">WhatsApp Messaging Pricing</a><span class="meta">Twilio · accessed 2026-10-16</span></li>
+<li id="ref-25" data-title="WhatsApp pricing: rates to Hong Kong SAR China (HK)" data-author="Bird" data-publisher="bird.com" data-date="2026-10-16" data-kind="accessed-only" data-type="Vendor" data-url="https://bird.com/pricing/whatsapp/hk"><span class="badge b-vendor">Vendor</span> <a href="https://bird.com/pricing/whatsapp/hk" target="_blank" rel="noopener">WhatsApp pricing: rates to Hong Kong SAR China (HK)</a><span class="meta">Bird · bird.com · accessed 2026-10-16</span></li>
+<li id="ref-26" data-title="WhatsApp Business Platform Pricing" data-author="360dialog" data-publisher="360dialog" data-date="2026-10-16" data-kind="accessed-only" data-type="Vendor" data-url="https://360dialog.com/pricing"><span class="badge b-vendor">Vendor</span> <a href="https://360dialog.com/pricing" target="_blank" rel="noopener">WhatsApp Business Platform Pricing</a><span class="meta">360dialog · accessed 2026-10-16</span></li>
+<li id="ref-27" data-title="Groups (client documentation)" data-author="360dialog" data-publisher="360dialog docs" data-date="2026-10-16" data-kind="accessed-only" data-type="Vendor" data-url="https://docs.360dialog.com/docs/messaging/groups"><span class="badge b-vendor">Vendor</span> <a href="https://docs.360dialog.com/docs/messaging/groups" target="_blank" rel="noopener">Groups (client documentation)</a><span class="meta">360dialog · 360dialog docs · accessed 2026-10-16</span></li>
+<li id="ref-28" data-title="WhatsApp Business Platform pricing" data-author="Infobip" data-publisher="Infobip" data-date="2026-10-16" data-kind="accessed-only" data-type="Vendor" data-url="https://www.infobip.com/whatsapp-business/pricing"><span class="badge b-vendor">Vendor</span> <a href="https://www.infobip.com/whatsapp-business/pricing" target="_blank" rel="noopener">WhatsApp Business Platform pricing</a><span class="meta">Infobip · accessed 2026-10-16</span></li>
+<li id="ref-29" data-title="Wati pricing data for Hong Kong (the plans feed behind wati.io/pricing, countryCode=HK)" data-author="Wati" data-publisher="wati.io" data-date="2026-10-16" data-kind="accessed-only" data-type="Vendor" data-url="https://live-mt-server.wati.io/wati/api/v1/pricing/getPlansByGeo?countryCode=HK"><span class="badge b-vendor">Vendor</span> <a href="https://live-mt-server.wati.io/wati/api/v1/pricing/getPlansByGeo?countryCode=HK" target="_blank" rel="noopener">Wati pricing data for Hong Kong (the plans feed behind wati.io/pricing, countryCode=HK)</a><span class="meta">Wati · wati.io · accessed 2026-10-16</span></li>
+<li id="ref-30" data-title="Overview of Meta&#x27;s pricing changes" data-author="Wati" data-publisher="Wati.io Help Center" data-date="2026-10-16" data-kind="accessed-only" data-type="Vendor" data-url="https://support.wati.io/en/articles/11561654-overview-of-meta-s-pricing-changes"><span class="badge b-vendor">Vendor</span> <a href="https://support.wati.io/en/articles/11561654-overview-of-meta-s-pricing-changes" target="_blank" rel="noopener">Overview of Meta&#x27;s pricing changes</a><span class="meta">Wati · Wati.io Help Center · accessed 2026-10-16</span></li>
+<li id="ref-31" data-title="Pricing &amp; Plans" data-author="SleekFlow" data-publisher="SleekFlow" data-date="2026-10-16" data-kind="accessed-only" data-type="Vendor" data-url="https://sleekflow.io/pricing"><span class="badge b-vendor">Vendor</span> <a href="https://sleekflow.io/pricing" target="_blank" rel="noopener">Pricing &amp; Plans</a><span class="meta">SleekFlow · accessed 2026-10-16</span></li>
+<li id="ref-32" data-title="Pricing" data-author="respond.io" data-publisher="respond.io" data-date="2026-10-16" data-kind="accessed-only" data-type="Vendor" data-url="https://respond.io/pricing"><span class="badge b-vendor">Vendor</span> <a href="https://respond.io/pricing" target="_blank" rel="noopener">Pricing</a><span class="meta">respond.io · accessed 2026-10-16</span></li>
+<li id="ref-33" data-title="What is Gupshup&#x27;s pricing model? What is Gupshup fee and WhatsApp fee in pricing?" data-author="Kauntal Patel" data-publisher="Gupshup Support" data-date="2024-06-14" data-kind="updated" data-type="Vendor" data-url="https://support.gupshup.io/hc/en-us/articles/360012075779-Whats-is-Gupshup-s-pricing-model-What-is-Gupshup-fee-and-WhatsApp-fee-in-pricing"><span class="badge b-vendor">Vendor</span> <a href="https://support.gupshup.io/hc/en-us/articles/360012075779-Whats-is-Gupshup-s-pricing-model-What-is-Gupshup-fee-and-WhatsApp-fee-in-pricing" target="_blank" rel="noopener">What is Gupshup&#x27;s pricing model? What is Gupshup fee and WhatsApp fee in pricing?</a><span class="meta">Kauntal Patel · Gupshup Support · updated 2024-06-14</span></li>
+<li id="ref-34" data-title="Onboard WhatsApp Business app users (Coexistence)" data-author="Meta Platforms" data-publisher="Meta for Developers" data-date="2026-06-26" data-kind="updated" data-type="First-party" data-url="https://developers.facebook.com/docs/whatsapp/embedded-signup/custom-flows/onboarding-business-app-users/"><span class="badge b-firstparty">First-party</span> <a href="https://developers.facebook.com/docs/whatsapp/embedded-signup/custom-flows/onboarding-business-app-users/" target="_blank" rel="noopener">Onboard WhatsApp Business app users (Coexistence)</a><span class="meta">Meta Platforms · Meta for Developers · updated 2026-06-26</span></li>
+<li id="ref-35" data-title="About creating a WhatsApp Channel" data-author="WhatsApp" data-publisher="WhatsApp Help Center" data-date="2026-10-16" data-kind="accessed-only" data-type="First-party" data-url="https://faq.whatsapp.com/265055289421317"><span class="badge b-firstparty">First-party</span> <a href="https://faq.whatsapp.com/265055289421317" target="_blank" rel="noopener">About creating a WhatsApp Channel</a><span class="meta">WhatsApp · WhatsApp Help Center · accessed 2026-10-16</span></li>
+<li id="ref-36" data-title="How to invite and dismiss channel admins" data-author="WhatsApp" data-publisher="WhatsApp Help Center" data-date="2026-10-16" data-kind="accessed-only" data-type="First-party" data-url="https://faq.whatsapp.com/1142317320080231"><span class="badge b-firstparty">First-party</span> <a href="https://faq.whatsapp.com/1142317320080231" target="_blank" rel="noopener">How to invite and dismiss channel admins</a><span class="meta">WhatsApp · WhatsApp Help Center · accessed 2026-10-16</span></li>
+<li id="ref-37" data-title="Introducing WhatsApp Channels. A Private Way to Follow What Matters" data-author="WhatsApp" data-publisher="WhatsApp Blog" data-date="2023-06-08" data-kind="published" data-type="First-party" data-url="https://blog.whatsapp.com/introducing-whatsapp-channels-a-private-way-to-follow-what-matters"><span class="badge b-firstparty">First-party</span> <a href="https://blog.whatsapp.com/introducing-whatsapp-channels-a-private-way-to-follow-what-matters" target="_blank" rel="noopener">Introducing WhatsApp Channels. A Private Way to Follow What Matters</a><span class="meta">WhatsApp · WhatsApp Blog · 2023-06-08</span></li>
+<li id="ref-38" data-title="whatsapp-web.js (README, feature table and disclaimer; 22,737 stars; release v1.34.7 of 2026-04-24)" data-author="wwebjs" data-publisher="GitHub" data-date="2026-10-16" data-kind="accessed-only" data-type="Industry" data-url="https://github.com/wwebjs/whatsapp-web.js"><span class="badge b-industry">Industry</span> <a href="https://github.com/wwebjs/whatsapp-web.js" target="_blank" rel="noopener">whatsapp-web.js (README, feature table and disclaimer; 22,737 stars; release v1.34.7 of 2026-04-24)</a><span class="meta">wwebjs · GitHub · accessed 2026-10-16</span></li>
+<li id="ref-39" data-title="Baileys (README and disclaimer; 11,346 stars; release v7.0.0-rc14 of 2026-07-29; src/Socket/newsletter.ts)" data-author="WhiskeySockets" data-publisher="GitHub" data-date="2026-10-16" data-kind="accessed-only" data-type="Industry" data-url="https://github.com/WhiskeySockets/Baileys"><span class="badge b-industry">Industry</span> <a href="https://github.com/WhiskeySockets/Baileys" target="_blank" rel="noopener">Baileys (README and disclaimer; 11,346 stars; release v7.0.0-rc14 of 2026-07-29; src/Socket/newsletter.ts)</a><span class="meta">WhiskeySockets · GitHub · accessed 2026-10-16</span></li>
+<li id="ref-40" data-title="How to send a post to WhatsApp Channel via API" data-author="devlikeapro" data-publisher="WAHA" data-date="2024-07-16" data-kind="published" data-type="Vendor" data-url="https://waha.devlike.pro/blog/how-to-send-a-post-to-whatsapp-channel-via-api/"><span class="badge b-vendor">Vendor</span> <a href="https://waha.devlike.pro/blog/how-to-send-a-post-to-whatsapp-channel-via-api/" target="_blank" rel="noopener">How to send a post to WhatsApp Channel via API</a><span class="meta">devlikeapro · WAHA · 2024-07-16</span></li>
+<li id="ref-41" data-title="whatsmeow (Go library; 7,584 stars; last push 2026-10-15)" data-author="tulir" data-publisher="GitHub" data-date="2026-10-16" data-kind="accessed-only" data-type="Industry" data-url="https://github.com/tulir/whatsmeow"><span class="badge b-industry">Industry</span> <a href="https://github.com/tulir/whatsmeow" target="_blank" rel="noopener">whatsmeow (Go library; 7,584 stars; last push 2026-10-15)</a><span class="meta">tulir · GitHub · accessed 2026-10-16</span></li>
+<li id="ref-42" data-title="WAHA (7,609 stars; release 2026.9.2 of 2026-10-02)" data-author="devlikeapro" data-publisher="GitHub" data-date="2026-10-16" data-kind="accessed-only" data-type="Industry" data-url="https://github.com/devlikeapro/waha"><span class="badge b-industry">Industry</span> <a href="https://github.com/devlikeapro/waha" target="_blank" rel="noopener">WAHA (7,609 stars; release 2026.9.2 of 2026-10-02)</a><span class="meta">devlikeapro · GitHub · accessed 2026-10-16</span></li>
+<li id="ref-43" data-title="Evolution API (9,857 stars; release 2.3.7 of 2025-12-05)" data-author="Evolution Foundation" data-publisher="GitHub" data-date="2026-10-16" data-kind="accessed-only" data-type="Industry" data-url="https://github.com/evolution-foundation/evolution-api"><span class="badge b-industry">Industry</span> <a href="https://github.com/evolution-foundation/evolution-api" target="_blank" rel="noopener">Evolution API (9,857 stars; release 2.3.7 of 2025-12-05)</a><span class="meta">Evolution Foundation · GitHub · accessed 2026-10-16</span></li>
+<li id="ref-44" data-title="About community announcements" data-author="WhatsApp" data-publisher="WhatsApp Help Center" data-date="2026-10-16" data-kind="accessed-only" data-type="First-party" data-url="https://faq.whatsapp.com/582420703681043"><span class="badge b-firstparty">First-party</span> <a href="https://faq.whatsapp.com/582420703681043" target="_blank" rel="noopener">About community announcements</a><span class="meta">WhatsApp · WhatsApp Help Center · accessed 2026-10-16</span></li>
+<li id="ref-45" data-title="Unauthorized use of automated or bulk messaging on WhatsApp" data-author="WhatsApp" data-publisher="WhatsApp Help Center" data-date="2026-10-16" data-kind="accessed-only" data-type="First-party" data-url="https://faq.whatsapp.com/5957850900902049"><span class="badge b-firstparty">First-party</span> <a href="https://faq.whatsapp.com/5957850900902049" target="_blank" rel="noopener">Unauthorized use of automated or bulk messaging on WhatsApp</a><span class="meta">WhatsApp · WhatsApp Help Center · accessed 2026-10-16</span></li>
+<li id="ref-46" data-title="WhatsApp API gateway for sending messages and chatbot" data-author="Ultramsg" data-publisher="ultramsg.com" data-date="2026-10-16" data-kind="accessed-only" data-type="Vendor" data-url="https://ultramsg.com/"><span class="badge b-vendor">Vendor</span> <a href="https://ultramsg.com/" target="_blank" rel="noopener">WhatsApp API gateway for sending messages and chatbot</a><span class="meta">Ultramsg · ultramsg.com · accessed 2026-10-16</span></li>
+<li id="ref-47" data-title="Wassenger Pricing" data-author="Wassenger" data-publisher="wassenger.com" data-date="2026-10-16" data-kind="accessed-only" data-type="Vendor" data-url="https://wassenger.com/pricing"><span class="badge b-vendor">Vendor</span> <a href="https://wassenger.com/pricing" target="_blank" rel="noopener">Wassenger Pricing</a><span class="meta">Wassenger · wassenger.com · accessed 2026-10-16</span></li>
+<li id="ref-48" data-title="How to use broadcast lists on the WhatsApp Business app" data-author="WhatsApp" data-publisher="WhatsApp Help Center" data-date="2026-10-16" data-kind="accessed-only" data-type="First-party" data-url="https://faq.whatsapp.com/653415899610349/?cms_platform=android"><span class="badge b-firstparty">First-party</span> <a href="https://faq.whatsapp.com/653415899610349/?cms_platform=android" target="_blank" rel="noopener">How to use broadcast lists on the WhatsApp Business app</a><span class="meta">WhatsApp · WhatsApp Help Center · accessed 2026-10-16</span></li>
+<li id="ref-49" data-title="WhatsApp Service Messages: What Changes on 1 October 2026" data-author="UD" data-publisher="ud.hk" data-date="2026-09-10" data-kind="published" data-type="Industry" data-url="https://www.ud.hk/en/blogs/insight/article/what-is-whatsapp-service-message-2026-09-10"><span class="badge b-industry">Industry</span> <a href="https://www.ud.hk/en/blogs/insight/article/what-is-whatsapp-service-message-2026-09-10" target="_blank" rel="noopener">WhatsApp Service Messages: What Changes on 1 October 2026</a><span class="meta">UD · ud.hk · 2026-09-10</span></li>
+<li id="ref-50" data-title="WhatsApp API Pricing: What Changed in Q3 2026" data-author="WhaTools team" data-publisher="WhaTools" data-date="2026-08-13 (updated 2026-10-12)" data-kind="published" data-type="Industry" data-url="https://wha.tools/blog/whatsapp-api-pricing-changes-q3-2026"><span class="badge b-industry">Industry</span> <a href="https://wha.tools/blog/whatsapp-api-pricing-changes-q3-2026" target="_blank" rel="noopener">WhatsApp API Pricing: What Changed in Q3 2026</a><span class="meta">WhaTools team · WhaTools · 2026-08-13 (updated 2026-10-12)</span></li>
+<li id="ref-51" data-title="Meta Business Verification (client documentation)" data-author="360dialog" data-publisher="360dialog docs" data-date="2026-10-16" data-kind="accessed-only" data-type="Vendor" data-url="https://docs.360dialog.com/docs/resources/meta-business-verification"><span class="badge b-vendor">Vendor</span> <a href="https://docs.360dialog.com/docs/resources/meta-business-verification" target="_blank" rel="noopener">Meta Business Verification (client documentation)</a><span class="meta">360dialog · 360dialog docs · accessed 2026-10-16</span></li>
+<li id="ref-52" data-title="WhatsApp Business Messaging Policy" data-author="WhatsApp" data-publisher="WhatsApp for Business" data-date="2026-09-23" data-kind="updated" data-type="First-party" data-url="https://business.whatsapp.com/policy"><span class="badge b-firstparty">First-party</span> <a href="https://business.whatsapp.com/policy" target="_blank" rel="noopener">WhatsApp Business Messaging Policy</a><span class="meta">WhatsApp · WhatsApp for Business · updated 2026-09-23</span></li>
+<li id="ref-53" data-title="Text messages" data-author="Meta Platforms" data-publisher="Meta for Developers" data-date="2026-07-02" data-kind="updated" data-type="First-party" data-url="https://developers.facebook.com/docs/whatsapp/cloud-api/messages/text-messages/"><span class="badge b-firstparty">First-party</span> <a href="https://developers.facebook.com/docs/whatsapp/cloud-api/messages/text-messages/" target="_blank" rel="noopener">Text messages</a><span class="meta">Meta Platforms · Meta for Developers · updated 2026-07-02</span></li>
+<li id="ref-54" data-title="[BUG] Critical Issue - Error 463 (Reachout Timelock) Causing Account Bans (Baileys #2707)" data-author="JawadTechYT" data-publisher="GitHub" data-date="2026-07-14" data-kind="published" data-type="Industry" data-url="https://github.com/WhiskeySockets/Baileys/issues/2707"><span class="badge b-industry">Industry</span> <a href="https://github.com/WhiskeySockets/Baileys/issues/2707" target="_blank" rel="noopener">[BUG] Critical Issue - Error 463 (Reachout Timelock) Causing Account Bans (Baileys #2707)</a><span class="meta">JawadTechYT · GitHub · 2026-07-14</span></li>
+<li id="ref-55" data-title="[BUG] Sending bulk messages using the library results in the associated WhatsApp account being banned (Baileys #2850)" data-author="rcstrue" data-publisher="GitHub" data-date="2026-10-07" data-kind="published" data-type="Industry" data-url="https://github.com/WhiskeySockets/Baileys/issues/2850"><span class="badge b-industry">Industry</span> <a href="https://github.com/WhiskeySockets/Baileys/issues/2850" target="_blank" rel="noopener">[BUG] Sending bulk messages using the library results in the associated WhatsApp account being banned (Baileys #2850)</a><span class="meta">rcstrue · GitHub · 2026-10-07</span></li>
+<li id="ref-56" data-title="Banned after 3 messages despite implementing ALL #532 recommendations (whatsapp-web.js #4008)" data-author="GitHub user" data-publisher="GitHub" data-date="2025-12-08" data-kind="published" data-type="Industry" data-url="https://github.com/wwebjs/whatsapp-web.js/issues/4008"><span class="badge b-industry">Industry</span> <a href="https://github.com/wwebjs/whatsapp-web.js/issues/4008" target="_blank" rel="noopener">Banned after 3 messages despite implementing ALL #532 recommendations (whatsapp-web.js #4008)</a><span class="meta">GitHub user · GitHub · 2025-12-08</span></li>
+<li id="ref-57" data-title="[BUG] Instant Account Restriction (Banned) upon QR Scan for Verified Official Business Account (Baileys #2805)" data-author="reizhafajrian" data-publisher="GitHub" data-date="2026-09-07" data-kind="published" data-type="Industry" data-url="https://github.com/WhiskeySockets/Baileys/issues/2805"><span class="badge b-industry">Industry</span> <a href="https://github.com/WhiskeySockets/Baileys/issues/2805" target="_blank" rel="noopener">[BUG] Instant Account Restriction (Banned) upon QR Scan for Verified Official Business Account (Baileys #2805)</a><span class="meta">reizhafajrian · GitHub · 2026-09-07</span></li>
+</ol>
+</section>
+<footer>Prices are list prices on the date read; Meta changes its rate card on the first day of a quarter.</footer>
+</main>
+</div>
+<button id="backbtn" type="button" aria-label="Back to where you were reading">↩ Back to text</button>
+<script>
+(function () {
+  var btn = document.getElementById('backbtn'), origin = null;
+  function flash(el) { el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
+  // Remember the exact reading position when a citation is used (the number itself, or the card's Reference link).
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('a[href^="#ref-"]');
+    if (!a) return;
+    if (a.classList.contains('cite') || !origin) origin = { x: window.scrollX, y: window.scrollY, el: a.classList.contains('cite') ? a : (origin && origin.el) };
+  }, true);
+  window.addEventListener('hashchange', function () {
+    if (!/^#ref-/.test(location.hash) || !origin) return;
+    btn.classList.add('show');
+    var t = document.getElementById(location.hash.slice(1)); if (t) flash(t);
+  });
+  btn.addEventListener('click', function () {
+    if (!origin) return;
+    btn.classList.remove('show');
+    window.scrollTo({ left: origin.x, top: origin.y, behavior: 'smooth' });
+    if (origin.el) flash(origin.el.closest('li, p, dd') || origin.el);
+    if (history.replaceState) history.replaceState(null, '', location.pathname + location.search);
+    origin = null;
+  });
+})();
+</script>
+</body>
+</html>

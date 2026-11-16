@@ -1,0 +1,121 @@
+/* 串流's own styles (scoped to .page-stream), in the house style (house.css). The stream is a list, not a route: ruled
+   rows on one white sheet, newest first. Each article row carries its sentiment as a rule down its left edge in the
+   sentiment hue (.sm, dashed muted while it has none); its time is small muted figures in the meta line. Each half-hour
+   starts with a quiet group header row (the time in muted figures, sticky under the bar). Everything else is ink on
+   the sheet, 1px rules. */
+.page-stream .num, .page-stream .slot, .page-stream .strip text { font-family:var(--num); font-variant-numeric:tabular-nums; }
+.page-stream main svg.i, .page-stream .side svg.i, .page-stream .summary svg.i, .page-stream .panel svg.i { width:16px; height:16px; }
+/* plain buttons lose their chrome; cells (.chip) and the bar's tool (.yyc-tool: shell.css's cell rules, ink when pressed) keep theirs */
+.page-stream button:not(.chip, .yyc-tool) { font:inherit; color:inherit; background:none; border:0; cursor:pointer; padding:0; }
+
+/* ---- date row (in the bar): ‹ day ›, 44px cells; the ‹ icon on the gutter (a 44px cell centres its 18px icon 13px in),
+   the meta or 回到今日 ending on the right gutter ---- */
+.yyc-bar .days { display:flex; align-items:center; gap:0; min-height:var(--ctl); padding:0 var(--gutter) 0 calc(var(--gutter) - 13px); border-bottom:1px solid var(--rule); font-size:14px; }
+.days button, .days label { display:flex; align-items:center; justify-content:center; gap:8px; min-height:var(--ctl); min-width:var(--ctl);
+  padding:0 10px; color:var(--ink); white-space:nowrap; cursor:pointer; position:relative; }
+.page-stream .days button { padding:0 10px; color:var(--ink); }
+.days button:hover:not(:disabled), .days label:hover { background:var(--ground); }
+.days button:disabled { color:var(--muted); opacity:.45; cursor:default; }
+.days svg.i { width:18px; height:18px; }
+.days .when { font-weight:700; }
+.days .tday { color:var(--muted); font-weight:400; }
+.days input[type=date] { position:absolute; inset:0; opacity:0; width:100%; min-height:0; padding:0; border:0; cursor:pointer; }
+/* 回到今日: the row's end cell, sharing the row's rules (a left rule only, no box of its own) */
+.page-stream .days .today { margin-left:auto; color:var(--ink); border:0; border-left:1px solid var(--rule); padding:0 14px; align-self:stretch; }
+/* 即時更新: a square pip before it, filled while current; hollow when not, dashed while a read is in flight */
+.days .fresh { color:var(--muted); font-size:13px; margin-left:auto; display:flex; align-items:center; gap:8px; min-width:0; white-space:nowrap; }
+.days .fresh::before { content:""; flex:none; width:7px; height:7px; border:2px solid var(--muted); }
+.days .fresh[data-state=live] { color:var(--ink); }
+.days .fresh[data-state=live]::before { background:var(--ink); border-color:var(--ink); }
+.days .fresh[data-state=updating]::before { border-style:dashed; }
+.days .fresh:is([data-state=failed],[data-state=offline],[data-state=signedout],[data-state=behind],[data-state=timeout]) { color:var(--ink); font-weight:700; }
+.days .fresh:is([data-state=failed],[data-state=offline],[data-state=signedout],[data-state=behind],[data-state=timeout])::before { border-color:var(--ink); }
+.days .fresh .lt { display:flex; gap:0 8px; }
+/* plain words: the .lt gap alone separates when the data is from and why it isn't current */
+.days .fresh .lw { padding-left:0; border-left:0; }
+.page-stream .fwhy { display:none; }
+@media (max-width:599px) {  /* a phone: only when the data is from, on one line; why it isn't current goes to its own row (.fwhy) */
+  .days .fresh .lw { display:none; }
+  .days .fresh { font-size:12px; overflow:hidden; }
+  .days .fresh .lt > span { overflow:hidden; text-overflow:ellipsis; }
+  .page-stream .days button { padding:0 6px; }  /* room for 即時更新 on one line beside the day */
+  .days label > svg.i { display:none; }  /* the day itself is the picker's cell; its icon would push the meta off the line */
+  .yyc-bar .days { padding-left:calc(var(--gutter) - 13px); }
+  /* why it isn't current: a ruled 44px row of its own above the status row, the text on the rows' 16px inset */
+  .page-stream .fwhy { display:flex; align-items:center; min-height:var(--ctl); margin:0; padding:0 16px; color:var(--ink); font-size:13px;
+    border-bottom:1px solid var(--rule); }
+}
+
+/* ---- filter panel (opens in place): a sheet with the search field and two chip groups (.cellgrid: one block each,
+   members split by shared rules; 8px of plain ground between the groups) ---- */
+.page-stream .panel { background:var(--panel); border-bottom:1px solid var(--rule); padding:12px var(--gutter); }
+.page-stream .search { display:flex; align-items:center; gap:8px; min-height:var(--ctl); border:1px solid var(--rule); padding:0 12px; background:var(--panel); }
+.page-stream .search:focus-within { border-color:var(--ink); }
+.page-stream .search input { border:0; min-height:0; padding:0; background:transparent; color:var(--ink); font:inherit; flex:1; min-width:0; outline:none; }
+/* .cellgrid.ragged (house.css): every cell rings itself, so a short row's rules end at its last cell */
+.page-stream .chips.cellgrid { margin-top:8px; }
+.page-stream .chip { font-size:14px; padding:0 10px; font-weight:400; justify-content:flex-start; }
+.page-stream .chip[aria-pressed="true"] { font-weight:700; }
+
+/* ---- layout ---- */
+.page-stream .side, .page-stream .summary { display:none; }
+.page-stream main { min-width:0; background:var(--panel); }
+.page-stream .strip { display:block; width:100%; height:44px; background:var(--panel); border-bottom:1px solid var(--rule); }
+/* the sentiment edge's colours, named (phone; the 摘要 column carries it on desktop) */
+.page-stream .legend { display:flex; flex-wrap:wrap; gap:4px 16px; margin:0; padding:8px 16px 0; list-style:none; font-size:13px; color:var(--muted); }
+.page-stream .legend li { display:inline-flex; align-items:center; gap:6px; }
+.page-stream .status { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:2px 12px; min-height:var(--ctl); padding:0 16px; color:var(--muted); font-size:13px; border-bottom:1px solid var(--rule); }
+.page-stream .list { overflow-anchor:none; }
+.page-stream .list.dim { opacity:.5; }
+
+/* a half-hour group header: a plain quiet row, the time in muted figures; sticky under the bar */
+.page-stream .slot { position:sticky; top:var(--bar-h); z-index:2; display:flex; align-items:center; min-height:var(--ctl); padding:0 16px;
+  background:var(--panel); border-bottom:1px solid var(--rule); color:var(--muted); font-size:.875rem; font-weight:600; line-height:1.2; }
+
+/* an article: a ruled row; its sentiment is the .sm rule down its left edge */
+.page-stream .item { position:relative; display:grid; grid-template-columns:minmax(0,1fr); padding:10px 16px 11px; background:var(--panel); border-bottom:1px solid var(--rule);
+  text-decoration:none; color:var(--ink); }
+.page-stream .item:hover { background:var(--ground); }
+.page-stream .item:hover .t { text-decoration:underline; text-underline-offset:3px; }
+.page-stream .item .t { font-size:16px; font-weight:500; line-height:1.45; overflow-wrap:anywhere; }
+.page-stream .tag { display:inline-flex; align-items:center; gap:4px; color:var(--ink); }
+.page-stream .item .cat { font-size:13px; font-weight:700; color:var(--ink); line-height:1.35; margin-bottom:2px; }
+.page-stream .item .ai-orig { margin-top:2px; }
+.page-stream .item .why { font-size:13px; color:var(--muted); margin-top:3px; overflow-wrap:anywhere; }
+.page-stream .item .why b { font-family:var(--num); font-variant-numeric:tabular-nums; color:var(--ink); font-weight:700; margin-right:4px; }
+.page-stream .meta { display:flex; flex-wrap:wrap; align-items:center; gap:4px 14px; margin-top:4px; font-size:13px; color:var(--muted); }
+.page-stream .meta .num { font-size:.875rem; font-weight:500; color:var(--muted); }
+.page-stream .empty { padding:40px 16px; color:var(--muted); text-align:left; }
+
+@media (min-width:960px) {
+  .page-stream .wrap { display:grid; grid-template-columns:240px minmax(0,1fr) 260px; gap:0 24px; padding:0 var(--gutter); }
+  .page-stream .side, .page-stream .summary { display:block; position:sticky; top:var(--bar-h); align-self:start; max-height:calc(100vh - var(--bar-h)); overflow:auto; padding:16px 0; }
+  .page-stream main { min-height:calc(100vh - var(--bar-h)); }
+  .page-stream .panel { position:sticky; top:var(--bar-h); z-index:4; }
+  .page-stream .legend { display:none; }
+}
+
+/* the desktop stream list: ruled cells, the current stream ink-filled; under each name the day's sentiment shares */
+.page-stream .stream { display:block; width:100%; text-align:left; padding:10px 12px; border:1px solid var(--rule); margin-bottom:-1px;
+  background:var(--panel); text-decoration:none; color:var(--ink); }
+.page-stream .stream:hover { background:var(--ground); }
+/* the current stream: fill only, the shared rules stay; its neutral share (ink) turns --rule so it shows on the fill */
+.page-stream .stream[aria-current="page"] { position:relative; background:var(--ink); color:var(--panel); --sent-neu:var(--rule); }
+.page-stream .stream[aria-current="page"] .sub, .page-stream .stream[aria-current="page"] .num { color:var(--rule); }
+.page-stream .stream .n { display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+.page-stream .stream .name { font-weight:700; font-size:15px; }
+.page-stream .stream .sub { display:block; color:var(--muted); font-size:13px; }
+.page-stream .stream .num { color:var(--muted); font-size:13px; }
+.page-stream .split { display:flex; height:6px; overflow:hidden; margin-top:8px; background:var(--rule); }
+.page-stream .split i { display:block; height:100%; }
+.page-stream .side h2, .page-stream .summary h2 { display:flex; align-items:center; gap:6px; font-size:14px; font-weight:700; color:var(--ink); margin:20px 0 8px; }
+.page-stream .side h2:first-child, .page-stream .summary h2:first-child { margin-top:0; }
+.page-stream .side .chips { margin-top:6px; }
+
+/* 摘要: ruled key/value rows on a sheet */
+.page-stream .summary .kv { display:flex; justify-content:space-between; align-items:center; gap:8px; min-height:36px; padding:4px 12px; font-size:14px;
+  background:var(--panel); border-bottom:1px solid var(--rule); }
+.page-stream .kv span:first-child { display:flex; align-items:center; gap:8px; min-width:0; overflow-wrap:anywhere; }
+.page-stream .kv .num { color:var(--ink); font-weight:600; }
+/* the selection-bias note at the foot of the 摘要 column */
+.page-stream .summary .bias-note { margin:16px 0 4px; font-size:13px; }

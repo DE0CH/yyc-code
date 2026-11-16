@@ -1,0 +1,15 @@
+# The new cluster's databases (DESIGN 15.3, 15.8; spec-platform 11, 25.4): YYC AI's Cluster magpie-pg (decision 2) with
+# its backups, and db/pg-shared, the cluster-local name of the old cluster's Cluster pg (bridge B3) until T5 moves pg
+# here. Applied by the new cluster's own workflow (the Talos session's), never by yyc-ai.yml. Its Secrets: ./sealed/,
+# sealed with infra/sealed-secrets-talos.pem (infra/seal.py picks the cert by folder). Namespace db: the cluster's.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - magpie-pg.yaml
+  - pg-dump-magpie.yaml
+  - heartbeat.yaml
+  - restore-test.yaml
+  - offsite-copy.yaml
+  - dump-load-test.yaml
+  - pg-shared.yaml
+  - sealed

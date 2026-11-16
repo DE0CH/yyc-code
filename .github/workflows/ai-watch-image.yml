@@ -1,0 +1,76 @@
+# Builds the YYC AI watch image (ai-watch/Dockerfile) on every push touching ai-watch/ (not its deploy/) and pins its tag
+# in ai-watch/deploy/kustomization.yaml; Flux on the YYC cluster rolls it out (ai-watch/README.md). CI only builds and
+# commits the pin: it never touches the cluster. Never force-pushes: on a race it re-applies the pin onto the newest
+# main and pushes again.
+name: ai-watch-image
+on:
+  push:
+    branches: [main]
+    paths:
+      - ai-watch/**
+      - '!ai-watch/deploy/**'
+      - '!ai-watch/**.md'
+      - .github/workflows/ai-watch-image.yml
+  workflow_dispatch:
+concurrency:
+  group: ai-watch-image
+  cancel-in-progress: false
+permissions:
+  contents: write
+  packages: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      IMAGE: ghcr.io/de0ch/yyc-ai-watch
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        run: S=$(git rev-parse HEAD); echo "tag=${S::12}" >> "$GITHUB_OUTPUT"; echo "sha=$S" >> "$GITHUB_OUTPUT"
+      - uses: docker/build-push-action@v6
+        with:
+          context: ai-watch
+          file: ai-watch/Dockerfile
+          push: true
+          build-args: GIT_SHA=${{ steps.meta.outputs.sha }}
+          tags: |
+            ${{ env.IMAGE }}:${{ steps.meta.outputs.tag }}
+            ${{ env.IMAGE }}:latest
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ steps.meta.outputs.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: smoke test
+        run: |
+          docker run --rm "$IMAGE:${{ steps.meta.outputs.tag }}" python -c "import aiwatch.web, aiwatch.worker, aiwatch.engines, aiwatch.pipeline, aiwatch.login; print('imports ok')"
+          docker run --rm "$IMAGE:${{ steps.meta.outputs.tag }}" /opt/chrome/chrome --version
+          # the browser starts headed under Xvfb as the worker runs it
+          docker run --rm "$IMAGE:${{ steps.meta.outputs.tag }}" sh -c 'Xvfb :99 -screen 0 1280x800x24 >/dev/null 2>&1 & sleep 1; DISPLAY=:99 python -m aiwatch.smoke'
+      - name: pin the tag for Flux
+        run: |
+          set -e
+          TAG="${{ steps.meta.outputs.tag }}"
+          git config user.name "ai-watch-image bot"; git config user.email "actions@users.noreply.github.com"
+          F=ai-watch/deploy/kustomization.yaml
+          for attempt in 1 2 3 4 5 6; do
+            git fetch -q origin main && git reset -q --hard origin/main
+            # never move the pin backwards: a newer build may have pinned already
+            CUR=$(sed -n 's/^ *newTag: *//p' "$F" | tr -d "'\"")
+            if [ "$CUR" != unset ] && git cat-file -e "$CUR^{commit}" 2>/dev/null && git merge-base --is-ancestor "${{ steps.meta.outputs.sha }}" "$CUR" && [ "$CUR" != "$TAG" ]; then
+              echo "main already pins $CUR, newer than $TAG"; exit 0
+            fi
+            sed -i "s/^\( *newTag:\).*/\1 '$TAG'/" "$F"
+            git add "$F"
+            git diff --cached --quiet && { echo "already pinned"; exit 0; }
+            git commit -q -m "ai-watch: pin image $TAG [skip ci]"
+            git push -q origin HEAD:main && exit 0
+            sleep $((attempt * 3))
+          done
+          exit 1

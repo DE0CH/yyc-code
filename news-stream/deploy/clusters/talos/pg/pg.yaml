@@ -1,0 +1,179 @@
+# YYC's main Postgres on yyc-talos (step T5 of the Talos move; plan yyc-ai/refactor/talos-apps-move.md, "Postgres"):
+# CloudNativePG Cluster `pg` in namespace db, highly available (decision 16: under EUR 20 a month), first a REPLICA
+# CLUSTER of the old cluster's Cluster pg, then promoted by a controlled switchover (CloudNativePG's distributed
+# topology: the old primary is demoted first and hands over a demotion token, so no committed transaction is lost and
+# the move can be reversed the same way). NOT APPLIED YET: the builder's cluster workflow applies this folder from T5.
+#
+# Databases (all of the old Cluster pg, copied physically): app (the news stream), aiwatch, mcp, jfs_yyc_ai (JuiceFS
+# metadata of volume yyc-ai), hermit, egress, tools (YYC AI's new stack, from A1); jarvis and cloudcli are dropped at A6,
+# before T5. magpie-pg (../db/magpie-pg.yaml) is YYC AI's own and separate.
+#
+# HA: three instances, one primary and two synchronous standbys (`any 1`, dataDurability required: a commit waits for
+# one standby, so with one standby down or re-cloning the other still confirms writes; failoverQuorum: a failover
+# promotes only a standby shown to hold every confirmed commit; as magpie-pg).
+# A failover promotes the standby (measured on this cluster 2026-11-05 with a test Cluster: primary pod force-deleted,
+# writes failed for 22 s, no acknowledged write lost; a planned switchover: 6.6 s). Planned restarts (operator or
+# minor upgrade, a node upgrade) switch over first (primaryUpdateMethod switchover).
+#
+# Placement: each instance alone on a dedicated x86 8 GB node in fsn1 (label pool=db, taint dedicated=db:NoSchedule,
+# ../node-patches/db.yaml): db2 (the old db-worker1, public IPv6), db1 (public IPv6) and db3 (no public IP: role
+# db-private, out through yyc-nat1).
+# fsn1 for both: a synchronous commit waits on the round trip between them, kept inside one location.
+# Volumes: 100 Gi yyc-block each (the old instance's size; 25.9 GB used on 2026-11-05, about 0.7-1 GB more a day;
+# expandable), EUR 6.864 a month each with VAT (Hetzner /v1/pricing 2026-11-05: EUR 0.0572/GB net, 0.06864 gross).
+#
+# Backups: the WAL archive and a weekly base backup (14 days kept) to bucket yyc-pg-pitr under server name pg-talos (ObjectStore
+# pg-archive below; the old cluster's are under pg, so both run side by side during T5 without touching each other);
+# the daily locked pg_dump: ./pg-dump-daily.yaml. Instances' parameters equal the old Cluster's (a physical standby
+# needs max_connections, max_worker_processes, max_wal_senders, max_locks_per_transaction at least the primary's).
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: pg-archive
+  namespace: db
+spec:
+  retentionPolicy: "14d"   # Deyao, 2026-11-09: point-in-time restore to any moment of the last 14 days
+  configuration:
+    destinationPath: s3://yyc-pg-pitr/
+    endpointURL: https://fsn1.your-objectstorage.com
+    s3Credentials:
+      accessKeyId: {name: pg-backup-s3, key: ACCESS_KEY_ID}
+      secretAccessKey: {name: pg-backup-s3, key: ACCESS_SECRET_KEY}
+    wal: {compression: gzip, maxParallel: 4}
+    data: {compression: gzip, jobs: 2}
+  instanceSidecarConfiguration:
+    env:
+      - {name: AWS_REQUEST_CHECKSUM_CALCULATION, value: when_required}
+      - {name: AWS_RESPONSE_CHECKSUM_VALIDATION, value: when_required}
+    resources:
+      requests: {cpu: 50m, memory: 128Mi}
+      limits: {memory: 512Mi}   # the old Cluster's (about 65 GB of WAL a day at peak; magpie-pg's pg-pitr has 128Mi)
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: pg
+  namespace: db
+spec:
+  # 3 (Deyao, 2026-11-09: the industry standard, one copy per database node): yyc-talos-db1, -db2 and -db3, cpx42
+  # (16 GB) each (Deyao, 2026-11-09: the data tools' queries need the posts table in memory)
+  instances: 3
+  imageName: ghcr.io/cloudnative-pg/postgresql:17.11-standard-trixie   # the old Cluster's image, exactly
+  # supervised: a change that restarts the copies restarts the standbys and then waits; the primary moves only through
+  # db/switchover.sh, which fences writes first so the apps can safely run cut work again (Deyao, 2026-11-09: zero
+  # downtime), never through the operator's own unfenced switchover
+  primaryUpdateStrategy: supervised
+  primaryUpdateMethod: switchover
+  enableSuperuserAccess: false
+  enablePDB: true
+  priorityClassName: serving
+  storage:
+    storageClass: yyc-block
+    size: 100Gi
+  resources:   # a cpx42 node: 15106 Mi allocatable, the rest of the node's pods and the barman sidecar under 200 Mi
+    requests: {cpu: "2", memory: 13Gi}
+    limits: {memory: 13Gi}
+  affinity:
+    podAntiAffinityType: required
+    topologyKey: kubernetes.io/hostname
+    nodeSelector: {pool: db, kubernetes.io/arch: amd64}
+    tolerations: [{key: dedicated, operator: Equal, value: db, effect: NoSchedule}]
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms: [{matchExpressions: [{key: topology.kubernetes.io/region, operator: In, values: [fsn1]}]}]
+  postgresql:
+    synchronous: {method: any, number: 1, dataDurability: required, failoverQuorum: true}
+    parameters:   # = news-stream/deploy/db/postgres.yaml (the reasons are there)
+      max_connections: "300"
+      shared_buffers: 4GB          # about 30 % of the 13 Gi; the page cache holds the posts rows and indexes
+      effective_cache_size: 10GB
+      work_mem: 16MB
+      maintenance_work_mem: 1GB
+      max_wal_size: 16GB
+      checkpoint_timeout: 30min
+      bgwriter_lru_maxpages: "400"
+      bgwriter_lru_multiplier: "4"
+      track_io_timing: "on"
+      track_wal_io_timing: "on"
+      jit: "off"
+      log_lock_waits: "on"
+      wal_compression: zstd
+      random_page_cost: "1.1"
+      effective_io_concurrency: "200"
+      idle_in_transaction_session_timeout: 30min
+      tcp_keepalives_idle: "60"
+      tcp_keepalives_interval: "10"
+      tcp_keepalives_count: "6"
+      max_logical_replication_workers: "12"
+      max_worker_processes: "20"
+      pg_stat_statements.max: "5000"
+      pg_stat_statements.track: top
+    shared_preload_libraries: [pg_stat_statements]
+  # the distributed topology (CloudNativePG "Replica clusters"): this cluster is pg-talos, the old one pg-k3s. Until T5
+  # pg-k3s is the primary and this cluster follows it (streaming through the old pg-hosts NodePort, the WAL archive as
+  # the fallback). T5's switchover: the old Cluster gets `replica.primary: pg-talos` (../../hetzner/move-to-talos/
+  # pg-topology.yaml), its status shows a demotionToken, and this one gets `primary: pg-talos` and
+  # `promotionToken: <that token>` (pg-switch.sh does the four steps and checks each).
+  # Promoted 2026-11-07 13:04 UTC (the old Cluster's demotion token below). The way back until T6: the old Cluster
+  # `primary: pg-k3s` with this cluster's demotion token, and this one `primary: pg-k3s`.
+  replica:
+    self: pg-talos
+    primary: pg-talos
+    source: pg-k3s
+    promotionToken: "eyJsYXRlc3RDaGVja3BvaW50VGltZWxpbmVJRCI6IjEiLCJyZWRvV2FsRmlsZSI6IjAwMDAwMDAxMDAwMDAwOTAwMDAwMDBFMiIsImRhdGFiYXNlU3lzdGVtSWRlbnRpZmllciI6Ijc3MDExNTg0ODA1MDI2NjkzMzMiLCJsYXRlc3RDaGVja3BvaW50UkVET0xvY2F0aW9uIjoiOTAvRTIwMDAwMjgiLCJ0aW1lT2ZMYXRlc3RDaGVja3BvaW50IjoiU2F0IE5vdiAgNyAxMzowNDozMCAyMDI2Iiwib3BlcmF0b3JWZXJzaW9uIjoiMS4zMC4xIn0="
+  externalClusters:
+    - name: pg-k3s
+      # the old primary through pg-hosts (NodePort 30432, externalTrafficPolicy Local, on yyc-pool-db-worker1); the
+      # old pg-ingress admits 5432 from 10.0.0.0/16 from A1 (DESIGN 15.5 B3). verify-ca: the old server certificate's
+      # names are the old Services', not this address. streaming_replica authenticates by its client certificate, a
+      # copy of the old cluster's Secrets db/pg-replication and db/pg-ca (./sealed/, plan "Secrets")
+      connectionParameters: {host: 10.0.0.2, port: "30432", user: streaming_replica, dbname: postgres, sslmode: verify-ca}
+      sslKey: {name: pg-k3s-replication, key: tls.key}
+      sslCert: {name: pg-k3s-replication, key: tls.crt}
+      sslRootCert: {name: pg-k3s-ca, key: ca.crt}
+      plugin:
+        name: barman-cloud.cloudnative-pg.io
+        parameters: {barmanObjectName: pg-archive, serverName: pg}
+    - name: pg-talos
+      plugin:
+        name: barman-cloud.cloudnative-pg.io
+        parameters: {barmanObjectName: pg-archive, serverName: pg-talos}
+  bootstrap:
+    # a streamed copy of the old primary (26 GB over network yyc; at night: the copy reads the whole volume)
+    pg_basebackup: {source: pg-k3s}
+  managed:
+    # = the old Cluster's roles at T5 (jarvis and cloudcli gone at A6; hermit, egress, tools from A1). Not reconciled
+    # while this is a replica cluster; from promotion the operator sets each password from its Secret, which holds the
+    # same store value as on the old cluster. The by-hand role settings (yyc_edge, yyc_readonly: read-only, 30 s
+    # statement_timeout) are in the data and come with the copy.
+    roles:
+      - {name: app, login: true, ensure: present, passwordSecret: {name: pg-role-app}}
+      - {name: yyc_edge, login: true, ensure: present, passwordSecret: {name: pg-role-edge}}
+      - {name: yyc_readonly, login: true, ensure: present, passwordSecret: {name: pg-role-readonly}}
+      - {name: yyc_mcp, login: true, ensure: present, passwordSecret: {name: pg-role-mcp}}
+      - {name: juicefs, login: true, ensure: present, passwordSecret: {name: pg-role-juicefs}}
+      - {name: aiwatch, login: true, ensure: present, passwordSecret: {name: pg-role-aiwatch}}
+      - {name: hermit, login: true, ensure: present, passwordSecret: {name: pg-role-hermit}}
+      - {name: egress, login: true, ensure: present, passwordSecret: {name: pg-role-egress}}
+      - {name: tools, login: true, ensure: present, passwordSecret: {name: pg-role-tools}}
+      - {name: feishu_index, login: true, ensure: present, passwordSecret: {name: pg-role-feishu-index}}   # feishu-index (2026-11-11; ./feishu-index-db.yaml)
+  plugins:
+    - name: barman-cloud.cloudnative-pg.io
+      isWALArchiver: true
+      parameters: {barmanObjectName: pg-archive, serverName: pg-talos}
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: pg-weekly
+  namespace: db
+spec:
+  # weekly (Deyao, 2026-11-09: a base backup a week plus the continuous WAL archive, 14 days kept; a restore replays
+  # up to 7 days of WAL): Sunday 03:00 HKT (seconds field first; Saturday 19:00 UTC)
+  schedule: "0 0 19 * * 6"
+  backupOwnerReference: self
+  cluster: {name: pg}
+  method: plugin
+  pluginConfiguration: {name: barman-cloud.cloudnative-pg.io}
+  target: prefer-standby
+  immediate: true

@@ -1,0 +1,158 @@
+# The YYC apps on yyc-talos (step T4 of the Talos move; plan: yyc-ai/refactor/talos-apps-move.md): the news stream
+# (namespace yyc) and the mail merge (namespace mailmerge), as the old cluster's base ../../../apps, with what Talos
+# changes. NOT APPLIED YET: no workflow reads this folder until the plan's step P3 (yyc-apps.yml, identity gha:yyc-apps,
+# ../apps-access.yaml). Its Secrets: ./sealed/ (infra/seal.py picks infra/sealed-secrets-talos.pem for this folder).
+#
+# What differs from the old cluster, and why:
+# - every pod requires kubernetes.io/arch=amd64 and pool=news: every image here is built for amd64 only (GHCR manifests
+#   2026-11-05: yyc-news-stream, yyc-mcp, mailmerge, yyc-socks), the news stream's Chrome is Google Chrome stable (no
+#   Linux arm64 build) and yyc-talos-w1..3 are cax21 (arm64). The pool=news nodes are the old cx23/cpx32 servers rebuilt
+#   into Talos (x86, fsn1, where the volumes are; ../node-patches/news.yaml); pool=news keeps these pods off YYC AI's
+#   x86 gateway node and keeps YYC AI (pool=apps) off them.
+# - Namespaces, PriorityClasses and the monitor's ClusterRole are cluster-level on this cluster (../apps-access.yaml,
+#   ../priorityclasses.yaml, ../yyc-ai-access.yaml): never in an app folder's render.
+# - the socks pool (namespace egress) is the Talos plumbing's own (another session builds it on this cluster with the
+#   same name socks.egress.svc.cluster.local:1080): not rendered here.
+# - Postgres: every URL in ./sealed/ names db/pg-shared (../db/pg-shared.yaml: the old cluster's pg until T5, the new
+#   pg from T5), never pg-rw (on this cluster pg-rw is the replica cluster's read-only designated primary until T5).
+#   The NetworkPolicies that name Postgres by selector get the bridge address 10.0.0.2/32:30432 as well.
+# - yyc-mcp's callers: YYC AI's tools are in namespace yyc-ai here (jarvis on the old cluster).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../../apps
+  # - sealed             # P3: the SealedSecrets, sealed for this cluster (plan, "Secrets")
+patches:
+  # cluster-level objects and the socks pool are not this folder's
+  - patch: |-
+      $patch: delete
+      apiVersion: v1
+      kind: Namespace
+      metadata: {name: yyc}
+  - patch: |-
+      $patch: delete
+      apiVersion: v1
+      kind: Namespace
+      metadata: {name: mailmerge}
+  - patch: |-
+      $patch: delete
+      apiVersion: v1
+      kind: Namespace
+      metadata: {name: egress}
+  - patch: |-
+      $patch: delete
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: RoleBinding
+      metadata: {name: sealed-secrets-applier, namespace: egress}
+  - patch: |-
+      $patch: delete
+      apiVersion: apps/v1
+      kind: DaemonSet
+      metadata: {name: socks, namespace: egress}
+  - patch: |-
+      $patch: delete
+      apiVersion: v1
+      kind: Service
+      metadata: {name: socks, namespace: egress}
+  - patch: |-
+      $patch: delete
+      apiVersion: scheduling.k8s.io/v1
+      kind: PriorityClass
+      metadata: {name: serving}
+  - patch: |-
+      $patch: delete
+      apiVersion: scheduling.k8s.io/v1
+      kind: PriorityClass
+      metadata: {name: batch}
+  - patch: |-
+      $patch: delete
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: ClusterRole
+      metadata: {name: yyc-monitor-nodes-read}
+  - patch: |-
+      $patch: delete
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: ClusterRoleBinding
+      metadata: {name: yyc-monitor-nodes-read}
+  # the monitor's read of namespace db (pods): outside this folder's namespaces, so ../apps-access.yaml's
+  - patch: |-
+      $patch: delete
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: Role
+      metadata: {name: monitor-db-read, namespace: db}
+  - patch: |-
+      $patch: delete
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: RoleBinding
+      metadata: {name: monitor-db-read, namespace: db}
+  # amd64 only (header)
+  - target: {kind: Deployment}
+    patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata: {name: any}
+      spec: {template: {spec: {nodeSelector: {kubernetes.io/arch: amd64, pool: news}}}}
+  - target: {kind: CronJob}
+    patch: |-
+      apiVersion: batch/v1
+      kind: CronJob
+      metadata: {name: any}
+      spec: {jobTemplate: {spec: {template: {spec: {nodeSelector: {kubernetes.io/arch: amd64, pool: news}}}}}}
+  # yyc-mcp's way to Postgres through db/pg-shared until T5 (the destination after the Service's translation is the old
+  # cluster's pg-hosts NodePort, outside this cluster: an ipBlock matches it under Cilium); the selector rule above it
+  # serves from T5. And to the WiseSearch relay on the old cluster until the wisers step (wisers-bridge.yaml).
+  - target: {kind: NetworkPolicy, name: yyc-mcp-egress}
+    patch: |-
+      - op: add
+        path: /spec/egress/-
+        value: {to: [{ipBlock: {cidr: 10.0.0.2/32}}], ports: [{port: 30432, protocol: TCP}]}
+      - op: add
+        path: /spec/egress/-
+        value: {to: [{ipBlock: {cidr: 10.0.0.2/32}}, {ipBlock: {cidr: 10.0.0.3/32}}], ports: [{port: 30899, protocol: TCP}]}
+  # the WiseSearch relay reads app as yyc_readonly: through db/pg-shared here, as every URL in ./sealed/
+  - target: {kind: Deployment, name: wisers}
+    patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata: {name: wisers}
+      spec: {template: {spec: {containers: [{name: wisers, env: [{name: WISERS_PG_HOST, value: pg-shared.db.svc.cluster.local}]}]}}}
+  # the monitor's YYC AI snapshot: hermit in this cluster (DESIGN 15.5 B4 ends with the monitor's move: YYC AI's
+  # commit of that step admits namespace yyc's app=monitor in hermit-in and removes the bridge)
+  - target: {kind: Deployment, name: monitor}
+    patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata: {name: monitor}
+      spec: {template: {spec: {containers: [{name: monitor, env: [{name: HERMIT_OPS_URL, value: "http://hermit.yyc-ai.svc.cluster.local/ops/snapshot?tz=Asia/Hong_Kong"}]}]}}}
+  # MIGRATION STATE (../../../MIGRATE.md; plan T4): what does not run here yet. Each step of the plan deletes its lines.
+  # 1. nothing runs until its step (mailmerge: runs here since T4a)
+  - target: {kind: Deployment, namespace: yyc}
+    patch: |-
+      - {op: replace, path: /spec/replicas, value: 0}
+  - target: {kind: CronJob}
+    patch: |-
+      - {op: replace, path: /spec/suspend, value: true}
+  #    T4b-jobs: the CronJobs run here (backfill, broadcast and comments keep apps/'s suspend)
+  - target: {kind: CronJob, name: "^(browser|cache|facebook|forums|forums-browser|fulltext|instagram|lihkg|mcp-cleanup|paywall|replies|reports|sites|sites-browser|tikhub|uptime|watch)$"}
+    patch: |-
+      - {op: replace, path: /spec/suspend, value: false}
+  #    T4b-prep: flagd runs here
+  - target: {kind: Deployment, name: flagd}
+    patch: |-
+      - {op: replace, path: /spec/replicas, value: 2}
+  #    T4b-serving: web and yyc-mcp run here
+  - target: {kind: Deployment, name: web}
+    patch: |-
+      - {op: replace, path: /spec/replicas, value: 2}
+  - target: {kind: Deployment, name: yyc-mcp}
+    patch: |-
+      - {op: replace, path: /spec/replicas, value: 2}
+  #    T4b-singletons: they start here and wait on their Postgres locks (tiktok-videos: row leases) until the old ones
+  #    stop; the monitor has no lock (both run for a minute while it moves)
+  - target: {kind: Deployment, name: "^(poller|whatsapp|transcribe|tiktok-videos|monitor|wisers)$"}
+    patch: |-
+      - {op: replace, path: /spec/replicas, value: 1}
+  #    T4b-serving: tunnel yyc-stream's connectors here too (every route answers on both clusters meanwhile)
+  - target: {kind: Deployment, name: cloudflared, namespace: yyc}
+    patch: |-
+      - {op: replace, path: /spec/replicas, value: 2}

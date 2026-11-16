@@ -1,0 +1,16 @@
+# SealedSecret made by infra/seal.py from the store `yyc` (map: infra/secrets.txt). Don't edit: re-seal.
+# cert: infra/sealed-secrets-talos.pem sha256:81f61330757d262c
+---
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: isp-proxy
+  namespace: yyc
+spec:
+  encryptedData:
+    ISP_PROXY: AgBb6JD7hrz6c0b8crlJPbQRP9QRZXKkGkntyulTIFEi64IzluasCq6kBTr3uEhekLefOAQgc3DMJfzi6SV0DKe2B2t7BJl2LllhQVaiT09+293vNhulVy3leMwDy1nIDzBii8qf4oaGlbuwz0oEheDB00vUekQJX5jKVdWAF8JPUBLT0d2tOnQhKuq96r1Q31zj8j457U+DH2YwLAsrQJAA7KTvG2M7cGKevhsBCU76vkmvMk6590lKchNQmSgqGJLN9RoeBU+cE8mwCMTyW6k5DSQr9Xsrf2oD3oGwJ14+xK3s0BKmXLhtlhNn9sJFFh5iy+a5U/JYegfB+5CamKqGjJHRyS8tm4l4sNxTgoTMngADyHwETKZrgBFUmciiP37ec7SbET/UCdHnr3ucD1wt3GI8BPVvJ3bscZGoEOPv6cR4/52lD7qFvNrVi/LAXpuZf6EkI3Kgg0DVwnKJ3PdibYw1V+A3kkgglLnuP9/fHWZIbr4ueqbq+0ZskxBP7tFui2lmkD6PIjF+HdYN0FFTMO34mJKrTuGb9h7u1jblxRbGBsn/36kJ+I5K4xW568fD3AY6MSpVq+gETob3/TfK7YqRTAlFBRTtRLQKX5GPB941OXa/E67WfxQ3nexXIIoCJfVCkBXk86nk6yWC42S8XCnZ/YBUoDhSHKKMwAthO2++RkS/61ynxShmcRkU/VM1O38QI5blwv/huCuhxQfnZE5X0zS86GI51CGEKJQt7ZgmeYP4jb6ID5K2Wf58PJBhz1Q=
+  template:
+    metadata:
+      name: isp-proxy
+      namespace: yyc
+    type: Opaque

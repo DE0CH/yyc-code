@@ -1,0 +1,38 @@
+# Tests and deploys the name-tag app's Worker (nametags/worker: Worker yyc-nametags with its Durable Object Store, on
+# YYC's own Cloudflare account) on every push touching it. A Worker deploy is atomic: requests in flight finish on the
+# old version, new ones get the new one. Its route and Access app are in news-stream/deploy/cloudflare/tofu/nametags.tf.
+# Secrets: YYC_CF_API_TOKEN (token yyc-edge: YYC's account only) and YYC_CF_ACCOUNT_ID.
+name: nametags-worker
+on:
+  push:
+    branches: [main]
+    paths:
+      - nametags/worker/**
+      - .github/workflows/nametags-worker.yml
+  workflow_dispatch:
+concurrency:
+  group: nametags-worker
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: nametags/worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm test
+      - run: npx --yes wrangler@4.151.0 deploy --dry-run --outdir /tmp/bundle
+      - name: deploy
+        if: github.ref == 'refs/heads/main'
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then echo "::warning::YYC_CF_API_TOKEN is not set on the repo: not deployed"; exit 0; fi
+          npx --yes wrangler@4.151.0 deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.YYC_CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.YYC_CF_ACCOUNT_ID }}

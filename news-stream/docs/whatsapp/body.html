@@ -1,0 +1,221 @@
+<section id="summary">
+<h2><span class="n">1</span>Summary</h2>
+<ul class="facts">
+<li><b>Official route (Meta's Cloud API):</b> every alert to a Hong Kong number outside a 24-hour window the reader opened is a paid template message: USD 0.026 as a utility template, USD 0.0732 as a marketing template ⟦meta-rates⟧ ⟦meta-pricing⟧. Since 1 October 2026 the free messages inside a reader-opened window are also charged after 1,000 per number per month ⟦meta-pricing⟧.</li>
+<li><b>Cost at YYC's measured volume</b> (486 filed items on 15 Oct across the 8 streams with a Telegram channel ⟦yyc-volume⟧), one WhatsApp message per item as on Telegram: USD 3,790.80/month for 10 readers of every stream and USD 18,201.30/month for 50, at Meta's utility rate (Claude's calculation from Meta's rates; section 5).</li>
+<li><b>Official groups</b> (Groups API) hold at most 8 people, need an Official Business Account (blue tick), and bill each delivered member as one message ⟦meta-groups⟧ ⟦meta-groups-pricing⟧. They cost the same as one-to-one messages.</li>
+<li><b>WhatsApp Channels</b> (the Telegram-channel analogue) have no posting endpoint in Meta's Cloud API ⟦wapito⟧, and every channel is public: "It's not possible to create a private channel." ⟦faq-ch-admin-privacy⟧</li>
+<li><b>Unofficial route</b> (a linked WhatsApp account driven by Baileys, whatsmeow, whatsapp-web.js or a hosted wrapper) posts into ordinary groups of up to 1,024 members ⟦faq-groupsize⟧ for a flat USD 0 to 40/month ⟦whapi⟧ ⟦maytapi⟧ ⟦greenapi⟧, with no per-message charge. WhatsApp's Terms forbid automated messaging and non-personal use ⟦wa-tos⟧, and its Help Center says linked unofficial clients can be temporarily or permanently banned ⟦faq-unofficial⟧.</li>
+<li><b>K-Matrix today</b> posts its alerts into three ordinary WhatsApp groups from a plain +852 mobile number, all 201 archived alerts from that one sender ⟦yyc-kmatrix⟧.</li>
+</ul>
+
+<div class="decide">
+<h3>Decisions for Deyao</h3>
+<ol>
+<li><b>Official or unofficial.</b> Official: Meta's per-message charges (USD 473.85 to 18,201.30 a month in the scenarios below), a YYC Meta business portfolio, business verification with YYC's documents, opt-in records. Unofficial: a flat fee or nothing, ordinary groups like K-Matrix's, but against WhatsApp's Terms with a ban risk on the sending number.</li>
+<li><b>Delivery shape.</b> One group per stream (readers join by invite link; works on both routes, up to 8 people per group on the official route) or per-reader subscriptions (a reader messages the YYC number and picks streams; official route only in practice).</li>
+<li><b>One message per item, or batches.</b> Telegram sends one message per item. On the official route cost scales with message count; sending one message per stream per half hour cuts 486 messages a day to 159 (15 Oct) (Claude's count; section 5).</li>
+<li><b>The sending number.</b> A new number used only for this: a Hong Kong SIM must be real-name registered ⟦ofca⟧; on the official route the number stops working in the normal WhatsApp app ⟦meta-phone⟧.</li>
+<li><b>Who receives it.</b> Staff only, or clients too. Clients raise the opt-in requirement ⟦meta-optin⟧ and, on the unofficial route, put a ban on YYC's client-facing number in front of clients (Claude's inference).</li>
+</ol>
+</div>
+</section>
+
+<section id="today">
+<h2><span class="n">2</span>What YYC sends today, and how much</h2>
+<p>Each stream posts every filed item to its own private Telegram channel as one message: a sentiment mark, the headline, the source, and a 詳情 link to the item page; a sent message is never deleted or edited ⟦yyc-telegram⟧.</p>
+<p>Items filed per stream (by the time each post was first seen, Hong Kong time) ⟦yyc-volume⟧:</p>
+<div class="vol">
+<div class="v"><span class="k">CEHK</span><span class="d">312 · 317 · 157 · <b>132</b></span></div>
+<div class="v"><span class="k">WFC 宏福苑</span><span class="d">35 · 20 · 36 · <b>90</b></span></div>
+<div class="v"><span class="k">FSHK</span><span class="d">52 · 50 · 82 · <b>88</b></span></div>
+<div class="v"><span class="k">ECE 選委選舉</span><span class="d">0 · 0 · 41 · <b>50</b></span></div>
+<div class="v"><span class="k">Galbot 香港</span><span class="d">0 · 0 · 0 · <b>41</b></span></div>
+<div class="v"><span class="k">POL 政治花絮</span><span class="d">14 · 12 · 20 · <b>29</b></span></div>
+<div class="v"><span class="k">Galbot 內地</span><span class="d">0 · 0 · 0 · <b>29</b></span></div>
+<div class="v"><span class="k">HKIC</span><span class="d">8 · 15 · 25 · <b>27</b></span></div>
+<div class="v total"><span class="k">All 8 streams</span><span class="d">421 · 414 · 361 · <b>486</b></span></div>
+</div>
+<p class="cap">12 · 13 · 14 · <b>15 October 2026</b>. 15 October is the first full day with all 8 channel streams live; the cost figures below use it. CEHK's drop from 14 October follows threshold changes; ECE and the Galbot split started on 14–15 October.</p>
+<p>Half-hour slots with at least one item on 15 October: 159 across the 8 streams (CEHK 27, WFC 30, ECE 24, FSHK 23, HKIC 18, Galbot 香港 17, POL 17, Galbot 內地 3) ⟦yyc-volume⟧.</p>
+</section>
+
+<section id="routes">
+<h2><span class="n">3</span>Every route, side by side</h2>
+<div class="cards">
+
+<article class="card">
+<header><h3>A. Meta Cloud API, one-to-one</h3><span class="tag good">official</span></header>
+<dl>
+<dt>Sends to</dt><dd>Individual WhatsApp users. A business may start a conversation only with a template message; free-form messages are allowed only inside a 24-hour window opened by the user's own message ⟦meta-pricing⟧.</dd>
+<dt>Price (HK numbers)</dt><dd>Marketing USD 0.0732, utility USD 0.026, authentication USD 0.026, service USD 0.026 per delivered message; utility drops to USD 0.0247 above 150,000 a month ⟦meta-rates⟧. Service messages: first 1,000 per business number per month free ⟦meta-pricing⟧. No platform fee.</dd>
+<dt>YYC provides</dt><dd>A Meta business portfolio and developer app ⟦meta-start⟧, a Messaging account with a payment method ⟦meta-accounts⟧, a phone number able to receive an SMS or voice call that is not in use on WhatsApp ⟦meta-phone⟧, opt-in from each reader ⟦meta-optin⟧. Business verification raises the limits ⟦meta-limits⟧.</dd>
+<dt>Limits</dt><dd>250 unique users per 24 hours outside windows for a new portfolio; 2,000 after business verification ⟦meta-limits⟧. Enough for 50 readers.</dd>
+<dt>Risks</dt><dd>Meta may re-categorise a utility template as marketing (2.8 times the price) ⟦meta-categ⟧. Quality rating: blocks and reports can rate-limit the number ⟦meta-optin⟧.</dd>
+<dt>Expense isolation</dt><dd>A Messaging account holds YYC's templates and billing details ⟦meta-accounts⟧; a YYC-only portfolio with its own payment method makes Meta's billing records YYC's alone (Claude's inference).</dd>
+</dl>
+</article>
+
+<article class="card">
+<header><h3>B. Meta Cloud API, Groups API</h3><span class="tag good">official</span></header>
+<dl>
+<dt>Sends to</dt><dd>Groups the business creates. Readers join through an invite link. At most 8 participants per group, up to 10,000 groups per business number, text and media and templates; interactive messages, edits and deletes are not supported ⟦meta-groups⟧.</dd>
+<dt>Eligibility</dt><dd>Official Business Account only ⟦meta-groups⟧. OBA needs business verification, 30 days on the platform, two-step verification and an approved display name ⟦meta-oba⟧. Not available on numbers shared with the WhatsApp Business app (Coexistence) ⟦meta-groups⟧.</dd>
+<dt>Price</dt><dd>Charged per delivered member at that member's rate: a template to a group of 5 is 5 charges ⟦meta-groups-pricing⟧. Any member's message opens a window for the whole group; since 1 October 2026 utility templates inside it are charged and non-template messages are free only within the number's 1,000-a-month free tier, one unit per delivered member ⟦meta-groups-pricing⟧.</dd>
+<dt>Fit</dt><dd>Same cost as route A per reader. 10 readers of one stream need 2 groups (Claude's arithmetic from the 8-person cap).</dd>
+<dt>Expense isolation</dt><dd>As route A.</dd>
+</dl>
+</article>
+
+<article class="card">
+<header><h3>C. A BSP on top of the Cloud API</h3><span class="tag warn">official, plus a fee</span></header>
+<dl>
+<dt>Twilio</dt><dd>USD 0.005 per message, inbound or outbound, plus Meta's fee passed through; USD 0.001 per failed message ⟦twilio⟧.</dd>
+<dt>Bird</dt><dd>Hong Kong, Meta's fee included: marketing USD 0.0782, utility USD 0.031, service USD 0.031 per message; monthly deposit plans from USD 15 ⟦bird⟧.</dd>
+<dt>360dialog</dt><dd>EUR 49 per number per month (Regular) or EUR 99 (Premium, "Business verification in 48h"), plus Meta's fees ⟦360-pricing⟧. Supports the Groups API ⟦360-groups⟧.</dd>
+<dt>Infobip</dt><dd>Hong Kong rates on its calculator: utility 3.525, marketing 10.12 (USD; Claude reads the unit as US cents per message, i.e. USD 0.0353 and USD 0.1012) ⟦infobip⟧.</dd>
+<dt>Wati</dt><dd>Hong Kong plans: Growth HKD 899/month or HKD 8,388/year, Pro HKD 2,499/month, Business HKD 7,999/month ⟦wati-plans⟧; per-message rates are shown only inside the logged-in account ⟦wati-help⟧.</dd>
+<dt>SleekFlow</dt><dd>US$49, 109 or 279 a month; WhatsApp numbers carry a separate monthly hosting fee and per-message fees ⟦sleekflow⟧.</dd>
+<dt>respond.io</dt><dd>USD 79, 159 or 279 a month ⟦respond⟧.</dd>
+<dt>Gupshup</dt><dd>Its help article (marked "NOT UPDATED", 2024) gives a Gupshup fee of USD 0.001 per message plus Meta's fee ⟦gupshup⟧.</dd>
+<dt>What they add</dt><dd>Shared inbox, broadcast UI, faster verification, Coexistence with the WhatsApp Business app (Meta offers Coexistence only through a Solution Partner or Tech Provider ⟦meta-coex⟧).</dd>
+<dt>Expense isolation</dt><dd>A YYC-only account at the BSP; its invoices show YYC's spend (Claude's inference).</dd>
+</dl>
+</article>
+
+<article class="card">
+<header><h3>D. WhatsApp Channels</h3><span class="tag bad">public only</span></header>
+<dl>
+<dt>What it is</dt><dd>One-way broadcast to an unlimited audience; followers cannot reply; followers do not see the admins' numbers ⟦faq-ch-create⟧. Up to 16 admins can be invited ⟦faq-ch-admins⟧.</dd>
+<dt>Privacy</dt><dd>"All channels are publicly accessible. It's not possible to create a private channel." Anyone can see 30 days of updates ⟦faq-ch-admin-privacy⟧. Channels are not end-to-end encrypted by default ⟦wa-blog-channels⟧.</dd>
+<dt>Posting by a bot</dt><dd>No Cloud API endpoint for channels ⟦wapito⟧. Unofficial clients can post: whatsapp-web.js lists Channels as supported ⟦wwebjs⟧, Baileys has a newsletter module ⟦baileys⟧, WAHA documents channel posting ⟦waha-ch⟧, Whapi sells a Channels API ⟦whapi⟧.</dd>
+<dt>Fit</dt><dd>YYC's monitoring of its clients would be public to anyone with the link or a directory search (Claude's inference from the public-only rule).</dd>
+</dl>
+</article>
+
+<article class="card">
+<header><h3>E. Self-hosted unofficial client</h3><span class="tag bad">against WhatsApp's Terms</span></header>
+<dl>
+<dt>Libraries</dt><dd>Baileys (WebSocket, Node; 11,346 stars; v7.0.0-rc14, 2026-07-29) ⟦baileys⟧; whatsmeow (Go; 7,584 stars) ⟦whatsmeow⟧; whatsapp-web.js (Puppeteer; 22,737 stars; v1.34.7, 2026-04-24) ⟦wwebjs⟧; WAHA (HTTP wrapper, release 2026-10-02) ⟦waha-repo⟧; Evolution API (release 2025-12-05) ⟦evolution⟧. YYC's own whatsapp-web skill already drives web.whatsapp.com for the K-Matrix watch.</dd>
+<dt>Sends to</dt><dd>Anything the app can: ordinary groups (create, invite link, add and remove members) and channels ⟦wwebjs⟧. Groups hold up to 1,024 members ⟦faq-groupsize⟧; a Community announcement group up to 2,000, with only admins posting ⟦faq-community⟧.</dd>
+<dt>Price</dt><dd>No per-message fee. Runs on the yyc cluster already billed to YYC; plus a SIM for the number.</dd>
+<dt>Risks</dt><dd>WhatsApp's Terms forbid "bulk messaging, auto-messaging" and "non-personal use" unless authorised ⟦wa-tos⟧; WhatsApp states it takes legal action against automated or bulk messaging ⟦faq-bulk⟧. Bans reported in 2025–2026 (section 6).</dd>
+<dt>Expense isolation</dt><dd>Hetzner project yyc (existing) and the SIM's own bill or receipt.</dd>
+</dl>
+</article>
+
+<article class="card">
+<header><h3>F. Hosted unofficial API</h3><span class="tag bad">against WhatsApp's Terms</span></header>
+<dl>
+<dt>Whapi.Cloud</dt><dd>USD 40/month, or USD 29/month billed annually; "Full access to Groups, Channels &amp; Webhooks", no per-message charges ⟦whapi⟧.</dd>
+<dt>Maytapi</dt><dd>USD 24 per phone per month (annual billing); groups and channels API ⟦maytapi⟧.</dd>
+<dt>GREEN-API</dt><dd>Business USD 12/month; Developer plan free, 3 chats only ⟦greenapi⟧.</dd>
+<dt>Ultramsg</dt><dd>USD 39/month ⟦ultramsg⟧.</dd>
+<dt>Wassenger</dt><dd>From EUR 39.90/month; Meta template costs billed separately ⟦wassenger⟧.</dd>
+<dt>What they add</dt><dd>They host the linked session; YYC still provides the number and scans the QR (Claude's inference from the linked-device model).</dd>
+<dt>Expense isolation</dt><dd>A YYC-only subscription; the provider's invoice.</dd>
+</dl>
+</article>
+
+<article class="card">
+<header><h3>G. WhatsApp Business app, by hand</h3><span class="tag warn">manual</span></header>
+<dl>
+<dt>Sends to</dt><dd>Broadcast lists reach only contacts who saved the business number ⟦faq-broadcast⟧; groups up to 1,024 ⟦faq-groupsize⟧.</dd>
+<dt>Price</dt><dd>Meta's API charges do not apply to the free Business app ⟦udhk⟧.</dd>
+<dt>Fit</dt><dd>A person posts each of 486 items a day by hand (Claude's inference); automating the app is route E.</dd>
+</dl>
+</article>
+</div>
+</section>
+
+<section id="meta">
+<h2><span class="n">4</span>Meta's rules that decide the official route</h2>
+<h3>The 24-hour window and templates</h3>
+<ul>
+<li>Non-template messages "can only be sent in an open 24-hour customer service window, which opens and resets with each user message"; template messages can be delivered at any time ⟦meta-pricing⟧.</li>
+<li>Meta charges per delivered message, by category and by the recipient's country code ⟦meta-pricing⟧.</li>
+<li>From 1 October 2026: "Meta provides every business phone number with a free tier of 1,000 service messages per month"; charges start at the 1,001st ⟦meta-pricing⟧. Before that date service messages and utility templates inside the window were free ⟦udhk⟧.</li>
+<li>Hong Kong became a standalone market on 1 July 2026; its utility and authentication rate went from USD 0.0113 to USD 0.026 ⟦whatools-q3⟧.</li>
+<li>Free entry point: when a user messages from a Click-to-WhatsApp ad or a Facebook Page button, all messages in that window are free; "The FEP window may remain open for up to 7 days." ⟦meta-pricing⟧ (Meta's marketing page still says 72 hours ⟦meta-rates⟧.)</li>
+</ul>
+<h3>Is a news alert utility or marketing?</h3>
+<ul>
+<li>Utility must be "non-promotional" and "either specific to or requested by the user ... OR essential or critical to the user" ⟦meta-categ⟧.</li>
+<li>Meta's utility example "Account Alerts or Updates": "important or time-sensitive updates or alerts or other information specific to purchased or subscribed products/services" ⟦meta-categ⟧.</li>
+<li>Meta's marketing example "Awareness": "Generate awareness of your business, products, or services among customers who have subscribed" ⟦meta-categ⟧.</li>
+<li>Since 9 April 2025 a template submitted as utility that Meta judges to be marketing is approved as marketing ⟦meta-categ⟧.</li>
+<li>Claude's inference: a monitoring alert a reader subscribed to fits "alerts ... specific to subscribed services"; Meta decides at review, so the marketing rate is the upper bound.</li>
+</ul>
+<h3>Account, number and verification</h3>
+<ul>
+<li>A Cloud API number "cannot be used with WhatsApp Messenger"; a number already on WhatsApp must be deleted there first; it must have a country and area code and receive SMS or voice calls; landlines are listed but marked "Not Recommended" ⟦meta-phone⟧.</li>
+<li>New portfolios can register 2 numbers; 20 after verification ⟦meta-phone⟧.</li>
+<li>Business verification uploads official documents proving the business is registered; the accepted list is per country ⟦360-bv⟧.</li>
+<li>Without a payment method, Meta stops delivering service messages after the free tier ⟦meta-pricing⟧.</li>
+<li>Opt-in must name the business and say what the person is opting in to; website, SMS, phone and paper are accepted methods ⟦meta-optin⟧.</li>
+<li>Business Messaging Policy: "Organizations that primarily publish news content must be registered as a News Page through Facebook." ⟦wa-policy⟧ Claude's inference: YYC is a PR consultancy, not primarily a news publisher, but its alerts are news content.</li>
+</ul>
+<h3>Format and receipts</h3>
+<ul>
+<li>Text messages carry a body and an optional link preview (<code>preview_url</code>) ⟦meta-text⟧. Telegram sends with previews off ⟦yyc-telegram⟧.</li>
+<li>Status webhooks report sent, delivered and read, with pricing data on delivered or read ⟦meta-groups-pricing⟧.</li>
+</ul>
+</section>
+
+<section id="cost">
+<h2><span class="n">5</span>Monthly cost at YYC's volume</h2>
+<p>Claude's calculation: messages = items a day on 15 October × 30 days × readers; Meta's Hong Kong rates ⟦meta-rates⟧ with the utility volume tier above 150,000; Twilio adds USD 0.005 a message ⟦twilio⟧; Bird charges USD 0.031 ⟦bird⟧. Unofficial routes are a flat fee whatever the count.</p>
+<div class="cards cost">
+<article class="card"><header><h3>Every stream, one message per item</h3><span class="tag">486/day per reader</span></header>
+<dl><dt>10 readers</dt><dd>145,800 msgs · utility <b>USD 3,790.80</b> · marketing USD 10,672.56 · Twilio USD 4,519.80 · Bird USD 4,519.80</dd>
+<dt>50 readers</dt><dd>729,000 msgs · utility <b>USD 18,201.30</b> · marketing USD 53,362.80 · Twilio USD 21,846.30 · Bird USD 22,599.00</dd></dl></article>
+<article class="card"><header><h3>Every stream, one message per stream per half hour</h3><span class="tag">159/day per reader</span></header>
+<dl><dt>10 readers</dt><dd>47,700 msgs · utility <b>USD 1,240.20</b> · marketing USD 3,491.64 · Twilio USD 1,478.70</dd>
+<dt>50 readers</dt><dd>238,500 msgs · utility <b>USD 6,085.95</b> · marketing USD 17,458.20 · Twilio USD 7,278.45</dd></dl></article>
+<article class="card"><header><h3>CEHK only, one message per item</h3><span class="tag">132/day per reader</span></header>
+<dl><dt>10 readers</dt><dd>39,600 msgs · utility <b>USD 1,029.60</b> · marketing USD 2,898.72</dd>
+<dt>50 readers</dt><dd>198,000 msgs · utility <b>USD 5,085.60</b> · marketing USD 14,493.60</dd></dl></article>
+<article class="card"><header><h3>One average stream per reader</h3><span class="tag">60.75/day per reader</span></header>
+<dl><dt>10 readers</dt><dd>18,225 msgs · utility <b>USD 473.85</b> · marketing USD 1,334.07</dd>
+<dt>50 readers</dt><dd>91,125 msgs · utility <b>USD 2,369.25</b> · marketing USD 6,670.35</dd></dl></article>
+<article class="card"><header><h3>Unofficial, any number of readers</h3><span class="tag">groups, flat fee</span></header>
+<dl><dt>Self-hosted</dt><dd>USD 0 on the existing cluster, plus the SIM</dd>
+<dt>Hosted</dt><dd>GREEN-API USD 12 · Maytapi USD 24 (annual) · Whapi USD 40 (USD 29 annual) · Ultramsg USD 39 · Wassenger EUR 39.90, per month ⟦greenapi⟧ ⟦maytapi⟧ ⟦whapi⟧ ⟦ultramsg⟧ ⟦wassenger⟧</dd></dl></article>
+</div>
+<p class="cap">The 1,000 free service messages a month per number change none of these figures by more than USD 26 (1,000 × USD 0.026), and only for messages inside a window a reader opened (Claude's calculation). 360dialog adds EUR 49 a month flat instead of a per-message fee ⟦360-pricing⟧.</p>
+</section>
+
+<section id="shape">
+<h2><span class="n">6</span>Delivery shape and the unofficial route's ban risk</h2>
+<h3>Group per stream vs per-reader subscription</h3>
+<ul>
+<li><b>Group per stream</b> (the Telegram shape): official route via the Groups API, 8 people per group, each member billed ⟦meta-groups⟧ ⟦meta-groups-pricing⟧; unofficial route via ordinary groups of up to 1,024 ⟦faq-groupsize⟧, one message per item whatever the group size (Claude's inference from how group messages work). An announcement-only community group lets only admins post ⟦faq-community⟧.</li>
+<li><b>Per-reader subscription</b>: a reader messages YYC's number (for example "訂閱 CEHK"); that opens a 24-hour window ⟦meta-pricing⟧ and is a record of opt-in ⟦meta-optin⟧. Every alert after the window still needs a template ⟦meta-pricing⟧. On the unofficial route, messaging people one by one is where the reported bans happen: Baileys error 463 "Reachout Timelock" on "users who haven't been contacted before" ⟦gh-2707⟧.</li>
+</ul>
+<h3>Message format (Claude's draft, Traditional Chinese)</h3>
+<pre class="msg">【CEHK】🔴👀 {標題}
+來源：{來源} · 評分 {分數}/100
+{一句理由}
+詳情：https://newswatch.yyc-internal.com/item/{id}</pre>
+<p class="cap">The same fields as Telegram ⟦yyc-telegram⟧. On the official route this is a template with variables, submitted for approval ⟦meta-categ⟧.</p>
+<h3>Ban risk on the unofficial route: the evidence</h3>
+<ul>
+<li>WhatsApp: linking an account to unofficial versions "violates our Terms of Service"; the account "might also be temporarily or permanently banned, or ... restrictions on your account, including the ability to link devices" ⟦faq-unofficial⟧.</li>
+<li>WhatsApp: "Our products are not intended for bulk or automated messaging"; it takes "legal action against individuals or companies" linked to such abuse ⟦faq-bulk⟧.</li>
+<li>whatsapp-web.js: "it is not guaranteed you will not be blocked ... WhatsApp does not allow bots or unofficial clients" ⟦wwebjs⟧. Baileys: "We discourage any stalkerware, bulk or automated messaging usage" ⟦baileys⟧.</li>
+<li>Reports: a ban after a loop of <code>sendMessage</code> to many recipients (Baileys #2850, 2026-10-07) ⟦gh-2850⟧; a 24-hour ban after about 3 messages to new contacts despite 20–35 s random delays (whatsapp-web.js #4008) ⟦gh-4008⟧; an instant restriction when a blue-tick OBA number was linked to Baileys (Baileys #2805) ⟦gh-2805⟧.</li>
+<li>Claude's inference: every report found concerns messaging people one by one or bulk lists; none concerns posting into the account's own groups that members joined by link, which is K-Matrix's pattern ⟦yyc-kmatrix⟧. That lowers the risk; it does not remove it, and a ban takes the number and its groups with it.</li>
+<li>A Hong Kong SIM for the number must be real-name registered before activation ⟦ofca⟧.</li>
+</ul>
+</section>
+
+<section id="isolation">
+<h2><span class="n">7</span>Expense evidence for the YYC claim</h2>
+<ul>
+<li><b>Meta direct:</b> a Meta business portfolio and Messaging account used only for YYC, Deyao's card as its payment method; Meta's billing for that account is the evidence (a Messaging account "holds your message templates and billing details" ⟦meta-accounts⟧).</li>
+<li><b>BSP:</b> a YYC-only BSP account; the BSP's invoice (Twilio, Bird and others bill Meta's fee and their own together ⟦twilio⟧ ⟦bird⟧).</li>
+<li><b>Hosted unofficial:</b> a YYC-only subscription; the provider's invoice.</li>
+<li><b>Self-hosted:</b> Hetzner project yyc (already on the list) plus the SIM's receipt.</li>
+<li>Whichever is chosen gets its line in EXPENSES.md (YYC rule).</li>
+</ul>
+</section>

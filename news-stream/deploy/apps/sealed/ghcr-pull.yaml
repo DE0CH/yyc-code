@@ -1,0 +1,17 @@
+# SealedSecret made by infra/seal.py from the store `yyc` (map: infra/secrets.txt). Don't edit: re-seal.
+---
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: ghcr-pull
+  namespace: yyc
+spec:
+  encryptedData:
+    .dockerconfigjson: AgAjK/ZanNK0LhCXhEhlKx9Sghst1KI9q6Btlamw7eZVmc0fyh1pLpMUlD2y3bd4yT14tcOh5k/QtPRU+L9Q8om2xnAOXD1DRWF3Vdq2iOYdKcynyav6jfElZdqhl7D+Mn2V7jjLz8l7+smiGPzXE+EEPs7vyec5nYr8ClDxn5S4oNtnxl+IrsFl2LAAzfKSLOgHIFvrj8332wSs2w4ZbcRMBTpJ+sozvE5Y/JEYq1+bcfWcBbYc7c928Jr42zMaIAmzZEcL5Yf8/mlia3y4MqMbXA9dpZy0cdiWNjSrZ5TMapPMX6qzYkECu+G8Xf4ykv326R3vKBC+5b/quVxJmIdUEOgtanJWmkCnohCgjFTdQL07yDIFy9IDhHzrFnWGLfKY/BkFTc+uyj/2381T8V45k7u5ehw09q8zUyJTxIa3/5WtgAvl2WgsFnzxDzp7zVDrjWaV80A548SG7jvApeHBXtdTohSkSPzAhJybyk24wIyjBp8xTM4jhVQb4yBDv+cKDPlZn79X38SpS5vm5WL7EKtmqkPtS6xO4K88e0An8TZ8YgQU54+yQL+gPWlJGHoQaL5+ukiI5Wq1IlwPuK560yMvN1wlIr7jyaTqXr/puldVXQxTuUWUst4NGdTp/RFirBRzfbRdkPW13MsuZOFFQpGQ6NY0CeI3Hz5G53y2kiiKqPzC1dFwG0RYXFPb+M63WtnsQMY7kOws/QMBCNpCKjctdA3EDARX9LmS4Il+E15VCywScoJwj9aveVk0mkXi1K5fMNALZ+myWczgSKcVMz6IXGVrN9Y8z2w4obPuPZfh0EPR/o8B2YvLinli3fY293wQk7HE7JywoQPq3F+l8a0WPDpb0BVIuFRyjMi023TO7KOKuPW9ikZa6TAfd/lI3G9v5HJah6uv1HQggLuXfn3Z2NMzTra3OeUrK0JWFxo=
+  template:
+    metadata:
+      annotations:
+        kustomize.toolkit.fluxcd.io/prune: disabled
+      name: ghcr-pull
+      namespace: yyc
+    type: kubernetes.io/dockerconfigjson

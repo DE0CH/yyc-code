@@ -1,0 +1,263 @@
+# YYC's Postgres (Deyao, 2026-10-27: "self host the database and don't use Neon anymore"): CloudNativePG Cluster `pg`
+# in namespace db, one instance on the dedicated node yyc-pool-db-worker1 (cx33, pool db, tainted; cluster/hetzner-k3s.yaml).
+# Databases: app (the news stream; owner app; role yyc_edge reads it for the edge site through Hyperdrive, role
+# yyc_readonly for the in-cluster site, yyc-mcp and the WiseSearch relay), hermit, egress and tools (YYC AI),
+# jfs_yyc_ai (the JuiceFS volume yyc-ai's metadata; owner juicefs), aiwatch (YYC AI watch,
+# ai-watch/; owner aiwatch), mcp (yyc-mcp's OAuth store and registry; owner yyc_mcp). Role passwords: SealedSecrets
+# db/pg-role-* (store yyc YYC_PG_*_PASSWORD). Clients: Service pg-rw.db.svc.cluster.local:5432 (TLS, sslmode=require);
+# YYC AI's AWS sandbox hosts (JuiceFS) through NodePort 30432 on the db node's private address 10.0.0.2.
+# Backups (Deyao, 2026-10-27), two layers:
+# - every day, locked (pg-dump-daily.yaml): a pg_dump of each database at 03:30 HKT into bucket yyc-pg-backups (prefix
+#   dumps/), whose S3 Object Lock is COMPLIANCE for 30 days: no key, not even the account's own login, can delete or
+#   overwrite a dump before then, so even a script that deletes everything leaves them. Versioned (a delete only hides
+#   a version). Object Lock can only be set when a bucket is created.
+# - a restore point every few minutes, cheap, not locked (below): the WAL archived as it fills (at most archive_timeout,
+#   5 min, apart) and a base backup every night into bucket yyc-pg-pitr, kept 3 days (a weekend): point-in-time restore
+#   to just before a crash or a single wrong command.
+# One instance: a restart of Postgres (a minor upgrade, the node's reboot) is a gap of seconds to a minute for every client.
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: pg-pitr
+  namespace: db
+spec:
+  retentionPolicy: "3d"
+  configuration:
+    destinationPath: s3://yyc-pg-pitr/
+    endpointURL: https://fsn1.your-objectstorage.com
+    s3Credentials:
+      accessKeyId: {name: pg-backup-s3, key: ACCESS_KEY_ID}
+      secretAccessKey: {name: pg-backup-s3, key: ACCESS_SECRET_KEY}
+    wal: {compression: gzip, maxParallel: 4}
+    data: {compression: gzip, jobs: 2}
+  instanceSidecarConfiguration:
+    env:
+      # boto3's default request checksums are refused by S3-compatible stores like Hetzner's
+      - {name: AWS_REQUEST_CHECKSUM_CALCULATION, value: when_required}
+      - {name: AWS_RESPONSE_CHECKSUM_VALIDATION, value: when_required}
+    resources:
+      requests: {cpu: 50m, memory: 128Mi}
+      limits: {memory: 512Mi}
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: pg
+  namespace: db
+spec:
+  instances: 1
+  imageName: ghcr.io/cloudnative-pg/postgresql:17.11-standard-trixie   # Neon's version when the data moved (17.11)
+  primaryUpdateStrategy: unsupervised
+  enableSuperuserAccess: false     # admin work: kubectl exec into the pod (psql as postgres over the local socket)
+  priorityClassName: serving
+  storage:
+    storageClass: yyc-block
+    size: 100Gi                    # app was 14 GB on 27 Oct, about 1 GB more a day while the stream runs; expandable
+  resources:
+    requests: {cpu: "2", memory: 6Gi}
+    limits: {memory: 6Gi}
+  affinity:
+    nodeSelector: {pool: db}
+    tolerations: [{key: dedicated, operator: Equal, value: db, effect: NoSchedule}]
+  postgresql:
+    parameters:
+      max_connections: "300"
+      shared_buffers: 1536MB
+      effective_cache_size: 4GB
+      work_mem: 16MB
+      maintenance_work_mem: 512MB
+      # WAL (2026-10-27, the stream back: 150 MB a minute with a checkpoint every 5 min, mostly full-page images of
+      # posts' pages, every byte kept 30 days in the locked bucket): checkpoints every 15 min, room for them, the
+      # full-page images compressed
+      # 2026-10-29 (the speed-up measurement, ~/artifacts/db-speedup/plan.md): 69 of 317 checkpoints were forced by
+      # max_wal_size 8GB during the GIN flushes; 30 min and 16GB (78 GB of the volume free) cut full-page images further
+      max_wal_size: 16GB
+      checkpoint_timeout: 30min
+      # the background writer cleans more ahead of the flushes (backends wrote ~36k pages themselves in them)
+      bgwriter_lru_maxpages: "400"
+      bgwriter_lru_multiplier: "4"
+      # real read/write timings in pg_stat_statements and pg_stat_io (they were all 0)
+      track_io_timing: "on"
+      track_wal_io_timing: "on"
+      # JIT spent 603 of 860 s compiling one monitor count; no query here gains from it
+      jit: "off"
+      log_lock_waits: "on"
+      wal_compression: zstd
+      random_page_cost: "1.1"
+      effective_io_concurrency: "200"
+      idle_in_transaction_session_timeout: 30min
+      # the clients' keepalives aside: a connection whose peer vanished (a pod gone without a RST) is dropped by the
+      # server too, so an advisory lock it held doesn't stay (corpus.py's keepalive note)
+      tcp_keepalives_idle: "60"
+      tcp_keepalives_interval: "10"
+      tcp_keepalives_count: "6"
+      # logical replication (the move from Neon, 27 Oct, and any later one): an apply worker per subscription plus the
+      # table copies; the default 4 was used up by four subscriptions' apply workers, leaving no copy worker
+      max_logical_replication_workers: "12"
+      max_worker_processes: "20"
+      pg_stat_statements.max: "5000"
+      pg_stat_statements.track: top
+    shared_preload_libraries: [pg_stat_statements]
+  bootstrap:
+    initdb:
+      database: app
+      owner: app
+      secret: {name: pg-role-app}
+  managed:
+    roles:
+      - {name: app, login: true, ensure: present, passwordSecret: {name: pg-role-app}}
+      # yyc_edge's role settings (CloudNativePG's managed roles have no field for them; set by hand as postgres, kept
+      # here): default_transaction_read_only on; statement_timeout 30s (2026-10-29: Hyperdrive drops a connection's
+      # statement_timeout, so the site's and yyc-mcp's reads had none). Check: SELECT rolconfig FROM pg_roles
+      # WHERE rolname = 'yyc_edge'; set: ALTER ROLE yyc_edge SET statement_timeout = '30s'
+      - {name: yyc_edge, login: true, ensure: present, passwordSecret: {name: pg-role-edge}}
+      # yyc_readonly: the same read-only role for what reads app from inside the cluster (the site, yyc-mcp, the WiseSearch
+      # relay). By hand as postgres, as yyc_edge's: ALTER ROLE yyc_readonly SET default_transaction_read_only = on;
+      # ALTER ROLE yyc_readonly SET statement_timeout = '30s'; GRANT CONNECT ON DATABASE app; in app: GRANT USAGE ON SCHEMA public, GRANT SELECT ON ALL
+      # TABLES IN SCHEMA public, ALTER DEFAULT PRIVILEGES FOR ROLE app [IN SCHEMA public] GRANT SELECT ON TABLES
+      - {name: yyc_readonly, login: true, ensure: present, passwordSecret: {name: pg-role-readonly}}
+      - {name: yyc_mcp, login: true, ensure: present, passwordSecret: {name: pg-role-mcp}}
+      - {name: juicefs, login: true, ensure: present, passwordSecret: {name: pg-role-juicefs}}
+      - {name: aiwatch, login: true, ensure: present, passwordSecret: {name: pg-role-aiwatch}}
+      # YYC AI's new stack (yyc-ai/refactor spec-platform 11.1; its pods on the new cluster reach pg through
+      # db/pg-shared there, bridge B3). By hand as postgres, once (each database closed to all but its owner):
+      # REVOKE CONNECT ON DATABASE <db> FROM PUBLIC; ALTER ROLE <r> SET statement_timeout = '15s';
+      # ALTER ROLE <r> SET idle_in_transaction_session_timeout = '60s'. Check: SELECT rolname, rolconfig FROM pg_roles
+      # WHERE rolname IN ('hermit', 'egress', 'tools')
+      - {name: hermit, login: true, ensure: present, passwordSecret: {name: pg-role-hermit}}
+      - {name: egress, login: true, ensure: present, passwordSecret: {name: pg-role-egress}}
+      - {name: tools, login: true, ensure: present, passwordSecret: {name: pg-role-tools}}
+  # T5 (yyc-ai/refactor/talos-apps-move.md "Postgres"): CloudNativePG's distributed topology. This cluster is pg-k3s and
+  # the primary; yyc-talos's Cluster pg (pg-talos) follows it. The switch is `primary: pg-talos` here (the demotion,
+  # status.demotionToken), then the promotion there with that token.
+  # demoted 2026-11-07 13:04 UTC: yyc-talos's Cluster pg (pg-talos) is the primary; this one replays its WAL from the
+  # archive (the way back until T6)
+  replica:
+    self: pg-k3s
+    primary: pg-talos
+    source: pg-talos
+  externalClusters:
+    # yyc-talos's Cluster pg through the WAL archive only (no route from here to there; after the demotion this
+    # cluster replays pg-talos's WAL from the bucket: the way back until T6)
+    - name: pg-talos
+      plugin:
+        name: barman-cloud.cloudnative-pg.io
+        parameters: {barmanObjectName: pg-pitr, serverName: pg-talos}
+    - name: pg-k3s
+      plugin:
+        name: barman-cloud.cloudnative-pg.io
+        parameters: {barmanObjectName: pg-pitr, serverName: pg}
+  plugins:
+    - name: barman-cloud.cloudnative-pg.io
+      isWALArchiver: true
+      parameters: {barmanObjectName: pg-pitr}
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: jfs-yyc-ai
+  namespace: db
+spec:
+  cluster: {name: pg}
+  name: jfs_yyc_ai
+  owner: juicefs
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: aiwatch
+  namespace: db
+spec:
+  cluster: {name: pg}
+  name: aiwatch
+  owner: aiwatch
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: mcp
+  namespace: db
+spec:
+  cluster: {name: pg}
+  name: mcp
+  owner: yyc_mcp
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: hermit
+  namespace: db
+spec:
+  cluster: {name: pg}
+  name: hermit
+  owner: hermit
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: egress
+  namespace: db
+spec:
+  cluster: {name: pg}
+  name: egress
+  owner: egress
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: tools
+  namespace: db
+spec:
+  cluster: {name: pg}
+  name: tools
+  owner: tools
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: pg-nightly
+  namespace: db
+spec:
+  schedule: "0 0 19 * * *"         # 03:00 HKT (seconds field first)
+  backupOwnerReference: self
+  cluster: {name: pg}
+  method: plugin
+  pluginConfiguration: {name: barman-cloud.cloudnative-pg.io}
+  immediate: true                  # the first base backup as soon as the cluster exists
+---
+# YYC AI's AWS sandbox hosts mount JuiceFS on the host (not in a sandbox): they reach 10.0.0.0/16 over the WireGuard
+# gateway yyc-sbx-gw (yyc-ai/README.md "Gateway"), from their host addresses 10.201.0.0/24, not the cluster's Services.
+apiVersion: v1
+kind: Service
+metadata:
+  name: pg-hosts
+  namespace: db
+spec:
+  type: NodePort
+  externalTrafficPolicy: Local     # the client's own address reaches the policy below
+  selector: {cnpg.io/cluster: pg, cnpg.io/instanceRole: primary}
+  ports: [{name: postgres, port: 5432, targetPort: 5432, nodePort: 30432}]
+---
+# Who may connect: the cluster's pods (pod network 10.244.0.0/16: the news stream, YYC AI, the JuiceFS mount pods,
+# the operator, YYC AI watch), YYC AI's sandbox hosts (10.201.0.0/24); network yyc's nodes (10.0.0.0/16) on 5432: the
+# new Talos cluster's pods through pg-hosts (masqueraded to their node's address) and the new fabric's hosts through
+# the new gateway node (bridge B3, yyc-ai/refactor DESIGN 15.5); never the sandboxes (10.200.0.0/16, 10.203.0.0/16). By address, not by
+# namespace: k3s's policy controller adds a new pod's address to a namespace's set only at its next sync, and a
+# CronJob pod connecting in its first second was dropped ("server closed the connection unexpectedly", lihkg and
+# watch at 05:40 UTC on 2026-10-27, the minute's burst of new pods). Each database is closed to all but its own role.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: pg-ingress
+  namespace: db
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - ipBlock: {cidr: 10.244.0.0/16}
+        - ipBlock: {cidr: 10.201.0.0/24}
+        - ipBlock: {cidr: 10.0.0.0/16}
+      ports: [{port: 5432, protocol: TCP}]
+    - from:
+        - ipBlock: {cidr: 10.244.0.0/16}   # the operator and the plugin reach the instance's other ports

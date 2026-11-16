@@ -1,0 +1,92 @@
+# yyc-mcp's image (news-stream/mcp-edge, Deployment yyc-mcp in the cluster): it bundles the site's data modules
+# (news-stream/web-app/src/server, lib/dates.ts, lib/dashboard_url.ts), so a change to either builds it. The image's
+# own build type-checks and runs the unit tests; the container is smoke-tested here (it starts, answers /healthz, /api/v1
+# says 401), then the tag is pinned in deploy/apps/kustomization.yaml (pin-image.py: this image's entry only) for Flux,
+# never moving back to an older commit.
+name: mcp-image
+on:
+  push:
+    branches: [main]
+    paths:
+      - news-stream/mcp-edge/**
+      - '!news-stream/mcp-edge/**.md'
+      - news-stream/web-app/src/server/**
+      - news-stream/web-app/src/lib/dates.ts
+      - news-stream/web-app/src/lib/dashboard_url.ts
+      - news-stream/web-app/src/lib/bias.ts
+      - .github/workflows/mcp-image.yml
+  workflow_dispatch:
+concurrency:
+  group: mcp-image
+  cancel-in-progress: false
+permissions:
+  contents: write
+  packages: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      IMAGE: ghcr.io/de0ch/yyc-mcp
+    services:
+      postgres:
+        image: postgres:17
+        env: {POSTGRES_PASSWORD: ci}
+        ports: ["5432:5432"]
+        options: --health-cmd pg_isready --health-interval 2s --health-retries 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        run: S=$(git rev-parse HEAD); echo "tag=${S::12}" >> "$GITHUB_OUTPUT"; echo "sha=$S" >> "$GITHUB_OUTPUT"
+      - uses: docker/build-push-action@v6
+        with:
+          context: news-stream
+          file: news-stream/mcp-edge/Dockerfile
+          push: true
+          build-args: GIT_SHA=${{ steps.meta.outputs.sha }}
+          tags: ${{ env.IMAGE }}:${{ steps.meta.outputs.tag }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ steps.meta.outputs.sha }}
+          cache-from: type=gha,scope=mcp
+          cache-to: type=gha,mode=max,scope=mcp
+      - name: smoke test (the server on an empty Postgres)
+        run: |
+          set -e
+          docker run -d --name mcp --network host -e PORT=18080 -e BASE_URL=https://mcp.yyc-internal.com \
+            -v "$PWD/news-stream/mcp-edge/test/catalogue.sample.json:/etc/yyc-catalogue/config.json:ro" -e CATALOGUE=/etc/yyc-catalogue/config.json \
+            -e RATE_PER_MIN=60 -e OIDC_ISSUER=https://example.cloudflareaccess.com/cdn-cgi/access/sso/oidc/x \
+            -e OIDC_CLIENT_ID=x -e OIDC_CLIENT_SECRET=y -e CONSENT_SECRET=0123456789abcdef0123456789abcdef \
+            -e DATABASE_URL=postgres://postgres:ci@127.0.0.1:5432/postgres -e MCP_DATABASE_URL=postgres://postgres:ci@127.0.0.1:5432/postgres \
+            "$IMAGE:${{ steps.meta.outputs.tag }}"
+          for i in $(seq 30); do curl -sf localhost:18080/healthz && break; sleep 1; done
+          test "$(curl -s -o /dev/null -w '%{http_code}' localhost:18080/api/v1/streams_list)" = 401
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST localhost:18080/mcp)" = 404
+          curl -sf localhost:18080/api/v1/openapi.json >/dev/null
+          docker run --rm --entrypoint sh "$IMAGE:${{ steps.meta.outputs.tag }}" -c "test -f dist/cron.js"
+          docker logs mcp | tail -5
+      - name: pin the tag for Flux
+        run: |
+          set -e
+          TAG="${{ steps.meta.outputs.tag }}"
+          git config user.name "mcp-image bot"; git config user.email "actions@users.noreply.github.com"
+          F=news-stream/deploy/apps/kustomization.yaml
+          for attempt in 1 2 3 4 5 6; do
+            git fetch -q origin main && git reset -q --hard origin/main
+            CUR=$(news-stream/deploy/pin-image.py yyc-mcp)
+            if [ "$CUR" != unset ] && git cat-file -e "$CUR^{commit}" 2>/dev/null && git merge-base --is-ancestor "${{ steps.meta.outputs.sha }}" "$CUR" && [ "$CUR" != "$TAG" ]; then
+              echo "main already pins $CUR, newer than $TAG"; exit 0
+            fi
+            news-stream/deploy/pin-image.py yyc-mcp "$TAG"
+            git add "$F"
+            git diff --cached --quiet && { echo "already pinned"; exit 0; }
+            git commit -q -m "yyc-mcp: pin image $TAG [skip ci]"
+            git push -q origin HEAD:main && exit 0
+            sleep $((attempt * 3))
+          done
+          exit 1

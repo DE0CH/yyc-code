@@ -1,0 +1,21 @@
+# The applier binary for yyc-ai.yml: from actions/cache keyed by the hash of tools/yyc-apply/**, built only on a miss
+# (the toolchain of tools/yyc-apply/rust-toolchain.toml). Puts yyc-apply on PATH.
+name: yyc-apply
+description: tools/yyc-apply, cached by its source hash
+runs:
+  using: composite
+  steps:
+    - id: cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ runner.temp }}/yyc-apply-bin
+        key: yyc-apply-${{ runner.os }}-${{ hashFiles('tools/yyc-apply/**') }}
+    - if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        cargo build --release --locked --manifest-path tools/yyc-apply/Cargo.toml
+        mkdir -p "$RUNNER_TEMP/yyc-apply-bin"
+        cp tools/yyc-apply/target/release/yyc-apply "$RUNNER_TEMP/yyc-apply-bin/"
+    - shell: bash
+      run: echo "$RUNNER_TEMP/yyc-apply-bin" >> "$GITHUB_PATH"

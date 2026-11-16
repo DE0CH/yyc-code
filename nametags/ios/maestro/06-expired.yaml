@@ -1,0 +1,15 @@
+# A token Access no longer accepts (redirected to its login page): back to sign-in, saying it expired.
+appId: dev.de0ch.yycnametags
+name: expired sign-in
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+    arguments:
+      apiBase: "http://127.0.0.1:8787"
+      testToken: "expired-token"
+- extendedWaitUntil:
+    visible: "登入已過期，請重新登入。"
+    timeout: 30000
+- assertVisible: "重新登入"
+- takeScreenshot: 06-expired

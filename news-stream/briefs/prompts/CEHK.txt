@@ -1,0 +1,14 @@
+Today is 22 October 2026. Write a very detailed background brief on this topic:
+
+Hong Kong's Chief Executive John Lee Ka-chiu (李家超), the Chief Executive's Office, the Executive Council (行政會議) and the principal officials of the HKSAR government he leads, with everything about him and his government up to today (including the 2026 Policy Address and the 2027 Chief Executive election as it concerns him).
+
+The reader is someone on the other side of the world who knows nothing about Hong Kong or this topic, and who will read Hong Kong news, forum and social media posts (in Traditional Chinese, Cantonese colloquial writing, Simplified Chinese and English) and needs to recognise what they are about. Give them everything they need to understand such posts: what the subject is; every name it goes by (Chinese and English, abbreviations, nicknames and colloquial or Cantonese terms used in Hong Kong media and forums); the key people and organisations involved, with their Chinese and English names and roles; the history and a dated timeline up to today; the current state of affairs; ongoing issues, debates and controversies; related events and entities that posts often mention together with it; and things that are easily confused with it. Include as much concrete detail (names, dates, numbers, places) as is useful.
+
+Rules:
+- Facts only, neutral, no opinions and no advice to the reader about what matters.
+- Search online for anything you are not certain about, and for everything from 2025 onwards (your training data may be out of date). Use the google-search skill first, exa second, scrapingbee to fetch pages (raw HTML). Prefer primary and reputable sources.
+- Every factual claim carries a numbered citation [n]; end with a numbered source list (title, publisher, date, URL). If something cannot be confirmed, leave it out or say it is unconfirmed.
+- Length: as detailed as the topic needs, up to about 5,000 words.
+- Write the brief in English, with Chinese names in Traditional Chinese next to their English forms.
+
+Save the finished brief to /home/claude/brief-research/out/CEHK.md (Markdown) and reply with only that path.

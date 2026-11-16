@@ -1,0 +1,231 @@
+# YYC AI watch (../README.md): namespace `aiwatch`, its own data (database aiwatch on YYC's Postgres), its own tunnel and
+# Cloudflare Access app (aiwatch.yyc-internal.com; news-stream/deploy/cloudflare/tofu), per CLAUDE.md "Hosting".
+# - web: 2 replicas, stateless, rolling one at a time (zero downtime);
+# - worker: 2 replicas, each one Chrome; tasks are leased from the database, so a worker that stops hands its unfinished
+#   tasks back (lease) and a rollout never loses work; on SIGTERM it finishes what it runs (grace 10 min);
+# - cloudflared: the tunnel `aiwatch` connector, 2 replicas; the tunnel admits only requests with a valid Access token.
+# Ingress only from this namespace; egress to DNS, the internet and YYC's Postgres (namespace db), nothing else in the
+# cluster.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: aiwatch
+  labels:
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/enforce-version: latest
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: aiwatch
+  labels: {app: web}
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels: {app: web}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxUnavailable: 0, maxSurge: 1}
+  template:
+    metadata:
+      labels: {app: web}
+      annotations: {yyc/secrets-rev: "2026-10-27-1"}
+    spec:
+      topologySpreadConstraints:
+        - {maxSkew: 1, topologyKey: kubernetes.io/hostname, whenUnsatisfiable: ScheduleAnyway, labelSelector: {matchLabels: {app: web}}}
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      imagePullSecrets: [{name: ghcr-pull}]
+      securityContext: {runAsNonRoot: true, runAsUser: 10001, runAsGroup: 10001, seccompProfile: {type: RuntimeDefault}}
+      containers:
+        - name: web
+          image: yyc-ai-watch
+          command: [python, -m, aiwatch.web]
+          ports: [{containerPort: 8080}]
+          env:
+            - {name: DATABASE_URL, valueFrom: {secretKeyRef: {name: app-env, key: DATABASE_URL}}}
+            - {name: DB_POOL, value: "4"}
+          readinessProbe: {httpGet: {path: /healthz, port: 8080}, periodSeconds: 3}
+          livenessProbe: {httpGet: {path: /healthz, port: 8080}, initialDelaySeconds: 15, periodSeconds: 20}
+          lifecycle: {preStop: {sleep: {seconds: 8}}}
+          resources:
+            requests: {cpu: 20m, memory: 128Mi}
+            limits: {cpu: 500m, memory: 128Mi}
+          securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+      priorityClassName: serving
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+  namespace: aiwatch
+spec:
+  selector: {app: web}
+  ports: [{port: 80, targetPort: 8080}]
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: web
+  namespace: aiwatch
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels: {app: web}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  namespace: aiwatch
+  labels: {app: worker}
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels: {app: worker}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxUnavailable: 0, maxSurge: 1}
+  template:
+    metadata:
+      labels: {app: worker}
+      annotations: {yyc/secrets-rev: "2026-10-27-1"}
+    spec:
+      topologySpreadConstraints:
+        - {maxSkew: 1, topologyKey: kubernetes.io/hostname, whenUnsatisfiable: ScheduleAnyway, labelSelector: {matchLabels: {app: worker}}}
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 600   # an answer being read finishes (an app can take minutes)
+      imagePullSecrets: [{name: ghcr-pull}]
+      securityContext: {runAsNonRoot: true, runAsUser: 10001, runAsGroup: 10001, seccompProfile: {type: RuntimeDefault}}
+      containers:
+        - name: worker
+          image: yyc-ai-watch
+          command: [/app/run-worker.sh]
+          # outbound: model calls and other HTTP(S) out through the socks pool by name; the browser's own explicit
+          # residential proxy (aiwatch/proxy.py) is unchanged
+          envFrom: [{secretRef: {name: app-env}}, {configMapRef: {name: outbound}}]
+          env:
+            - {name: MODEL_SLOTS, value: "4"}
+            - {name: BROWSER_SLOTS, value: "4"}
+          readinessProbe: {httpGet: {path: /healthz, port: 8081}, periodSeconds: 10}
+          livenessProbe: {httpGet: {path: /healthz, port: 8081}, initialDelaySeconds: 60, periodSeconds: 30, failureThreshold: 6}
+          resources:
+            requests: {cpu: 300m, memory: 768Mi}   # used 360 Mi idle (2026-11-08); the limit covers 4 browser slots
+            limits: {cpu: "2", memory: 1536Mi}
+          securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+          volumeMounts: [{name: shm, mountPath: /dev/shm}, {name: tmp, mountPath: /tmp}]
+      volumes:
+        - {name: shm, emptyDir: {medium: Memory, sizeLimit: 256Mi}}
+        - {name: tmp, emptyDir: {sizeLimit: 1Gi}}
+      priorityClassName: batch
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: worker
+  namespace: aiwatch
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels: {app: worker}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudflared
+  namespace: aiwatch
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels: {app: cloudflared}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxUnavailable: 1, maxSurge: 0}
+  template:
+    metadata:
+      labels: {app: cloudflared}
+      annotations: {yyc/secrets-rev: "2026-10-27-1"}
+    spec:
+      topologySpreadConstraints:
+        - {maxSkew: 1, topologyKey: kubernetes.io/hostname, whenUnsatisfiable: ScheduleAnyway, labelSelector: {matchLabels: {app: cloudflared}}}
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 200
+      securityContext: {runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532, seccompProfile: {type: RuntimeDefault}}
+      containers:
+        - name: cloudflared
+          image: cloudflare/cloudflared:2026.10.0
+          args: [tunnel, --no-autoupdate, --edge-ip-version, auto, --metrics, "0.0.0.0:2000", --grace-period, 3m, run]
+          env:
+            - {name: TUNNEL_TOKEN, valueFrom: {secretKeyRef: {name: tunnel, key: token}}}
+          readinessProbe: {httpGet: {path: /ready, port: 2000}, periodSeconds: 5}
+          livenessProbe: {httpGet: {path: /ready, port: 2000}, initialDelaySeconds: 30, periodSeconds: 20, failureThreshold: 6}
+          resources:
+            requests: {cpu: 20m, memory: 64Mi}
+            limits: {cpu: 500m, memory: 64Mi}
+          securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+      priorityClassName: serving
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: cloudflared
+  namespace: aiwatch
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels: {app: cloudflared}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: same-namespace-only
+  namespace: aiwatch
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    - from: [{podSelector: {}}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: egress-dns-internet-postgres
+  namespace: aiwatch
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to: [{podSelector: {}}]   # cloudflared → web
+    - to:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}
+          podSelector: {matchLabels: {k8s-app: kube-dns}}
+      ports: [{port: 53, protocol: UDP}, {port: 53, protocol: TCP}]
+    - to:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: db}}
+          podSelector: {matchLabels: {cnpg.io/cluster: pg}}
+      ports: [{port: 5432, protocol: TCP}]
+    - to:
+        - ipBlock: {cidr: 0.0.0.0/0, except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10, 127.0.0.0/8, 169.254.0.0/16]}
+        - ipBlock: {cidr: "::/0", except: ["fc00::/7", "fe80::/10", "::1/128"]}
+    # the socks pool (news-stream/deploy/apps/socks.yaml): host-network pods on the nodes' private addresses
+    - to: [{ipBlock: {cidr: 10.0.0.0/16}}]
+      ports: [{port: 1080, protocol: TCP}]
+---
+# the worker's way out (news-stream/deploy/apps/outbound.yaml has the why)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: outbound
+  namespace: aiwatch
+data:
+  HTTP_PROXY: http://socks.egress.svc.cluster.local:1080
+  HTTPS_PROXY: http://socks.egress.svc.cluster.local:1080
+  http_proxy: http://socks.egress.svc.cluster.local:1080
+  https_proxy: http://socks.egress.svc.cluster.local:1080
+  NO_PROXY: localhost,127.0.0.1,::1,.cluster.local,.svc,kubernetes.default,10.45.0.1,10.0.0.0/8,169.254.0.0/16
+  no_proxy: localhost,127.0.0.1,::1,.cluster.local,.svc,kubernetes.default,10.45.0.1,10.0.0.0/8,169.254.0.0/16
+  NODE_USE_ENV_PROXY: "1"

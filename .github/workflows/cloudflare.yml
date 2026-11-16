@@ -1,0 +1,78 @@
+# YYC's Cloudflare account as code (news-stream/deploy/cloudflare/tofu): OpenTofu plans and applies on every push that
+# touches it, and every 30 minutes to revert dashboard edits. The access catalogue (who may sign in) is the secret
+# YYC_CATALOGUE_JSON, never a file in git: after changing it, dispatch this workflow (or the next half hour applies it).
+# State is in R2 on YYC's account (backend in main.tf), locked with a lockfile, and runs never overlap (concurrency).
+# A failed run, and the first good run after one, are posted to YYC's Discord channel.
+# Secrets: YYC_CF_ACCESS_EDGE_TOKEN, YYC_CF_TURNSTILE_TOKEN, YYC_CF_GOOGLE_CLIENT_ID/_SECRET, YYC_TOFU_R2_ACCESS_KEY_ID/_SECRET_ACCESS_KEY,
+# YYC_CATALOGUE_JSON, YYC_DISCORD_WEBHOOK (all from the Jarvis 4 store `yyc`).
+name: cloudflare
+on:
+  push:
+    branches: [main]
+    paths:
+      - news-stream/deploy/cloudflare/tofu/**
+      - .github/workflows/cloudflare.yml
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+concurrency:
+  group: cloudflare
+  cancel-in-progress: false
+permissions:
+  contents: read
+  actions: read
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: news-stream/deploy/cloudflare/tofu
+    env:
+      TF_IN_AUTOMATION: "1"
+      TF_INPUT: "0"
+      AWS_ACCESS_KEY_ID: ${{ secrets.YYC_TOFU_R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.YYC_TOFU_R2_SECRET_ACCESS_KEY }}
+      TF_VAR_cloudflare_api_token: ${{ secrets.YYC_CF_ACCESS_EDGE_TOKEN }}
+      TF_VAR_cloudflare_turnstile_token: ${{ secrets.YYC_CF_TURNSTILE_TOKEN }}
+      TF_VAR_google_client_id: ${{ secrets.YYC_CF_GOOGLE_CLIENT_ID }}
+      TF_VAR_google_client_secret: ${{ secrets.YYC_CF_GOOGLE_CLIENT_SECRET }}
+      TF_VAR_entra_client_id: ${{ secrets.YYC_ENTRA_CLIENT_ID }}
+      TF_VAR_entra_client_secret: ${{ secrets.YYC_ENTRA_CLIENT_SECRET }}
+      TF_VAR_entra_tenant_id: ${{ secrets.YYC_ENTRA_TENANT_ID }}
+      TF_VAR_catalogue: ${{ secrets.YYC_CATALOGUE_JSON }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: 1.10.6
+          tofu_wrapper: false
+      - run: tofu fmt -check -recursive
+      - run: tofu init -lockfile=readonly
+      - run: tofu validate
+      - name: plan
+        run: |
+          set +e
+          tofu plan -out=tfplan -detailed-exitcode -no-color > plan.txt 2>&1; code=$?
+          cat plan.txt; echo "code=$code" >> "$GITHUB_OUTPUT"
+        id: plan
+      - name: apply
+        if: steps.plan.outputs.code == '2'
+        run: tofu apply -no-color tfplan
+      - name: plan failed
+        if: steps.plan.outputs.code == '1'
+        run: exit 1
+      - name: tell Discord
+        if: always() && github.ref == 'refs/heads/main'
+        env:
+          WEBHOOK: ${{ secrets.YYC_DISCORD_WEBHOOK }}
+          GH_TOKEN: ${{ github.token }}
+          STATUS: ${{ job.status }}
+        run: |
+          prev=$(gh api "repos/${{ github.repository }}/actions/workflows/cloudflare.yml/runs?branch=main&status=completed&per_page=2" \
+            --jq "[.workflow_runs[] | select(.id != ${{ github.run_id }})][0].conclusion" 2>/dev/null || echo unknown)
+          url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          if [ "$STATUS" != success ]; then msg="YYC Cloudflare (tofu): the run failed; git and YYC's Cloudflare account may differ. $url"
+          elif [ "$prev" = failure ]; then msg="YYC Cloudflare (tofu): runs succeed again. $url"
+          else exit 0; fi
+          [ -n "$WEBHOOK" ] && curl -s -X POST -H "Content-Type: application/json" -d "$(jq -n --arg c "$msg" '{content:$c}')" "$WEBHOOK" >/dev/null || true

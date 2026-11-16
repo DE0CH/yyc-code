@@ -1,0 +1,10 @@
+# Namespace db of yyc-talos (DESIGN 15.8): YYC AI's Cluster magpie-pg and db/pg-shared, the cluster-local name of the
+# old cluster's pg (bridge B3) until T5 moves pg here (db/, applied after this folder by talos-cluster.yml). CloudNativePG's
+# instance pods meet the restricted profile.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: db
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest

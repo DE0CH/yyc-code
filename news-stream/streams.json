@@ -1,0 +1,148 @@
+[
+ {
+  "id": "CEHK",
+  "categories": ["施政及政策", "言論及表態", "出訪及活動", "人事任命", "立法會及議會", "輿論及評論", "其他"],
+  "telegram_chat": -1004486881286,
+  "whatsapp_group": "120363412611854810@g.us",
+  "name": "CEHK",
+  "title": "特首及政府",
+  "brief": "CEHK is Hong Kong's Chief Executive John Lee Ka-chiu (李家超), head of the Hong Kong SAR government, with the Chief Executive's Office (行政長官辦公室), the Executive Council (行政會議) he chairs, and his annual Policy Address (施政報告).",
+  "categories": ["施政及政策", "言論及表態", "出訪及活動", "人事任命", "立法會及議會", "輿論及評論", "其他"],
+  "news_queries_en": ["\"John Lee\" Hong Kong", "\"Chief Executive's Office\" OR \"Executive Council\" Hong Kong", "\"Policy Address\" Hong Kong"],
+  "news_queries": [
+   "李家超",
+   "特區政府",
+   "施政報告"
+  ],
+  "discuss_queries": [
+   "李家超",
+   "特首"
+  ]
+ },
+ {
+  "id": "HKIC",
+  "telegram_chat": -1003779011961,
+  "whatsapp_group": "120363432615009317@g.us",
+  "name": "HKIC",
+  "title": "港投公司",
+  "brief": "HKIC is the Hong Kong Investment Corporation (香港投資管理有限公司, 港投公司), the Hong Kong government's wholly owned investment company, led by its chief executive Clara Chan (陳家齊), with its investments and portfolio companies.",
+  "news_queries_en": ["\"Hong Kong Investment Corporation\"", "\"Clement Chan\" HKIC"],
+  "news_queries": [
+   "港投公司",
+   "陳家齊",
+   "香港投資管理有限公司",
+   "耐心資本 香港"
+  ],
+  "discuss_queries": [
+   "港投公司",
+   "陳家齊"
+  ]
+ },
+ {
+  "id": "FSHK",
+  "telegram_chat": -1003804664212,
+  "whatsapp_group": "120363430889229273@g.us",
+  "name": "FSHK",
+  "title": "財政司司長",
+  "brief": "FSHK is Hong Kong's Financial Secretary Paul Chan Mo-po (陳茂波, 財政司司長, 財爺), who leads the government's financial and economic policy and presents the annual Budget (財政預算案).",
+  "news_queries_en": ["\"Paul Chan\" Financial Secretary", "\"Financial Secretary\" Hong Kong"],
+  "news_queries": [
+   "陳茂波",
+   "財政司司長"
+  ],
+  "discuss_queries": [
+   "陳茂波",
+   "財爺"
+  ]
+ },
+ {
+  "id": "SJHK",
+  "telegram_chat": -1004308794682,
+  "whatsapp_group": "120363414861549280@g.us",
+  "name": "SJHK",
+  "title": "律政司司長",
+  "brief": "SJHK is Hong Kong's Secretary for Justice Paul Lam Ting-kwok (林定國, 律政司司長, SJ), who heads the Department of Justice (律政司), controls criminal prosecutions and is the government's principal legal adviser.",
+  "news_queries_en": ["\"Paul Lam\" \"Secretary for Justice\"", "\"Secretary for Justice\" OR \"Department of Justice\" Hong Kong"],
+  "news_queries": [
+   "林定國",
+   "律政司司長"
+  ],
+  "discuss_queries": [
+   "林定國",
+   "律政司"
+  ]
+ },
+ {
+  "id": "POL",
+  "telegram_chat": -1004463799216,
+  "whatsapp_group": "120363430325157775@g.us",
+  "name": "政治花絮",
+  "title": "政壇專欄",
+  "brief": "政治花絮 is Hong Kong's insider politics and political gossip: who is up or down in the government, the Legislative Council (LegCo) and the Election Committee, personnel moves and rumoured appointments, the Chief Executive race, and the manoeuvring, alliances and relationships among officials, parties, chambers and Beijing's offices in Hong Kong (中聯辦, 港澳辦).",
+  "news_queries": [],
+  "discuss_queries": []
+ },
+ {
+  "id": "GALBOT",
+  "telegram_chat": -1004317458957,
+  "whatsapp_group": "120363412057377420@g.us",
+  "name": "Galbot",
+  "title": "銀河通用 Galbot",
+  "brief": "Galbot (銀河通用 / 银河通用, Beijing Galbot, Galaxy General Robot) is a Beijing humanoid-robot company; in Hong Kong it runs robot-staffed Galbot Stores (紅磡, 灣仔海濱, 啟德) with the robot shopkeeper 小蓋.",
+  "news_queries_en": ["Galbot"],
+  "news_queries": [
+   "銀河通用",
+   "Galbot",
+   "機械人店長 香港"
+  ],
+  "discuss_queries": [
+   "銀河通用",
+   "Galbot",
+   "機械人 便利店"
+  ]
+ },
+ {
+  "id": "ECE",
+  "telegram_chat": -1004297142530,
+  "whatsapp_group": "120363432741309276@g.us",
+  "name": "選委選舉",
+  "title": "選委會及特首選舉",
+  "brief": "選委選舉 are Hong Kong's 2026 Election Committee Subsector Ordinary Elections (選舉委員會界別分組一般選舉; nominations 7–20 Oct 2026, polling 22 Nov 2026), which form the Election Committee, and the Chief Executive election (行政長官選舉) of March 2027 in which that committee votes.",
+  "news_queries_en": ["\"Election Committee\" Hong Kong", "\"Chief Executive election\" Hong Kong"],
+  "news_queries": [
+   "選委會選舉",
+   "界別分組選舉",
+   "特首選舉"
+  ],
+  "discuss_queries": [
+   "選委會",
+   "特首選舉"
+  ]
+ },
+ {
+  "id": "WFC",
+  "telegram_chat": -1004478698818,
+  "whatsapp_group": "120363431240350941@g.us",
+  "name": "宏福苑",
+  "title": "大埔宏福苑火災",
+  "brief": "宏福苑 is Wang Fuk Court, a housing estate in Tai Po (大埔), Hong Kong, and the five-alarm fire there on 26 Nov 2025 (宏福苑大火, the Wang Fuk Court fire or Tai Po fire, 大埔火災) with everything since: its victims and residents, the investigations, accountability and the estate's future.",
+  "news_queries_en": ["\"Wang Fuk Court\"", "\"Tai Po\" fire \"Independent Committee\"", "\"Tai Po fire\""],
+  "news_queries": [
+   "宏福苑",
+   "宏福苑 火災",
+   "宏福苑 獨立委員會"
+  ],
+  "discuss_queries": [
+   "宏福苑",
+   "大埔火災",
+   "Wang Fuk Court"
+  ],
+  "social_queries": [
+   "宏福苑",
+   "宏福苑火災",
+   "大埔火災",
+   "Wang Fuk Court",
+   "Tai Po fire"
+  ]
+ }
+]

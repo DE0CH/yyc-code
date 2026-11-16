@@ -1,0 +1,142 @@
+/* YYC app shell (NAVIGATION.md), in the house style (house.css, "clean lines"): the top bar of full-height ruled cells, the phone tab bar, the
+   notice, the 已有更新 button, the DeyaoOnly box, the bias note and the AI badges. Every page of the app uses these. */
+.yyc-vh { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+
+/* ---- top bar ---- */
+.yyc-bar { position:sticky; top:0; z-index:20; background:var(--panel); color:var(--ink); padding-top:env(safe-area-inset-top); }
+/* The strip above the bar on iOS 26 Safari (Deyao's iPhone, 14 Oct 2026). With the address bar at the top, Safari sticks
+   the bar below its status bar and address pill, paints the page in that strip, and clips fixed and sticky layers to
+   the area below it, so the bar's own ::before (its colour, 100vh upward) is cut off there. Safari fills the strip with
+   a solid colour only when a position:fixed, viewport-wide box sits at the top edge: it hit-tests the middle of the
+   top edge 4 px down, ignoring pointer-events, and takes that box's colour (WebKit fixedContainerEdges; sticky
+   headers do not count in shipped iOS 26). .yyc-topfill (shell/Shell.tsx) is that box: 6 px of the bar's colour over the
+   bar's own top padding (on iOS the bar's content starts 6 px down, so the box never covers the top of a filled cell),
+   no taps. Only iOS needs it: elsewhere there is no box and no padding, so the row's cells and rules meet the bar's top
+   edge. The ::before still paints upward where a browser does not clip it (overscroll), and the bar pads its content
+   below the status bar in a home-screen web app (safe-area-inset-top, 0 in the Safari tab). */
+.yyc-bar::before { content:""; position:absolute; left:0; right:0; bottom:100%; height:100vh; background:var(--panel); pointer-events:none; }
+.yyc-topfill { display:none; position:fixed; top:0; left:0; right:0; height:6px; background:var(--panel); z-index:21; pointer-events:none; }
+@supports (-webkit-touch-callout: none) {  /* iOS WebKit only */
+  .yyc-topfill { display:block; }
+  .yyc-bar { padding-top:max(6px, env(safe-area-inset-top)); }
+}
+/* a notice to staff: a panel strip with a 3px ink marker down its left edge */
+.yyc-notice { margin:0; padding:10px var(--gutter) 10px calc(var(--gutter) - 3px); background:var(--panel); color:var(--ink); border-left:3px solid var(--ink);
+  border-bottom:1px solid var(--rule); font-size:14px; font-weight:500; line-height:1.45; overflow-wrap:anywhere; }
+/* The bar is a stack of ruled rows on one --panel ground (house.css "clean lines"): each row draws one 1px --rule under
+   itself, so neighbouring rows share one line. Level 1 (.yyc-row): 56px + its rule; the brand, the sections, the
+   streams and the tools are cells the full height of the row, split by shared left rules, the current one ink-filled
+   with its rules kept. Level 2 (.yyc-sub) and any further row (.yyc-tier): 44px + its rule. Every row starts its first
+   cell on --gutter and ends on it, the sheets' edges */
+.yyc-row { display:flex; align-items:stretch; gap:0; height:57px; padding:0 var(--gutter); border-bottom:1px solid var(--rule); }
+.yyc-brand { display:inline-flex; align-items:center; padding-right:16px; font-weight:700; font-size:16px; white-space:nowrap; text-decoration:none; color:var(--ink); }
+.yyc-brand span { display:none; }
+.yyc-secs { display:none; }
+/* the stream picker (NAVIGATION.md "The stream picker"): one link per stream, a row of full-height cells split by shared
+   rules that scrolls sideways inside itself (never wraps), the current stream ink-filled */
+.yyc-pick { flex:1; min-width:0; display:flex; align-items:stretch; }
+.yyc-streams { position:relative; display:flex; align-items:stretch; min-width:0; overflow-x:auto; overscroll-behavior-x:contain; scrollbar-width:none; }
+.yyc-streams::-webkit-scrollbar { display:none; }
+.yyc-streams a, .yyc-secs a { flex:none; display:inline-flex; align-items:center; gap:8px; min-height:var(--ctl); padding:0 14px; white-space:nowrap;
+  font-size:16px; font-weight:600; color:var(--muted); text-decoration:none; border-left:1px solid var(--rule); -webkit-tap-highlight-color:transparent; }
+.yyc-streams a:last-child { border-right:1px solid var(--rule); }
+.yyc-streams a:hover, .yyc-secs a:hover { color:var(--ink); background:var(--ground); }
+.yyc-streams a[aria-current="page"], .yyc-secs a[aria-current="page"] { position:relative; background:var(--ink); color:var(--panel); font-weight:700; }
+.yyc-wait { display:flex; align-items:center; padding:0 14px; color:var(--muted); font-size:14px; white-space:nowrap; }
+.yyc-pick.yyc-nopick .yyc-streams { visibility:hidden; }
+.yyc-tools { display:flex; align-items:stretch; }
+.yyc-tool { display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:var(--ctl); min-width:var(--ctl); padding:0 12px;
+  color:var(--muted); text-decoration:none; font-size:15px; background:none; border:0; border-left:1px solid var(--rule); cursor:pointer; white-space:nowrap; }
+.yyc-tools > :last-child { border-right:1px solid var(--rule); }
+.yyc-tool:hover { color:var(--ink); background:var(--ground); }
+.yyc-tool[aria-pressed="true"], .yyc-tool[aria-expanded="true"] { color:var(--panel); background:var(--ink); }
+.yyc-tool svg.i { width:20px; height:20px; }
+
+/* a page's own sub-navigation (level 2): 44px tabs on the bar's ground that scroll sideways, never wrap; unruled
+   between them, told from level 1 by type (14px/400). The current one has a 3px ink bar that covers the row's baseline
+   rule. The rule is painted as the row's background (a 1px band at its bottom edge, not a border), so it stays under the
+   tabs inside the scroller and the bar can cover it: a border would sit outside the scroller's clip */
+.yyc-sub { display:flex; align-items:stretch; height:45px; overflow-x:auto; scrollbar-width:none; padding:0 var(--gutter);
+  background:var(--panel) linear-gradient(var(--rule), var(--rule)) left bottom / 100% 1px no-repeat; }
+.yyc-sub::-webkit-scrollbar { display:none; }
+.yyc-sub > a, .yyc-sub > button { flex:none; display:inline-flex; align-items:center; gap:6px; min-height:var(--ctl); padding:3px 12px 0; white-space:nowrap;
+  color:var(--muted); font-size:14px; font-weight:400; text-decoration:none; background:none; border:0; border-bottom:3px solid transparent; cursor:pointer; }
+.yyc-sub > a:hover, .yyc-sub > button:hover { color:var(--ink); background:var(--ground) linear-gradient(var(--rule), var(--rule)) left bottom / 100% 1px no-repeat; }
+.yyc-sub [aria-current="true"], .yyc-sub [aria-current="page"], .yyc-sub [aria-pressed="true"], .yyc-sub a[data-status="active"] { color:var(--ink); border-bottom-color:var(--ink); font-weight:700; }
+.yyc-sub b { font-weight:500; font-size:13px; font-family:var(--num); }
+
+/* a further bar row under the others (a period bar, a date row, a results toolbar): 44px + its baseline rule on the bar's
+   ground, its cells and groups flush on the rule (no top or bottom borders of their own), groups apart by plain
+   ground. A .seg or .range in it keeps only its side rules */
+.yyc-tier { display:flex; align-items:stretch; gap:0 16px; min-height:45px; padding:0 var(--gutter); background:var(--panel); color:var(--ink);
+  border-bottom:1px solid var(--rule); }
+.yyc-tier > :is(.seg, .range, .cellrow) { border-block:0; }
+.yyc-tier :is(.seg button, .range input, .cellrow > *) { min-height:var(--ctl); }
+
+/* ---- phone tab bar ---- */
+.yyc-tabbar { position:fixed; left:0; right:0; bottom:0; z-index:30; display:flex; background:var(--panel); border-top:1px solid var(--rule);
+  padding:0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }  /* no side inset: the tabs split the full width, so the current one's bar meets the screen edge */
+.yyc-tabbar a { flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; height:56px;
+  color:var(--muted); text-decoration:none; font-size:12px; line-height:1.2; border-top:3px solid transparent; margin-top:-1px;
+  -webkit-tap-highlight-color:transparent; }
+.yyc-tabbar a svg.i { width:22px; height:22px; }
+.yyc-tabbar a[aria-current="page"] { color:var(--ink); font-weight:700; border-top-color:var(--ink); }
+@media (max-width:959px) { :root { --tabbar-h:calc(57px + env(safe-area-inset-bottom)); } }
+:root.yyc-typing { --tabbar-h:0px; }
+.yyc-typing .yyc-tabbar { display:none; }
+
+@media (min-width:960px) {
+  .yyc-tabbar { display:none; }
+  .yyc-brand { padding-right:20px; }
+  .yyc-brand span { display:inline; }
+  /* the sections, then the streams flush after them: the sections' closing rule is the one boundary between the two
+     (the streams' first cell drops its own), and it still closes them where 串流 hides the streams */
+  .yyc-secs { display:flex; align-items:stretch; border-right:1px solid var(--rule); }
+  .yyc-secs + .yyc-pick .yyc-streams > a:first-child { border-left:0; }
+  .yyc-pick { order:3; }
+  .yyc-bar[data-pick="side"] .yyc-streams { visibility:hidden; }  /* 串流: its side list is the picker on desktop */
+  .yyc-tools { order:4; }
+}
+
+/* a title written by AI (titles.py: a post with no title of its own); the post's own text below it. A square ink-ruled
+   tag in the figure face */
+.ai-t { display:inline-block; vertical-align:2px; margin-right:6px; padding:0 5px; border:1px solid var(--ink);
+  color:var(--ink); font-family:var(--num); font-size:12px; font-weight:700; line-height:16px; white-space:nowrap; cursor:help;
+  text-decoration:none; }
+.ai-orig { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; color:var(--muted);
+  font-size:13px; font-weight:400; line-height:1.45; overflow-wrap:anywhere; }
+
+/* iOS Safari zooms into any field whose text is under 16px when it is tapped: fields are 16px on touch screens */
+@media (hover: none) and (pointer: coarse) { input, select, textarea { font-size:16px !important; } }
+
+/* the selection-bias note (lib/BiasNote.tsx): one quiet line per view, and its one 「指標說明」 toggle */
+.bias-note { margin:0 0 12px; color:var(--muted); font-size:13px; line-height:1.55; }
+.bias-note p { display:flex; gap:6px; align-items:flex-start; margin:0; }
+.bias-i { flex:none; width:16px; height:16px; margin-top:2px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:square; stroke-linejoin:miter; }
+.bias-note details { margin:0 0 0 22px; }
+.bias-note summary { display:inline-flex; align-items:center; min-height:var(--ctl); cursor:pointer; color:var(--ink);
+  text-decoration:underline dotted; text-underline-offset:3px; }
+.bias-note summary::-webkit-details-marker { display:none; }
+.bias-note dl { margin:4px 0 0; display:grid; gap:6px; max-width:72ch; border-left:1px solid var(--rule); padding-left:12px; }
+.bias-note dl > div { display:grid; gap:1px; }
+.bias-note dt { color:var(--ink); font-weight:700; }
+.bias-note dd { margin:0; }
+@media (min-width:900px) {
+  .bias-note dl { grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px 28px; max-width:none; }
+}
+
+/* 已有更新: the page cannot go on with the new site (lib/update.ts). A square ink block above the tab bar, never
+   blocking; a tap reloads. */
+.yyc-update { position:fixed; z-index:40; left:50%; transform:translateX(-50%);
+  bottom:calc(var(--tabbar-h) + 12px + env(safe-area-inset-bottom)); max-width:calc(100vw - 32px);
+  display:flex; align-items:center; gap:10px; min-height:var(--ctl); padding:0 16px; border:1px solid var(--ink);
+  background:var(--ink); color:var(--panel); font-size:15px; font-weight:700; line-height:1.3; cursor:pointer; white-space:nowrap; }
+.yyc-update span { font-weight:400; }
+.yyc-update:hover { background:var(--muted); border-color:var(--muted); }
+@media (max-width:959px) { .yyc-update { bottom:calc(var(--tabbar-h) + 10px); } }
+
+/* <DeyaoOnly> (lib/DeyaoOnly.tsx): the one box of a staff page that only Deyao sees, a dashed outline */
+.deyao-only { margin:0 0 14px; padding:10px 14px 12px; border:2px dashed var(--muted); background:var(--panel); color:var(--ink); font-size:14px; overflow-wrap:anywhere; }
+.deyao-only-label { margin:0 0 6px; font-size:13px; font-weight:700; color:var(--muted); }
+.deyao-only p { margin:4px 0; }
+.deyao-only a { color:inherit; text-decoration:underline; }

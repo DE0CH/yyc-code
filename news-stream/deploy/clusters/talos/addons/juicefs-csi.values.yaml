@@ -1,0 +1,40 @@
+# The JuiceFS CSI driver on yyc-talos (yyc-ai/refactor DESIGN 15.2 N6, 15.3; chart 0.33.0 by talos.sh addons): the
+# values the old cluster's HelmRelease had (the old stack's juicefs.yaml, deleted in A6; git history) for JuiceFS
+# volume `yyc-ai` (hermit's /jfs; hermit 15.2): mount-pod mode, no controller (the PVs are static), no
+# dashboard, no webhook, one mount pod per node (fsShareMount) at 192 Mi request = limit, mount image JuiceFS 1.4.1
+# (the sandbox hosts' version). The mount pods keep running across a driver upgrade.
+#
+# Placement: the node plugin runs on the nodes YYC AI's pods may use, the workers in network `yyc` (node label
+# yyc.hetzner/network=yyc from ../patches/worker.yaml, DESIGN 15.7), never on the control nodes (ARM, tainted, no label);
+# the old cluster selected by instance type (cx33, cpx32) instead.
+mountMode: mountpod
+# Talos's /etc is read-only: without this the mount pods fail at create ("mkdir /etc/updatedb.conf: read-only file
+# system", 2026-11-05); immutable skips that hostPath (the chart's own switch for Talos)
+immutable: true
+controller: {enabled: false}
+dashboard: {enabled: false}
+webhook: {certManager: {enabled: false}}
+validatingWebhook: {enabled: false}
+defaultMountImage: {ce: "juicedata/mount:ce-v1.4.1"}
+globalConfig:
+  enabled: true
+  manageByHelm: true
+  mountPodPatch:
+    - resources:
+        # measured 52 Mi with the UI idle (old cluster, 2026-10-21)
+        requests: {cpu: 50m, memory: 192Mi}
+        limits: {memory: 192Mi}
+node:
+  enabled: true
+  fsShareMount: true
+  mountPodNonPreempting: true
+  resources:
+    # 128 Mi was OOM-killed at start (old cluster, 2026-10-21: its manager caches the cluster's pods)
+    requests: {cpu: 20m, memory: 384Mi}
+    limits: {memory: 384Mi}
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - {key: yyc.hetzner/network, operator: In, values: ["yyc"]}

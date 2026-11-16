@@ -1,0 +1,114 @@
+# Flux on the Hetzner cluster (applied once by cluster/cluster.sh flux; from then on Flux follows DE0CH/YYC main):
+#   yyc-apps  ./news-stream/deploy/clusters/hetzner  (the apps base + this cluster's StorageClass and state)
+#   yyc-aiwatch ./ai-watch/deploy                     (YYC AI watch, namespace aiwatch; its own folder)
+#   yyc-apps-secrets, yyc-aiwatch-secrets  the SealedSecrets in */sealed/, FENCED (below); nothing here decrypts anything.
+#   yyc-db    ./news-stream/deploy/db              (YYC's Postgres: the CloudNativePG Cluster pg, namespace db)
+# This file is not reconciled by Flux itself: after changing it, `cluster.sh flux` (or cluster.sh ssh kubectl apply -f -).
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: yyc
+  namespace: flux-system
+spec:
+  interval: 1m
+  timeout: 3m                # the clone of the whole repo (73 MB packed, 2026-10-28) outgrew the default 60 s
+  url: ssh://git@github.com/DE0CH/YYC.git
+  ref:
+    branch: main
+  secretRef:
+    name: yyc-git            # read-only deploy key "yyc-cluster flux (read-only)" + github.com known_hosts
+  ignore: |
+    /*
+    !/news-stream/deploy/
+    !/yyc-ai/deploy/
+    !/ai-watch/deploy/
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: yyc-apps
+  namespace: flux-system
+spec:
+  interval: 10m
+  retryInterval: 1m
+  path: ./news-stream/deploy/clusters/hetzner
+  prune: true
+  wait: false
+  timeout: 5m
+  sourceRef:
+    kind: GitRepository
+    name: yyc
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: yyc-aiwatch
+  namespace: flux-system
+spec:
+  interval: 10m
+  retryInterval: 1m
+  path: ./ai-watch/deploy
+  prune: true
+  wait: false
+  timeout: 5m
+  sourceRef:
+    kind: GitRepository
+    name: yyc
+---
+# YYC's Postgres: the CloudNativePG Cluster and its backup store. After yyc-apps, which installs the operators and their
+# CRDs (postgres-operator.yaml); until the HelmReleases are ready the first tries fail and retry every minute.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: yyc-db
+  namespace: flux-system
+spec:
+  interval: 10m
+  retryInterval: 1m
+  path: ./news-stream/deploy/db
+  prune: false                       # never delete the database because a manifest moved
+  wait: false
+  timeout: 5m
+  dependsOn: [{name: yyc-apps}]
+  sourceRef:
+    kind: GitRepository
+    name: yyc
+---
+# The SealedSecrets, FENCED: applied as ServiceAccount sealed-secrets-applier (sealed-secrets.yaml), which can manage
+# SealedSecret objects in yyc, mailmerge, db and aiwatch and nothing else, so a push into a sealed/ folder
+# can't create RBAC, pods or read Secrets. Never remove serviceAccountName (it would apply as cluster-admin).
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: yyc-apps-secrets
+  namespace: flux-system
+spec:
+  interval: 10m
+  retryInterval: 1m
+  path: ./news-stream/deploy/apps/sealed
+  prune: true
+  wait: false
+  timeout: 5m
+  serviceAccountName: sealed-secrets-applier
+  dependsOn: [{name: yyc-apps}]       # the controller, its CRD and the applier's RoleBindings
+  sourceRef:
+    kind: GitRepository
+    name: yyc
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: yyc-aiwatch-secrets
+  namespace: flux-system
+spec:
+  interval: 10m
+  retryInterval: 1m
+  path: ./ai-watch/deploy/sealed
+  prune: true
+  wait: false
+  timeout: 5m
+  serviceAccountName: sealed-secrets-applier
+  dependsOn: [{name: yyc-apps}, {name: yyc-aiwatch}]   # yyc-aiwatch: the namespace aiwatch + its RoleBinding
+  sourceRef:
+    kind: GitRepository
+    name: yyc

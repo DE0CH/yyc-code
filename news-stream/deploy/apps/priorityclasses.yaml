@@ -1,0 +1,22 @@
+# Scheduling priority (cluster-wide; this Kustomization owns them, YYC AI's pods use `serving` too): what serves people
+# (the AI server, mcp, the WiseSearch relay, the tunnel connectors, the poller and the senders, mail merge, YYC AI's
+# web/egress/tools) goes before the batch CronJobs in the scheduling queue. Neither preempts: a rollout's extra pod
+# never evicts a running job (Deyao, 2026-10-20: infra changes must never disrupt current jobs); it waits for room.
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: serving
+  annotations: {kustomize.toolkit.fluxcd.io/force: enabled}  # preemptionPolicy is immutable: Flux replaces the object
+value: 100000
+globalDefault: false
+preemptionPolicy: Never
+description: Serving workloads (YYC's AI server, mcp, wisers, poller, senders, tunnel connectors, mail merge, YYC AI).
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: batch
+value: 1000
+globalDefault: false
+preemptionPolicy: Never
+description: Batch CronJobs (collectors, reports, dumps); preemptible by serving pods, never preempting.

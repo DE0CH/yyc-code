@@ -1,0 +1,90 @@
+# The daily locked pg_dump on yyc-talos (T5): news-stream/deploy/db/pg-dump-daily.yaml with the database list of T5
+# (jarvis and cloudcli dropped at A6; aiwatch, which the old job leaves out, and YYC AI's hermit, egress, tools added;
+# feishu_index since 2026-11-11),
+# labelled app=pg-dump-daily for pg-ingress. It reads pg-rw, the promoted primary: suspended until T5's promotion
+# (a replica cluster's pg-rw is its read-only designated primary). The old cluster's job is suspended in the same step.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: pg-dump-daily
+  namespace: db
+spec:
+  schedule: "30 19 * * *"       # 03:30 HKT, after the 03:00 base backup
+  suspend: false
+  timeZone: Etc/UTC
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 5400
+      ttlSecondsAfterFinished: 172800
+      template:
+        metadata:
+          labels: {app: pg-dump-daily}
+        spec:
+          restartPolicy: Never
+          # Pod Security restricted (namespace db): non-root, RuntimeDefault seccomp, no privilege escalation, no capabilities
+          securityContext: {runAsUser: 26, runAsGroup: 26, fsGroup: 26, runAsNonRoot: true, seccompProfile: {type: RuntimeDefault}}
+          nodeSelector: {pool: apps}
+          initContainers:
+            - name: dump
+              securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+              image: ghcr.io/cloudnative-pg/postgresql:17.11-standard-trixie
+              command:
+                - bash
+                - -c
+                - |
+                  set -euo pipefail
+                  d=/dump/$(date -u +%Y-%m-%d); mkdir -p "$d"
+                  for spec in app:app:APP jfs_yyc_ai:juicefs:JUICEFS mcp:yyc_mcp:MCP aiwatch:aiwatch:AIWATCH hermit:hermit:HERMIT egress:egress:EGRESS tools:tools:TOOLS feishu_index:feishu_index:FEISHU_INDEX; do
+                    IFS=: read -r db role var <<< "$spec"
+                    pw="PW_$var"
+                    PGPASSWORD="${!pw}" pg_dump "host=pg-rw.db.svc.cluster.local dbname=$db user=$role sslmode=require" \
+                      --format=custom --file="$d/$db.dump"
+                    pg_restore --list "$d/$db.dump" > /dev/null   # readable to the end
+                    echo "$db: $(du -h "$d/$db.dump" | cut -f1)"
+                  done
+              env:
+                - {name: PW_APP, valueFrom: {secretKeyRef: {name: pg-role-app, key: password}}}
+                - {name: PW_JUICEFS, valueFrom: {secretKeyRef: {name: pg-role-juicefs, key: password}}}
+                - {name: PW_MCP, valueFrom: {secretKeyRef: {name: pg-role-mcp, key: password}}}
+                - {name: PW_AIWATCH, valueFrom: {secretKeyRef: {name: pg-role-aiwatch, key: password}}}
+                - {name: PW_HERMIT, valueFrom: {secretKeyRef: {name: pg-role-hermit, key: password}}}
+                - {name: PW_EGRESS, valueFrom: {secretKeyRef: {name: pg-role-egress, key: password}}}
+                - {name: PW_TOOLS, valueFrom: {secretKeyRef: {name: pg-role-tools, key: password}}}
+                - {name: PW_FEISHU_INDEX, valueFrom: {secretKeyRef: {name: pg-role-feishu-index, key: password}}}
+              resources:
+                requests: {cpu: 500m, memory: 256Mi}
+                limits: {memory: 1Gi}
+              volumeMounts: [{name: dump, mountPath: /dump}]
+          containers:
+            - name: upload
+              securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+              image: rclone/rclone:1.71.2
+              command:
+                - sh
+                - -c
+                - |
+                  set -eu
+                  # 2 files x 2 parts x 16 MB of upload buffers: the defaults (4 parts of 64 MB each) reach the 512 Mi limit
+                  rclone copy /dump hz:yyc-pg-backups/dumps --s3-chunk-size 16M --s3-upload-concurrency 2 --buffer-size 8M --transfers 2 -v
+                  rclone check /dump hz:yyc-pg-backups/dumps --size-only --one-way
+              env:
+                # Hetzner Object Storage; the bucket exists (no create), region = its location
+                - {name: RCLONE_CONFIG_HZ_TYPE, value: s3}
+                - {name: RCLONE_CONFIG_HZ_PROVIDER, value: Other}
+                - {name: RCLONE_CONFIG_HZ_ENDPOINT, value: "https://fsn1.your-objectstorage.com"}
+                - {name: RCLONE_CONFIG_HZ_REGION, value: fsn1}
+                - {name: RCLONE_S3_NO_CHECK_BUCKET, value: "true"}
+                - {name: RCLONE_CONFIG_HZ_ACCESS_KEY_ID, valueFrom: {secretKeyRef: {name: pg-backup-s3, key: ACCESS_KEY_ID}}}
+                - {name: RCLONE_CONFIG_HZ_SECRET_ACCESS_KEY, valueFrom: {secretKeyRef: {name: pg-backup-s3, key: ACCESS_SECRET_KEY}}}
+                - {name: HOME, value: /tmp}
+              resources:
+                requests: {cpu: 200m, memory: 128Mi}
+                limits: {memory: 512Mi}
+              volumeMounts: [{name: dump, mountPath: /dump}]
+          volumes:
+            - name: dump
+              emptyDir: {sizeLimit: 20Gi}

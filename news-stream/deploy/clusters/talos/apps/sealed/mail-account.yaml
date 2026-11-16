@@ -1,0 +1,16 @@
+# SealedSecret made by infra/seal.py from the store `yyc` (map: infra/secrets.txt). Don't edit: re-seal.
+# cert: infra/sealed-secrets-talos.pem sha256:81f61330757d262c
+---
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: mail-account
+  namespace: yyc
+spec:
+  encryptedData:
+    mail-account: AgCtiuqAFkAemajRIUVPTUxMcCEco01nq5M0QrT7TK1EfVNXVZ5ckTfCRUZWJ5T+1h88TGuG1cYbeC4D1Qr9hCOzga/AgXfPLpHizpxiN7u8DfwNAfPYrxA699Ad2Phy/92SBcyWOWcwQaumKvDsWUvzrUrChs+5/XRDoQfVywQQ9BP9CAx2K1SKlAURToIoGgI4qBPO1xk1c7pS/UDavrOwrQ5cedHgPq9H8zJp1m6KnwT8ZdyqI0yE1ezv+GLMW6Ar8JVpxRHZcpPB8gGYzgCtwLKMihl2gtbMjiono9jZApfWyXuI87BfnWG4J+F/ys2UG5p3g0hQns3mliuNkAQnhymB11nX8XiWTBswsespx3S3N/ltbnDixfMVMYtt2PJn/GkrBw8RIeCWIhoaWwXMRfG1DLSzoW7PAj1e0/UkrlaMQHQ5uQM/I0PizNdy9V0kbmIVbKzK/ge/dbbqEZuCWcIhFsKKCyjAngQxs4yE2EO3TgEp/NqERoVGahZmbQqYc8q0PTf/j9Ipp1LxpzsbhmW8ZdnbsyZDfKJL8OtA1/W8RJykEUICg5k0a+3eyO/svH+t2aEX7VKpdFXcLehVj61MZqQhhXVlkuy8iYrtPgyomfAbh2rP3zUBnF5qQTdLiyZqNLzPkUZ1+A/aBeZ7ZYyzeq1aZ9t6J8wFkhvWM+1CyYDiS4k+IgEL7hWFLx51vSI6xOHQ7cgOdmUZeAcSiA6hAnQWEq7pwMTrJ9efNBExyCeBo+at+MSVC45VUVKTUvjRBT4XtVizJJuxWwuqpIiDpabPFnxlmEbhxvJ/YZ4wYq75zpU6Nb/+ggALpCataIn/adWd119q1S5THnvBxXd5w/XyzQkUWNEm2XEdwiTzfrnOhMwhGniEDsq9KPCjN0nv0YXMs5QIkiGuR9C23s6sZjTH/kNSIOT3MVL4Qabs6A7OGnZ4kNi/kow0sdxc39BrJSopy/TmwamBO6507bpA2V4Q+pgLPoOs8LUAz2RhZxBn4qPNGhW0flO4GPPCkB2R9WqHt531dItmaoAjKp+PJMcoMYARr+Q7FQW3pRB6IMWZU10e+JvEHnh3k++ez7jVt35YcrnAWK4LZbjCIqk1saclLV/dwYGpHIUWckJQqnce+qGFrBspJF3cfKbdfaJY/8mvWw==
+  template:
+    metadata:
+      name: mail-account
+      namespace: yyc
+    type: Opaque

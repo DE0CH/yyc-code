@@ -1,0 +1,51 @@
+# The Hetzner cluster `yyc` (hetzner-k3s, ../../cluster/): the apps base + the StorageClass `yyc-block`.
+# Its Flux (flux-sync.yaml) applies this folder as Kustomization yyc-apps.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../apps
+  - storageclass.yaml
+  - sealed-secrets.yaml   # the Sealed Secrets controller + the fenced applier identity
+  - postgres-operator.yaml  # YYC's Postgres: CloudNativePG, its Barman Cloud plugin, cert-manager + namespace db (../../db/)
+# A move to or from another cluster adds its MIGRATION STATE patches here (../../MIGRATE.md).
+patches:
+  # MIGRATION STATE (move to yyc-talos, yyc-ai/refactor/talos-apps-move.md T4a): the mail merge serves from yyc-talos
+  # (clusters/talos/apps); its old Deployments and connectors at 0, deleted with the old cluster (T6)
+  - target: {kind: Deployment, namespace: mailmerge}
+    patch: |-
+      - {op: replace, path: /spec/replicas, value: 0}
+  # MIGRATION STATE (T4b-serving): web, yyc-mcp and tunnel yyc-stream's connectors serve from yyc-talos. flagd stays:
+  # the jobs and singletons still here read it until their steps
+  - target: {kind: Deployment, namespace: yyc, name: "^(cloudflared|web|yyc-mcp)$"}
+    patch: |-
+      - {op: replace, path: /spec/replicas, value: 0}
+  # MIGRATION STATE (T4b-jobs): the CronJobs without a volume run on yyc-talos
+  - target: {kind: CronJob, namespace: yyc, name: "^(forums|forums-browser|instagram|lihkg|mcp-cleanup|paywall|replies|reports|sites|tikhub|watch)$"}
+    patch: |-
+      - {op: replace, path: /spec/suspend, value: true}
+  # MIGRATION STATE (T4b-jobs): volume facebook-data's CronJobs and anchor run on yyc-talos
+  - target: {kind: CronJob, namespace: yyc, name: "^(facebook|comments)$"}
+    patch: |-
+      - {op: replace, path: /spec/suspend, value: true}
+  - target: {kind: Deployment, namespace: yyc, name: volume-facebook-data}
+    patch: |-
+      - {op: replace, path: /spec/replicas, value: 0}
+  # MIGRATION STATE (T4b-jobs): volume browser-data's CronJobs and anchor run on yyc-talos
+  - target: {kind: CronJob, namespace: yyc, name: "^(browser|cache|fulltext|sites-browser)$"}
+    patch: |-
+      - {op: replace, path: /spec/suspend, value: true}
+  - target: {kind: Deployment, namespace: yyc, name: volume-browser-data}
+    patch: |-
+      - {op: replace, path: /spec/replicas, value: 0}
+  # MIGRATION STATE (T4b-jobs): volume dumps's CronJobs and anchor run on yyc-talos
+  - target: {kind: CronJob, namespace: yyc, name: "^(uptime)$"}
+    patch: |-
+      - {op: replace, path: /spec/suspend, value: true}
+  - target: {kind: Deployment, namespace: yyc, name: volume-dumps}
+    patch: |-
+      - {op: replace, path: /spec/replicas, value: 0}
+  # MIGRATION STATE (T4b-singletons): poller, whatsapp, transcribe, tiktok-videos run on yyc-talos (they hand over
+  # through their Postgres locks; tiktok-videos' row leases let both run while it moves)
+  - target: {kind: Deployment, namespace: yyc, name: "^(tiktok-videos|poller|whatsapp|transcribe|monitor|wisers|flagd)$"}
+    patch: |-
+      - {op: replace, path: /spec/replicas, value: 0}

@@ -1,0 +1,20 @@
+# No public IP (README "Workers without public IPs": Hetzner counts IPv6 primary IPs against the account's limit):
+# network `yyc` is the only link (eth0). Hetzner's DHCP gives the /32 and the route to 10.0.0.0/16 via 10.0.0.1; the
+# default route also goes to 10.0.0.1, where network `yyc`'s route 0.0.0.0/0 sends it to yyc-nat1 (10.0.0.30), which
+# masquerades it out its WARP. DNS is yyc-nat1's dnsmasq (Hetzner's resolvers over its IPv6).
+apiVersion: v1alpha1
+kind: DHCPv4Config
+name: eth0
+---
+apiVersion: v1alpha1
+kind: LinkConfig
+name: eth0
+mtu: 1450                       # network `yyc`'s MTU
+routes:
+  - destination: 10.0.0.1/32    # the gateway on the link (the /32 address has no subnet around it)
+  - gateway: 10.0.0.1
+---
+apiVersion: v1alpha1
+kind: ResolverConfig
+nameservers:
+  - address: 10.0.0.30

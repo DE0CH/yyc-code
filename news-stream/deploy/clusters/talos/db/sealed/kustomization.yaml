@@ -1,0 +1,8 @@
+# SealedSecrets of the new cluster's namespace db (infra/seal.py, infra/secrets.txt; sealed with
+# infra/sealed-secrets-talos.pem). seal.py lists each file here when it seals it.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - pg-offsite-r2.yaml
+  - pg-backup-s3.yaml
+  - pg-role-magpie.yaml

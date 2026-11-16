@@ -1,0 +1,69 @@
+# Feature flags (Deyao, 2026-10-13): OpenFeature in the app (flags.py), flagd here serving deploy/apps/flags/flags.json.
+# The file reaches flagd as the ConfigMap `flags` (kustomization configMapGenerator, no name hash, mounted as a
+# directory, not subPath), so a flag change = a git change: Flux updates the ConfigMap, the kubelet updates the mounted
+# file within about a minute, flagd notices and streams the change to the app. No restart anywhere.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flagd
+  namespace: yyc
+spec:
+  replicas: 2  # stateless: one keeps serving through a rollout or a node drain (PDB below)
+  selector:
+    matchLabels: {app: flagd}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxUnavailable: 1, maxSurge: 0}  # one pod at a time; the other keeps serving
+  template:
+    metadata:
+      labels: {app: flagd}
+    spec:
+      topologySpreadConstraints:  # one pod per node where it can (a node's loss leaves the other)
+        - {maxSkew: 1, topologyKey: kubernetes.io/hostname, whenUnsatisfiable: ScheduleAnyway, labelSelector: {matchLabels: {app: flagd}}}
+      # no Service env vars: Kubernetes would set FLAGD_PORT=tcp://<ip>:8013 for the `flagd` Service, flagd reads FLAGD_*
+      # as its own settings and then served on a random port, so every evaluation from the app timed out (all flags off)
+      enableServiceLinks: false
+      securityContext: {runAsNonRoot: true, runAsUser: 65532}
+      containers:
+        - name: flagd
+          image: ghcr.io/open-feature/flagd:v0.16.3
+          args: [start, --uri, file:/etc/flagd/flags.json]
+          ports: [{name: grpc, containerPort: 8013}, {name: mgmt, containerPort: 8014}]
+          readinessProbe: {httpGet: {path: /readyz, port: mgmt}, periodSeconds: 5}
+          livenessProbe: {httpGet: {path: /healthz, port: mgmt}, periodSeconds: 20}
+          # a rollout: the new pod is ready first (maxUnavailable 0); the old one stays up until it is out of the
+          # Service's endpoints, so the app's reconnect (and its evaluations, 500 ms deadline, else OFF) reach the new one
+          lifecycle: {preStop: {sleep: {seconds: 5}}}
+          resources:
+            requests:
+              cpu: 10m
+              memory: 96Mi
+              ephemeral-storage: 50Mi
+            limits:
+              cpu: 200m
+              memory: 96Mi
+              ephemeral-storage: 256Mi
+          volumeMounts: [{name: flags, mountPath: /etc/flagd, readOnly: true}]
+      volumes:
+        - {name: flags, configMap: {name: flags}}
+      priorityClassName: serving
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: flagd
+  namespace: yyc
+spec:
+  selector: {app: flagd}
+  ports: [{name: grpc, port: 8013, targetPort: grpc}]
+---
+# a node drain leaves one pod serving
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: flagd
+  namespace: yyc
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels: {app: flagd}

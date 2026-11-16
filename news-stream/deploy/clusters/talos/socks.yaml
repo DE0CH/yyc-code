@@ -1,0 +1,73 @@
+# yyc-socks on yyc-talos (socks/README.md; the old cluster's copy is news-stream/deploy/apps/socks.yaml): the cluster's
+# way out to the internet by name, socks5h://socks.egress.svc.cluster.local:1080 (HTTP proxy on the same port). YYC
+# AI's egress uses it (yyc-ai/deploy/egress/egress.json `exit`), later the apps T4 moves here.
+#
+# How the pool runs here (2026-11-05, README "Outgoing proxy pool"): one copy on each worker in network yyc, host
+# network, listening on the node's private address. The workers have no public IP and no IPv6 (README "Workers
+# without public IPs"): their IPv4 leaves through yyc-nat1's WARP, so every copy has the same exit, 104.28.207.215
+# (colo FRA), which is also the old cluster's nodes' WARP exit (both read 2026-11-05). So FAMILIES=ipv4 (IPv4 only,
+# readiness without IPv6) and the sandbox profile's malware-blocking resolvers over IPv4 (Cloudflare for Families
+# "security" 1.1.1.2/1.0.0.2, Quad9 9.9.9.9/149.112.112.112: the same services as the IPv6 defaults). The pool gives
+# workers' failures no single point; yyc-nat1 is one (its README line). The default profile asks the node's resolver
+# (Talos's host DNS, which forwards to yyc-nat1's dnsmasq at 10.0.0.30).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: egress
+  labels:
+    # host network: PSS privileged (the container itself runs non-root, read-only, no capabilities)
+    pod-security.kubernetes.io/enforce: privileged
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: socks
+  namespace: egress
+spec:
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels: {app: socks}
+  updateStrategy: {type: RollingUpdate, rollingUpdate: {maxUnavailable: 1}}
+  template:
+    metadata:
+      labels: {app: socks}
+    spec:
+      hostNetwork: true
+      dnsPolicy: Default
+      nodeSelector: {pool: apps, yyc.hetzner/network: "yyc"}
+      priorityClassName: serving
+      imagePullSecrets: [{name: ghcr-pull}]
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 630
+      securityContext: {runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532, seccompProfile: {type: RuntimeDefault}}
+      containers:
+        - name: socks
+          image: yyc-socks
+          env:
+            - {name: HOST_IP, valueFrom: {fieldRef: {fieldPath: status.hostIP}}}
+            - {name: SOCKS_PORT, value: "1080"}
+            - {name: HEALTH_PORT, value: "1081"}
+            - {name: FAMILIES, value: ipv4}
+            - {name: SANDBOX_DNS, value: "1.1.1.2,1.0.0.2,9.9.9.9,149.112.112.112"}
+          ports:
+            - {name: socks, containerPort: 1080, protocol: TCP}
+            - {name: health, containerPort: 1081, protocol: TCP}
+          readinessProbe: {httpGet: {path: /readyz, port: 1081}, periodSeconds: 5, failureThreshold: 1, successThreshold: 1}
+          livenessProbe: {httpGet: {path: /healthz, port: 1081}, periodSeconds: 10, failureThreshold: 3}
+          resources:
+            requests: {cpu: 50m, memory: 32Mi}
+            limits: {memory: 256Mi}
+          securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: socks
+  namespace: egress
+spec:
+  selector: {app: socks}
+  # one copy per client while it is ready (as on the old cluster; here every copy has the same exit address)
+  sessionAffinity: ClientIP
+  sessionAffinityConfig: {clientIP: {timeoutSeconds: 10800}}
+  ports:
+    - {name: socks, port: 1080, targetPort: 1080, protocol: TCP}

@@ -1,0 +1,110 @@
+# The deploy workflows' path to yyc-talos's API server (yyc-ai/refactor deploy-workflows 3 and 12.2, DESIGN 15.10): the
+# connector of tunnel `yyc-deploy` (cloudflare/tofu/deploy.tf), which publishes the API (kubernetes.default.svc:443)
+# as TCP behind the Access app "YYC deploy API" (k8s-deploy.yyc-internal.com, one service token). A GitHub runner runs
+# `cloudflared access tcp` to 127.0.0.1:6443 and talks TLS to the API server end to end (tools/yyc-apply/connect.sh,
+# CA infra/yyc-talos-ca.pem); the tunnel only opens the port: inside, a GitHub OIDC token authenticates (the control
+# nodes' authenticator, patches/controlplane.yaml: `gha:yyc-ai` for yyc-ai.yml, `gha:talos-nodes` for talos-nodes.yml).
+# Its own namespace (./yyc-ai-access.yaml) and tunnel: a mistake in an app's tunnel config cannot open the API, and its
+# token sits only here. The old cluster never gets this connector.
+# Its token: SealedSecret yyc-deploy/tunnel (sealed/yyc-deploy-tunnel.yaml, store key YYC_CF_DEPLOY_TUNNEL_TOKEN).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudflared
+  namespace: yyc-deploy
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels: {app: cloudflared}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxSurge: 1, maxUnavailable: 0}
+  template:
+    metadata:
+      labels: {app: cloudflared}
+    spec:
+      topologySpreadConstraints:
+        - {maxSkew: 1, topologyKey: kubernetes.io/hostname, whenUnsatisfiable: ScheduleAnyway, labelSelector: {matchLabels: {app: cloudflared}}}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile: {type: RuntimeDefault}
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: cloudflared
+          image: cloudflare/cloudflared:2026.10.0
+          args: [tunnel, --no-autoupdate, --edge-ip-version, auto, --metrics, "0.0.0.0:2000", --grace-period, 30s, run]
+          env:
+            - {name: TUNNEL_TOKEN, valueFrom: {secretKeyRef: {name: tunnel, key: token}}}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          readinessProbe:
+            httpGet: {path: /ready, port: 2000}
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: {path: /ready, port: 2000}
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            failureThreshold: 6
+          resources:
+            requests: {cpu: 10m, memory: 64Mi, ephemeral-storage: 16Mi}
+            limits: {cpu: 300m, memory: 64Mi, ephemeral-storage: 64Mi}
+      priorityClassName: serving
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: cloudflared
+  namespace: yyc-deploy
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels: {app: cloudflared}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: yyc-deploy
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+---
+# out: Cloudflare's edge and DNS (this policy); the API server by entity (the Cilium policy below: under Cilium an
+# ipBlock of a control node's address matches nothing, DESIGN 15.2 N3, and a replaced control node changes no policy)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cloudflared-egress
+  namespace: yyc-deploy
+spec:
+  podSelector: {matchLabels: {app: cloudflared}}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}
+          podSelector: {matchLabels: {k8s-app: kube-dns}}
+      ports: [{port: 53, protocol: UDP}, {port: 53, protocol: TCP}]
+    - to:
+        - ipBlock: {cidr: 0.0.0.0/0, except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10, 127.0.0.0/8, 169.254.0.0/16]}
+        - ipBlock: {cidr: "::/0", except: ["fc00::/7", "fe80::/10", "::1/128"]}
+      ports: [{port: 7844, protocol: TCP}, {port: 7844, protocol: UDP}, {port: 443, protocol: TCP}]
+    # the jump host yyc-nat1's SSH (tunnel route jump.yyc-internal.com; not a cluster node, so an ipBlock matches it)
+    - to: [{ipBlock: {cidr: 10.0.0.30/32}}]
+      ports: [{port: 22, protocol: TCP}]
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: cloudflared-to-apiserver
+  namespace: yyc-deploy
+spec:
+  endpointSelector: {matchLabels: {app: cloudflared}}
+  egress:
+    - toEntities: [kube-apiserver]
+      toPorts: [{ports: [{port: "6443", protocol: TCP}]}]

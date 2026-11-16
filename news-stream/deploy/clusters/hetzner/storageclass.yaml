@@ -1,0 +1,11 @@
+# The one cloud-specific piece of the apps: StorageClass `yyc-block` (every PVC in ../../apps asks for it). Here: Hetzner
+# Cloud Volumes through the hcloud CSI driver (installed by hetzner-k3s), in fsn1 like the apps nodes. Retain: deleting
+# a PVC by mistake keeps the Volume (delete it in the Console). An AWS overlay maps yyc-block to EBS gp3 instead.
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: yyc-block
+provisioner: csi.hetzner.cloud
+reclaimPolicy: Retain
+volumeBindingMode: WaitForFirstConsumer
+allowVolumeExpansion: true

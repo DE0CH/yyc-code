@@ -1,0 +1,8 @@
+# SealedSecrets of namespace feishu-index on yyc-talos, sealed to infra/sealed-secrets-talos.pem; yyc-apps.yml applies
+# this folder as the fence yyc-deploy/sealed-secrets-applier (infra/seal.py writes the files and lists them here).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - feishu-app.yaml
+  - ghcr-pull.yaml
+  - env.yaml

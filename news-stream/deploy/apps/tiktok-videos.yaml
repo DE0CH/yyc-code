@@ -1,0 +1,61 @@
+# The TikTok video downloader (python tiktok_video.py run; Deyao, 2026-10-22; README "TikTok videos"): every TikTok
+# post whose stage-1 score reaches 40 gets its video (best quality, with audio) downloaded once with yt-dlp from the
+# cluster's own IP (no proxy env here: never IPRoyal yycstream or the ISP IP) and put into the private bucket
+# yyc-tiktok-videos (Hetzner Object Storage, project yyc, fsn1; Secret video-s3 = credential yyc-videos). No volume:
+# a download sits in the pod's scratch /tmp only until it is uploaded. Every copy works, each post claimed in the
+# database (tiktok_video.claim: a lease renewed while in hand), so a deploy starts the new pod first (maxSurge 1,
+# maxUnavailable 0) and the old one, on SIGTERM, finishes the downloads in hand and exits.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tiktok-videos
+  namespace: yyc
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels: {app: tiktok-videos}
+  strategy: {type: RollingUpdate, rollingUpdate: {maxSurge: 1, maxUnavailable: 0}}
+  template:
+    metadata:
+      labels: {app: tiktok-videos}
+    spec:
+      securityContext: {runAsUser: 10001, runAsGroup: 10001, fsGroup: 10001}
+      imagePullSecrets: [{name: ghcr-pull}]
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 1800  # a download in hand (yt-dlp's own timeout: tiktok_video.TIMEOUT)
+      containers:
+        - name: videos
+          image: yyc-news-stream
+          command: [python, /app/tiktok_video.py, run]
+          envFrom: [{secretRef: {name: video-s3}}]  # VIDEO_S3_ACCESS_KEY / VIDEO_S3_SECRET_KEY
+          env:
+            - {name: DATABASE_URL, valueFrom: {secretKeyRef: {name: db-app, key: uri}}}
+            - {name: DB_POOL_MAX, value: "4"}
+            - {name: VIDEO_S3_ENDPOINT, value: "https://fsn1.your-objectstorage.com"}
+            - {name: VIDEO_S3_REGION, value: fsn1}
+            - {name: VIDEO_S3_BUCKET, value: yyc-tiktok-videos}
+            - {name: VIDEO_WORKERS, value: "2"}
+            - {name: TMPDIR, value: /tmp}
+          readinessProbe: {exec: {command: [test, -f, /tmp/videos-started]}, periodSeconds: 2}
+          livenessProbe:
+            exec: {command: [sh, -c, "test -n \"$(find /tmp/videos-alive -mmin -3)\""]}
+            initialDelaySeconds: 60
+            periodSeconds: 30
+          resources:
+            requests: {cpu: 50m, memory: 128Mi, ephemeral-storage: 50Mi}
+            limits: {cpu: '2', memory: 768Mi, ephemeral-storage: 4Gi}
+          volumeMounts: [{name: tmp, mountPath: /tmp}]
+      volumes: [{name: tmp, emptyDir: {sizeLimit: 3Gi}}]
+      priorityClassName: batch
+---
+# a singleton is never evicted: a node move goes through cluster/drain.sh (its own rolling update, new pod first)
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: tiktok-videos
+  namespace: yyc
+spec:
+  maxUnavailable: 0
+  selector:
+    matchLabels: {app: tiktok-videos}

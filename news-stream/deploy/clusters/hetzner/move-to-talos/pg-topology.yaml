@@ -1,0 +1,25 @@
+# T5 (plan yyc-ai/refactor/talos-apps-move.md, "Postgres"): the old Cluster `pg` in CloudNativePG's distributed
+# topology, merged into news-stream/deploy/db/postgres.yaml (Flux yyc-db, prune off) in two commits.
+#
+# 1. T5-prep (no restart, no change for clients: the cluster stays the primary; check pg-1's age and
+#    `kubectl -n db get cluster pg` after Flux applies it): add to spec
+replica:
+  self: pg-k3s
+  primary: pg-k3s
+  source: pg-talos
+externalClusters:
+  # yyc-talos's Cluster pg, through the WAL archive only (the old cluster has no route to it; after the demotion it
+  # replays yyc-talos's WAL from the bucket, at most archive_timeout (5 min) behind: the way back)
+  - name: pg-talos
+    plugin:
+      name: barman-cloud.cloudnative-pg.io
+      parameters: {barmanObjectName: pg-pitr, serverName: pg-talos}
+  - name: pg-k3s
+    plugin:
+      name: barman-cloud.cloudnative-pg.io
+      parameters: {barmanObjectName: pg-pitr, serverName: pg}
+#
+# 2. T5, the demotion (pg-switch, plan T5 step 3): `primary: pg-k3s` becomes `primary: pg-talos`. The operator shuts
+#    the old primary down cleanly, archives its last WAL, restarts it as a replica of pg-talos and writes
+#    `status.demotionToken`, which yyc-talos's Cluster pg takes as `replica.promotionToken`.
+#    The way back (until T6): the same two edits the other way round on both clusters.

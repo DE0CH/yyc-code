@@ -1,0 +1,200 @@
+# YYC's mail merge app (public repo DE0CH/mailmerge; Deyao, 2026-10-20: "put it in the yyc k8s cluster", "Its yyc's
+# actually"). Its users are the people in the policy of the Cloudflare Access app "YYC Mail Merge" on
+# mailmerge.deyaochen.com, a different set
+# from the news stream's, so per CLAUDE.md "Hosting" it gets its own namespace, its own tunnel and connector, and no
+# network path to the news stream's workloads:
+# - namespace `mailmerge` (Pod Security "restricted"), no Secret but its own tunnel token, no ServiceAccount token;
+# - its own Cloudflare tunnel `mailmerge` (YYC's account, deploy/cloudflare/tofu/tunnels.tf; ingress
+#   mailmerge.deyaochen.com → Service mailmerge below), connector `cloudflared` here, token in
+#   the SealedSecret sealed/mailmerge-tunnel.yaml;
+# - ingress only from pods of this namespace; egress to the cluster's DNS and to the internet only (SMTP on 587 and IMAP on 993 for
+#   the users' own mail servers, the Cloudflare edge for the connector): every cluster-internal, node and link-local
+#   address is excluded, so it can't reach namespace yyc, the nodes or the k3s API.
+# Stateless: what a user enters stays in their browser. Deploy a new version = bump the pinned image below and push.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mailmerge
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mailmerge
+  namespace: mailmerge
+  labels: {app: mailmerge}
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels: {app: mailmerge}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxUnavailable: 1, maxSurge: 0}  # one pod at a time; the other keeps serving
+  template:
+    metadata:
+      labels: {app: mailmerge}
+    spec:
+      topologySpreadConstraints:  # one pod per node where it can (a node's loss leaves the other)
+        - {maxSkew: 1, topologyKey: kubernetes.io/hostname, whenUnsatisfiable: ScheduleAnyway, labelSelector: {matchLabels: {app: mailmerge}}}
+      automountServiceAccountToken: false
+      # a merge being sent finishes before the pod stops: preStop waits for the endpoint to leave the Service, then
+      # SIGTERM makes server.js stop accepting and exit once its open requests are done
+      terminationGracePeriodSeconds: 300
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000   # the image's `node` user
+        runAsGroup: 1000
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: mailmerge
+          # a build of DE0CH/mailmerge main (workflow `image`: ghcr.io/de0ch/mailmerge:sha-<7>, public package)
+          image: ghcr.io/de0ch/mailmerge:sha-722e61f@sha256:0e0d0090d696f38959e2f5d51ee82620d5fb0d926676e418e4b24c77d81fa3e7
+          ports: [{containerPort: 8080}]
+          env: [{name: PORT, value: "8080"}]
+          readinessProbe:
+            httpGet: {path: /healthz, port: 8080}
+            periodSeconds: 3
+          livenessProbe:
+            httpGet: {path: /healthz, port: 8080}
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          lifecycle:
+            preStop:
+              sleep: {seconds: 10}
+          resources:
+            requests:
+              cpu: 20m
+              memory: 128Mi
+              ephemeral-storage: 50Mi
+            limits:
+              cpu: 500m
+              memory: 128Mi
+              ephemeral-storage: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts: [{name: tmp, mountPath: /tmp}]
+      volumes: [{name: tmp, emptyDir: {sizeLimit: 64Mi}}]
+      priorityClassName: serving
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mailmerge
+  namespace: mailmerge
+spec:
+  selector: {app: mailmerge}
+  ports: [{port: 80, targetPort: 8080}]
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: mailmerge
+  namespace: mailmerge
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels: {app: mailmerge}
+---
+# Connector for the tunnel `mailmerge` (its ingress, set in Cloudflare: mailmerge.deyaochen.com →
+# http://mailmerge.mailmerge.svc.cluster.local:80). On SIGTERM cloudflared stops taking requests and waits for those
+# in flight (--grace-period 3m, cloudflared's maximum).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudflared
+  namespace: mailmerge
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels: {app: cloudflared}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxUnavailable: 1, maxSurge: 0}  # one pod at a time; the other keeps serving
+  template:
+    metadata:
+      labels: {app: cloudflared}
+    spec:
+      topologySpreadConstraints:  # one pod per node where it can (a node's loss leaves the other)
+        - {maxSkew: 1, topologyKey: kubernetes.io/hostname, whenUnsatisfiable: ScheduleAnyway, labelSelector: {matchLabels: {app: cloudflared}}}
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 200
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: cloudflared
+          image: cloudflare/cloudflared:2026.10.0
+          args: [tunnel, --no-autoupdate, --edge-ip-version, auto, --metrics, "0.0.0.0:2000", --grace-period, 3m, run]  # auto: IPv4-only pods on the Hetzner cluster
+          env:
+            - {name: TUNNEL_TOKEN, valueFrom: {secretKeyRef: {name: tunnel, key: token}}}
+          readinessProbe:
+            httpGet: {path: /ready, port: 2000}
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: {path: /ready, port: 2000}
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 20m
+              memory: 128Mi
+              ephemeral-storage: 50Mi
+            limits:
+              cpu: 500m
+              memory: 128Mi
+              ephemeral-storage: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+      priorityClassName: serving
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: cloudflared
+  namespace: mailmerge
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels: {app: cloudflared}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: same-namespace-only
+  namespace: mailmerge
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    - from: [{podSelector: {}}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: egress-dns-and-internet-only
+  namespace: mailmerge
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to: [{podSelector: {}}]   # cloudflared → the app
+    - to:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}
+          podSelector: {matchLabels: {k8s-app: kube-dns}}
+      ports: [{port: 53, protocol: UDP}, {port: 53, protocol: TCP}]
+    - to:
+        # 10.0.0.0/8 = pods 10.244/16, Services 10.45/16, the nodes on the private network 10.0.0.0/16 (kubelet,
+        # k3s API); fc00::/7 and link-local (pods are IPv4-only; the metadata service is link-local)
+        - ipBlock: {cidr: 0.0.0.0/0, except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10, 127.0.0.0/8, 169.254.0.0/16]}
+        - ipBlock: {cidr: "::/0", except: ["fc00::/7", "fe80::/10", "::1/128"]}

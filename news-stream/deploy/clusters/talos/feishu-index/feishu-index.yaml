@@ -1,0 +1,133 @@
+# The indexer and its API (feishu-index/README.md). Two replicas: each serves the API; one at a time holds the indexing
+# lock (a Postgres advisory lock), so a rolling update or a lost node hands the indexing over within seconds.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: feishu-index
+  namespace: feishu-index
+  labels: {app: feishu-index}
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels: {app: feishu-index}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxUnavailable: 0, maxSurge: 1}
+  template:
+    metadata:
+      labels: {app: feishu-index}
+    spec:
+      nodeSelector: {kubernetes.io/arch: amd64, pool: news}   # an amd64 image (the workflow builds amd64 only)
+      topologySpreadConstraints:
+        - {maxSkew: 1, topologyKey: kubernetes.io/hostname, whenUnsatisfiable: ScheduleAnyway, labelSelector: {matchLabels: {app: feishu-index}}}
+      automountServiceAccountToken: false
+      imagePullSecrets: [{name: ghcr-pull}]
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: feishu-index
+          image: yyc-feishu-index
+          ports: [{containerPort: 8080}]
+          envFrom:
+            - secretRef: {name: env}         # DATABASE_URL, OPENROUTER_API_KEY
+            - secretRef: {name: feishu-app}  # FEISHU_APP_ID, FEISHU_APP_SECRET, FEISHU_FOLDER_TOKEN
+          env:
+            - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+            - {name: SCAN_SECONDS, value: "60"}
+            - {name: EMBED_MODEL, value: qwen/qwen3-embedding-8b}
+          readinessProbe:
+            httpGet: {path: /readyz, port: 8080}
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: {path: /healthz, port: 8080}
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          lifecycle:
+            preStop:
+              sleep: {seconds: 5}
+          resources:
+            requests: {cpu: 50m, memory: 256Mi, ephemeral-storage: 50Mi}
+            # an uploaded file (up to 200 MB) is held in memory while its text is extracted
+            limits: {cpu: "1", memory: 1Gi, ephemeral-storage: 512Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts: [{name: tmp, mountPath: /tmp}]   # pdftotext's input file
+      volumes: [{name: tmp, emptyDir: {sizeLimit: 400Mi}}]
+      priorityClassName: serving
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: feishu-index
+  namespace: feishu-index
+spec:
+  selector: {app: feishu-index}
+  ports: [{port: 80, targetPort: 8080}]
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: feishu-index
+  namespace: feishu-index
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels: {app: feishu-index}
+---
+# No caller outside the namespace yet: a system that uses the API is admitted here by name when it is chosen.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ingress-same-namespace
+  namespace: feishu-index
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    - from: [{podSelector: {}}]
+---
+# Callers, by name: YYC AI's egress (its route feishu-files; the API's bearer token is the pair token).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ingress-yyc-ai-egress
+  namespace: feishu-index
+spec:
+  podSelector: {matchLabels: {app: feishu-index}}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: yyc-ai}}
+          podSelector: {matchLabels: {app: egress}}
+      ports: [{port: 8080, protocol: TCP}]
+---
+# Out: the cluster's DNS, Cluster pg, and the internet on 443 (open.feishu.cn, openrouter.ai); every private, node and
+# link-local address is excluded.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: egress
+  namespace: feishu-index
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}
+          podSelector: {matchLabels: {k8s-app: kube-dns}}
+      ports: [{port: 53, protocol: UDP}, {port: 53, protocol: TCP}]
+    - to:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: db}}
+          podSelector: {matchLabels: {cnpg.io/cluster: pg}}
+      ports: [{port: 5432, protocol: TCP}]
+    - to:
+        - ipBlock: {cidr: 0.0.0.0/0, except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10, 127.0.0.0/8, 169.254.0.0/16]}
+        - ipBlock: {cidr: "::/0", except: ["fc00::/7", "fe80::/10", "::1/128"]}
+      ports: [{port: 443, protocol: TCP}]

@@ -1,0 +1,30 @@
+# SealedSecrets ONLY (seal with /infra/seal.py). Flux applies this folder as the fenced ServiceAccount
+# flux-system/sealed-secrets-applier (Kustomization in news-stream/deploy/clusters/hetzner/flux-sync.yaml), which can
+# create nothing but SealedSecrets: anything else here fails as Forbidden.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - pg-role-tools.yaml
+  - pg-role-egress.yaml
+  - pg-role-hermit.yaml
+  - mcp-env.yaml
+  - pg-role-aiwatch.yaml
+  - db-app.yaml
+  - pg-role-juicefs.yaml
+  - pg-role-edge.yaml
+  - pg-role-readonly.yaml
+  - pg-role-mcp.yaml
+  - pg-role-app.yaml
+  - pg-backup-s3.yaml
+  - video-s3.yaml
+  - mailmerge-tunnel.yaml
+  - wisers.yaml
+  - tunnel.yaml
+  - monitor-keys.yaml
+  - ghcr-pull.yaml
+  - ghcr-pull-egress.yaml
+  - app-env.yaml
+  - ai-tools.yaml
+  - isp-proxy.yaml
+  - telegram.yaml
+  - mail-account.yaml

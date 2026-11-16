@@ -1,0 +1,8 @@
+# the build context is news-stream/; yyc-mcp's image needs only these
+*
+!mcp-edge/
+mcp-edge/node_modules/
+mcp-edge/dist/
+mcp-edge/.wrangler*/
+!web-app/src/server/
+!web-app/src/lib/

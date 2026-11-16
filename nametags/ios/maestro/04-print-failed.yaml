@@ -1,0 +1,23 @@
+# The printer reports an error for this job (the stub fails guest g5 with "ribbon").
+appId: dev.de0ch.yycnametags
+name: print failed
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+    arguments:
+      apiBase: "http://127.0.0.1:8787"
+      testToken: "test-token"
+- extendedWaitUntil:
+    visible: "共 6 位嘉賓"
+    timeout: 30000
+- tapOn: ".*Tai Man CHAN.*"
+- extendedWaitUntil:
+    visible: { id: "tagPreview" }
+    timeout: 10000
+- tapOn: { id: "printButton" }
+- extendedWaitUntil:
+    visible: { id: "printStatus", text: "打印失敗：ribbon" }
+    timeout: 30000
+- assertVisible: "再試"
+- takeScreenshot: 04-print-failed

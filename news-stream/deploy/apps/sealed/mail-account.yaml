@@ -1,0 +1,17 @@
+# SealedSecret made by infra/seal.py from the store `yyc` (map: infra/secrets.txt). Don't edit: re-seal.
+---
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: mail-account
+  namespace: yyc
+spec:
+  encryptedData:
+    mail-account: AgAcYMl825N5u2G5Fr3DnqZH2BgXDx/YIv7lbmnk4UvjiuvI4r0JGEhNnhV0zB7ZbZa7wjGfYrVqVS7WLpPDfBtdpoMEb0sL4tczDGeIZMDE4S8BA7olAYjEQSpilKusdg0ipQAFEem1jUvleX1XzyG5IaJlEwnb+R63kNTwtElWgeekgc+Og1xWi3vrMiy/GexJNKE/CuAYiH9y/JScvkPx04sNOzjOKuQijO8+gFBqERfyN3cXnuB9YqQAeY0XTbxr+xS4LYfeGSwnzkB44FrVeMtiHUVtQXFd94tlZBHJ/KdN+fdg40fNxXcm+/v91ccc2pTXvjvGNymTa6YERxQ44WZeQ5mUSpaGkSXyg54H5vhHzj6s/XDkpvcWi6j9B3kiiNRr9jj+nJCjossXzPpJUYDTEZ9EEMfAIvZC97nr24RSzTocF2R3zZdYOQdxDja1v5eHzmFLmX5kZVLbFAyUgQ+uUjULeZEu8CelRIlTkf4NmpEJ7bzfc/8wreycov+y5OVRVKHFvfTsARlbUXS+0uuHjMOD7dzCEIjUxWINLUwX/VGiSh9GazW2eM7OzRZay4AMU/g5vFbswwPo5H/LXGuIqeIGFr6eUFZehuW/0d15jeJmHPv9aEed6VKwd18iZvQoOpeCLgYj1uxYxWX8WU5PbK9dpDPW4N8R0qCkhYfpJHNmgqpZFlif5OM1E8ovWp62Dygpob1yALviMHlN1NkSVSuCQM1PFo84DbvUiQGOSnKFx+mmKuIQKju55OrgsXOuk2CzxPPLYcJepQw6ehpAIeMCHd1B9wx1NhJeA//vpCjVfgyJh9e1C7HSaTXeSyzD2nbSCg3cNU29NkRjsr32r3S7xBjHuh29usSnS0l8zLkvJ06f8YkflXXo8A50YqiMI06ArMm7XOiQjibZFH4ZAAJopCdGBSpJWxPhSFXG7Zcwc+3RH8vWj7BMEJQhcda9jCf9VMRpXTIEmfS9g3t9S0bfCZzZaA4KYVzTwWBLEFKfRuohSEhv4THOhrij7x6JArhJG691drWGa15bOTIOqlRlCHR6OgOHn/h9nYy1x2YnC1yA8Y2qk/Z6J6M6cS3Pyu47ODC8pZY90TTsemHw7JEjuCRlDy317az060jZldYdm0bqaoBPDp80nruWhvyhY0XKsQ==
+  template:
+    metadata:
+      annotations:
+        kustomize.toolkit.fluxcd.io/prune: disabled
+      name: mail-account
+      namespace: yyc
+    type: Opaque

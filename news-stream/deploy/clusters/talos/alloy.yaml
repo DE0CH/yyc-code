@@ -1,0 +1,182 @@
+# Logs of yyc-talos to Grafana Cloud (the Talos plan "Logs"; README "Logs"): Grafana Alloy as a DaemonSet on every
+# node, control nodes included, shipping
+#   - every pod's log (/var/log/pods; labels namespace, container, source="pod"; the pod name as structured metadata),
+#   - Talos's own services (machined, apid, kubelet, etcd, containerd...; Talos has no journal): each node sends them
+#     as json_lines to 127.0.0.1:6050 (../patches/common.yaml machine.logging; labels unit, level, source="talos"),
+#   - the kernel log: KmsgLogConfig to 127.0.0.1:6051 (source="kernel"),
+# with the labels cluster="yyc-talos" and node. Modelled on Jarvis 4's Alloy (DE0CH/jarvis4 infra/alloy/box.alloy, its
+# pod-log and redaction stages); the old YYC cluster ships no logs (no log agent on its nodes, 2026-11-04).
+# Secret shapes are replaced before anything leaves the node.
+#
+# Credentials: Secret alloy/grafana (sealed/alloy-grafana.yaml; infra/secrets.txt line, store keys YYC_GRAFANA_LOGS_URL,
+# YYC_GRAFANA_LOGS_USER, YYC_GRAFANA_WRITE_TOKEN: a Grafana Cloud stack and a logs:write access-policy token for YYC).
+# Read positions live on the host (/var/lib/yyc-alloy), so a restarted pod neither ships twice nor skips.
+# Host network (the 127.0.0.1 listeners Talos sends to), root to read /var/log/pods; otelcol.receiver.tcplog is an
+# experimental Alloy component, hence --stability.level=experimental.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: alloy
+  labels:
+    pod-security.kubernetes.io/enforce: privileged
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alloy
+  namespace: alloy
+data:
+  config.alloy: |
+    loki.write "grafana" {
+      endpoint {
+        url = sys.env("GRAFANA_LOGS_URL")
+        basic_auth {
+          username = sys.env("GRAFANA_LOGS_USER")
+          password = sys.env("GRAFANA_WRITE_TOKEN")
+        }
+      }
+      external_labels = { cluster = "yyc-talos", node = sys.env("NODE_NAME") }
+    }
+
+    loki.process "redact" {
+      forward_to = [loki.write.grafana.receiver]
+      stage.replace {
+        expression = "(?i)(bearer\\s+)[A-Za-z0-9._~+/=-]{8,}"
+        replace    = "<redacted>"
+      }
+      stage.replace {
+        expression = "(sk-ant-[A-Za-z0-9_-]{8,}|sk-or-v1-[A-Za-z0-9]{16,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AGE-SECRET-KEY-[A-Z0-9]{20,}|glc_[A-Za-z0-9+/=]{20,}|eyJ[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,}|-----BEGIN [A-Z ]*PRIVATE KEY-----)"
+        replace    = "<redacted>"
+      }
+    }
+
+    // ---- pods ----
+    local.file_match "pods" {
+      path_targets = [{ "__path__" = "/var/log/pods/*/*/*.log" }]
+      sync_period  = "10s"
+    }
+
+    loki.source.file "pods" {
+      targets       = local.file_match.pods.targets
+      forward_to    = [loki.process.pods.receiver]
+      tail_from_end = false
+    }
+
+    loki.process "pods" {
+      forward_to = [loki.process.redact.receiver]
+      stage.cri { }
+      // /var/log/pods/<namespace>_<pod>_<uid>/<container>/<n>.log
+      stage.regex {
+        source     = "filename"
+        expression = "^/var/log/pods/(?P<namespace>[^_]+)_(?P<pod>[^_]+)_[^/]+/(?P<container>[^/]+)/"
+      }
+      stage.labels {
+        values = { namespace = "", container = "" }
+      }
+      stage.structured_metadata {
+        values = { pod = "" }
+      }
+      stage.label_drop {
+        values = ["filename"]
+      }
+      stage.static_labels {
+        values = { source = "pod" }
+      }
+    }
+
+    // ---- Talos's services (machine.logging, json_lines) ----
+    otelcol.receiver.tcplog "talos" {
+      listen_address = "127.0.0.1:6050"
+      output {
+        logs = [otelcol.exporter.loki.talos.input]
+      }
+    }
+
+    otelcol.exporter.loki "talos" {
+      forward_to = [loki.process.talos.receiver]
+    }
+
+    loki.process "talos" {
+      forward_to = [loki.process.redact.receiver]
+      stage.json {
+        expressions = { unit = "\"talos-service\"", level = "\"talos-level\"" }
+      }
+      stage.labels {
+        values = { unit = "", level = "" }
+      }
+      stage.static_labels {
+        values = { source = "talos" }
+      }
+    }
+
+    // ---- the kernel (KmsgLogConfig, json_lines) ----
+    otelcol.receiver.tcplog "kernel" {
+      listen_address = "127.0.0.1:6051"
+      output {
+        logs = [otelcol.exporter.loki.kernel.input]
+      }
+    }
+
+    otelcol.exporter.loki "kernel" {
+      forward_to = [loki.process.kernel.receiver]
+    }
+
+    loki.process "kernel" {
+      forward_to = [loki.process.redact.receiver]
+      stage.static_labels {
+        values = { source = "kernel" }
+      }
+    }
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: alloy
+  namespace: alloy
+spec:
+  selector:
+    matchLabels: {app: alloy}
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate: {maxUnavailable: 1}
+  template:
+    metadata:
+      labels: {app: alloy}
+    spec:
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      priorityClassName: system-node-critical
+      tolerations: [{operator: Exists}]
+      containers:
+        - name: alloy
+          image: grafana/alloy:v1.20.1@sha256:2aa2099af76c0098d4af7a4d6e48f86cb66dc1a000222ad927a1c67c6542d13f
+          args:
+            - run
+            - /etc/alloy/config.alloy
+            - --storage.path=/var/lib/alloy/data
+            - --server.http.listen-addr=127.0.0.1:12345
+            - --stability.level=experimental
+          env:
+            - name: NODE_NAME
+              valueFrom: {fieldRef: {fieldPath: spec.nodeName}}
+          envFrom: [{secretRef: {name: grafana}}]
+          resources:
+            requests: {cpu: 20m, memory: 96Mi}
+            limits: {memory: 300Mi}
+          securityContext:
+            runAsUser: 0
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL], add: [DAC_READ_SEARCH]}
+          volumeMounts:
+            - {name: cfg, mountPath: /etc/alloy, readOnly: true}
+            - {name: data, mountPath: /var/lib/alloy/data}
+            - {name: tmp, mountPath: /tmp}
+            - {name: pods, mountPath: /var/log/pods, readOnly: true}
+      volumes:
+        - {name: cfg, configMap: {name: alloy}}
+        - {name: data, hostPath: {path: /var/lib/yyc-alloy, type: DirectoryOrCreate}}
+        - {name: tmp, emptyDir: {sizeLimit: 64Mi}}
+        - {name: pods, hostPath: {path: /var/log/pods, type: Directory}}

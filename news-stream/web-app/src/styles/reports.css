@@ -1,0 +1,24 @@
+/* 報告's own styles (scoped to .page-reports), on the house style (house.css): a white sheet per profile and day on the
+   grey ground, its files one grid of 44px cells sharing 1px rules, run to the card's edges; the day headings in Archivo,
+   type alone (no rule). No hue: nothing here is a category. */
+.page-reports main { padding:16px var(--gutter) 32px; }
+.page-reports .head { display:flex; flex-wrap:wrap; align-items:center; gap:8px 16px; margin:4px 0 4px; }
+.page-reports h1 { font-size:24px; font-weight:800; line-height:1.3; margin:0; }
+.page-reports .lead { color:var(--muted); margin:8px 0 16px; font-size:14px; max-width:70ch; }
+.page-reports .day { margin:24px 0 8px; font:700 1.25rem/1.3 var(--num); color:var(--ink); }
+.page-reports #list > div:first-child .day { margin-top:8px; }
+.page-reports .grid { display:grid; gap:8px; grid-template-columns:minmax(0,1fr); }
+@media (min-width:700px) { .page-reports .grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media (min-width:1050px) { .page-reports .grid { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+.page-reports .card { background:var(--panel); padding:16px; min-width:0; }
+.page-reports .card h3 { margin:0; font-size:16px; font-weight:700; line-height:1.4; overflow-wrap:anywhere; }
+.page-reports .card .sub { color:var(--muted); font-size:13px; font-family:var(--num); margin:2px 0 12px; overflow-wrap:anywhere; }
+/* each cell draws its right and bottom rule inside itself; the outermost ones fall in the clipped last pixel, so the card's
+   edges show no rule and a short last row leaves plain ground (not grey filler cells) */
+.page-reports .links { display:grid; grid-template-columns:repeat(auto-fill, minmax(120px, 1fr)); gap:0; border-top:1px solid var(--rule);
+  margin:0 -16px -16px; clip-path:inset(0 1px 1px 0); }
+.page-reports .links a { display:flex; align-items:center; min-height:var(--ctl); padding:0 16px; border:0; box-shadow:inset -1px -1px 0 var(--rule); background:var(--panel);
+  color:var(--ink); font-size:14px; text-decoration:none; overflow-wrap:anywhere; }
+.page-reports .links a:hover { background:var(--ground); }
+.page-reports .empty { color:var(--muted); font-size:14px; }
+.page-reports .note { color:var(--muted); font-size:14px; padding:20px 0; }

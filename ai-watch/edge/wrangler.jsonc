@@ -1,0 +1,19 @@
+// AI 觀察's edge (worker.js): Worker yyc-aiwatch on YYC's own Cloudflare account, on the route aiwatch.yyc-internal.com/*
+// (news-stream/deploy/cloudflare/tofu/tunnels.tf; Access checks every request before it). Deployed by
+// .github/workflows/ai-watch-edge.yml; the account id comes from CLOUDFLARE_ACCOUNT_ID at deploy.
+{
+  "name": "yyc-aiwatch",
+  "main": "worker.js",
+  "compatibility_date": "2026-10-01",
+  // no workers.dev or preview address: the only way in is the route, behind Access
+  "workers_dev": false,
+  "preview_urls": false,
+  // the pages, from every Cloudflare location; any address that is not a file is the page itself (/case/<id>/<tab>)
+  "assets": {
+    "directory": "../static",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+  "observability": { "enabled": true }
+}

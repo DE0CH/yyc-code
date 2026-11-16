@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WiseSearch Sources</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+HK:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f6f5f2;--card:#fff;--ink:#1d1d1b;--mute:#6b6a66;--line:#e2e0da;--acc:#0b6b5c;--acc-soft:#e3f1ee;
+  --ok:#1f7a4d;--ok-soft:#e5f3eb;--bad:#9b2c2c;--bad-soft:#f8e8e6;--warn:#8a5a00;--warn-soft:#fbf0d9;--q:#4b4fa3;--q-soft:#ebecf8}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#151614;--card:#1f201e;--ink:#ecebe6;--mute:#a3a29c;
+  --line:#33342f;--acc:#5cc2ad;--acc-soft:#1c312c;--ok:#6fcf9c;--ok-soft:#1b2e23;--bad:#f09a8e;--bad-soft:#3a2020;
+  --warn:#e6bf6a;--warn-soft:#352c19;--q:#a9acf0;--q-soft:#25264a}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 "Noto Sans HK",system-ui,sans-serif}
+header{padding:20px 16px 8px;max-width:1500px;margin:0 auto}
+h1{font-size:22px;margin:0 0 4px}
+.sub{color:var(--mute);font-size:13px}
+.counts{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:14px 0 4px}
+.count{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.count b{display:block;font-size:20px}
+.count span{color:var(--mute);font-size:12px}
+.layout{max-width:1500px;margin:0 auto;padding:0 16px 40px}
+.filters{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin:10px 0}
+.fgroup{margin:6px 0}
+.fgroup h3{font-size:12px;color:var(--mute);margin:0 0 4px;font-weight:500}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:999px;padding:3px 10px;font:inherit;font-size:13px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--acc);border-color:var(--acc);color:#fff}
+input[type=search]{width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:10px;font:inherit;background:var(--bg);color:var(--ink)}
+.shown{color:var(--mute);font-size:13px;margin:6px 2px}
+.cards{display:grid;grid-template-columns:1fr;gap:10px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;min-width:0}
+.card h2{font-size:16px;margin:0;overflow-wrap:anywhere}
+.en{color:var(--mute);font-size:13px;overflow-wrap:anywhere}
+.tags{display:flex;flex-wrap:wrap;gap:5px;margin:8px 0}
+.tag{font-size:12px;border-radius:6px;padding:1px 7px;background:var(--bg);border:1px solid var(--line)}
+.s-active{background:var(--ok-soft);color:var(--ok);border-color:transparent}
+.s-closed{background:var(--bad-soft);color:var(--bad);border-color:transparent}
+.s-unknown,.s-researching{background:var(--warn-soft);color:var(--warn);border-color:transparent}
+.g-full{background:var(--acc-soft);color:var(--acc);border-color:transparent}
+.c-yes{background:var(--q-soft);color:var(--q);border-color:transparent}
+dl{margin:6px 0 0;display:grid;grid-template-columns:1fr;gap:2px}
+dt{font-size:12px;color:var(--mute);margin-top:6px}
+dd{margin:0;overflow-wrap:anywhere;font-size:14px}
+dd a{color:var(--acc)}
+.feeds{font-family:ui-monospace,Menlo,monospace;font-size:12px;white-space:pre-wrap}
+.empty{color:var(--mute);padding:20px;text-align:center}
+.more{grid-column:1/-1;margin:6px auto 0;padding:10px 16px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);font:inherit;cursor:pointer}
+@media (min-width:900px){
+  .layout{display:grid;grid-template-columns:300px 1fr;gap:16px;align-items:start}
+  .filters{position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto;margin:0}
+  .cards{grid-template-columns:repeat(auto-fill,minmax(380px,1fr))}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>WiseSearch (慧科) sources: Hong Kong and Macau</h1>
+  <div class="sub" id="sub">Loading…</div>
+  <div class="counts" id="counts"></div>
+</header>
+<div class="layout">
+  <aside class="filters" aria-label="Filters">
+    <input type="search" id="q" placeholder="Search names, URLs, notes" aria-label="Search">
+    <div id="groups"></div>
+  </aside>
+  <main>
+    <div class="shown" id="shown"></div>
+    <div class="cards" id="cards"></div>
+  </main>
+</div>
+<script>
+const L = {
+  status: {active: "active", closed: "closed / stopped", unknown: "no online version found", researching: "researching"},
+  region: {"Hong Kong": "Hong Kong", "Macau": "Macau"},
+  wtype: {print: "print", app: "app", web: "website", forum: "forum", blog: "blog"},
+  get: {full: "full text", forum: "threads and replies", partial: "partial full text", queued: "full text queued", threads: "thread titles only", pending: "set up, no new post in two days", none_yet: "online, no usable feed yet", none: "no online content"},
+  collected: {yes: "collected", setup: "set up, no new post in two days", no: "not collected"},
+};
+const ROUTE = {"ISP IP": "ISP IP (HK static residential)", "yycstream (hk)": "yycstream residential (HK)", "yycstream (mo)": "yycstream residential (Macau)"};
+const FILTERS = [["status", "Status"], ["region", "Region"], ["wtype", "WiseSearch type"], ["get", "Content available"], ["collected", "Collection"]];
+const sel = {}; let rows = []; let LIMIT = 60; let PROOF = "https://newswatch.yyc-internal.com/app/proof";
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+const typeKeys = r => r.wtype.split(" + ");
+function val(r, k) { return k === "wtype" ? typeKeys(r) : [r[k]]; }
+function counts() {
+  const by = (k, v) => rows.filter(r => val(r, k).includes(v)).length;
+  const items = [["all", rows.length], ["active", by("status", "active")], ["closed", by("status", "closed")],
+    ["no online version", by("status", "unknown")], ["researching", by("status", "researching")], ["full text", by("get", "full")],
+    ["collected", by("collected", "yes")], ["set up", by("collected", "setup")]];
+  document.getElementById("counts").innerHTML = items.map(([n, v]) => `<div class="count"><b>${v}</b><span>${n}</span></div>`).join("");
+}
+function groups() {
+  document.getElementById("groups").innerHTML = FILTERS.map(([k, h]) => {
+    const vals = [...new Set(rows.flatMap(r => val(r, k)))];
+    vals.sort((a, b) => Object.keys(L[k]).indexOf(a) - Object.keys(L[k]).indexOf(b));
+    return `<div class="fgroup"><h3>${h}</h3><div class="chips">` + vals.map(v =>
+      `<button type="button" class="chip" data-k="${k}" data-v="${esc(v)}" aria-pressed="${(sel[k] || []).includes(v)}">${esc(L[k][v] || v)} · ${rows.filter(r => val(r, k).includes(v)).length}</button>`).join("") + "</div></div>";
+  }).join("");
+  document.querySelectorAll(".chip").forEach(b => b.onclick = () => {
+    const k = b.dataset.k, v = b.dataset.v; sel[k] = sel[k] || [];
+    sel[k] = sel[k].includes(v) ? sel[k].filter(x => x !== v) : [...sel[k], v];
+    b.setAttribute("aria-pressed", sel[k].includes(v)); LIMIT = 60; render(); save();
+  });
+}
+function link(u) { return /^https?:/.test(u) ? `<a href="${esc(u)}" rel="noopener" target="_blank">${esc(u)}</a>` : esc(u); }
+function render() {
+  const q = document.getElementById("q").value.trim().toLowerCase();
+  const out = rows.filter(r => FILTERS.every(([k]) => !(sel[k] || []).length || val(r, k).some(v => sel[k].includes(v))) &&
+    (!q || [r.name, r.en, r.source, r.evidence, r.evidence_zh, r.action, r.action_zh, ...(r.feeds || []), ...(r.sids || [])].join(" ").toLowerCase().includes(q)));
+  document.getElementById("shown").textContent = `${out.length} of ${rows.length} sources match`;
+  const page = out.slice(0, LIMIT);
+  document.getElementById("cards").innerHTML = (out.length ? page.map(r => `<article class="card">
+    <h2>${esc(r.name)}</h2>${r.en ? `<div class="en">${esc(r.en)}</div>` : ""}
+    <div class="tags"><span class="tag s-${r.status}">${esc(L.status[r.status] || r.status)}</span>
+      <span class="tag">${esc(L.region[r.region] || r.region)}</span>
+      ${typeKeys(r).map(t => `<span class="tag">${esc(L.wtype[t] || t)}</span>`).join("")}
+      <span class="tag ${r.get === "full" ? "g-full" : ""}">${esc(L.get[r.get])}</span>
+      <span class="tag ${r.collected === "yes" ? "c-yes" : ""}">${esc(L.collected[r.collected])}</span></div>
+    <dl>
+      ${r.evidence ? `<dt>Evidence</dt><dd>${esc(r.evidence)}</dd>` : ""}
+      ${r.source ? `<dt>Online source</dt><dd>${link(r.source)}</dd>` : ""}
+      ${(r.feeds || []).length ? `<dt>Feeds (kind: URL)</dt><dd class="feeds">${(r.feeds || []).map(esc).join("\n")}</dd>` : ""}
+      ${r.route ? `<dt>Route</dt><dd>${r.route.split(", ").map(x => esc(ROUTE[x] || x)).join(", ")}</dd>` : ""}
+      ${r.live && r.live.feeds ? `<dt>Collection (live database)</dt><dd>${r.live.feeds_ok}/${r.live.feeds} feeds reading · ${r.live.posts} posts (${r.live.posts_7d} in 7 days) · full text ${r.live.full_text}/${r.live.pages_read}${r.live.replies ? ` · replies ${r.live.replies}` : ""}${r.live.last_post ? ` · newest ${esc(r.live.last_post.replace("T", " "))} HKT` : ""}</dd>` : ""}
+      ${(r.sids || []).length && r.live && r.live.posts ? `<dt>Proof</dt><dd><a href="${esc(PROOF)}?sid=${esc(r.sids.join(","))}" target="_blank" rel="noopener">Check post by post in the proof view →</a></dd>` : ""}
+      <dt>Next step</dt><dd>${esc(r.action)}</dd>
+    </dl></article>`).join("") : `<div class="empty">No source matches</div>`) +
+    (out.length > LIMIT ? `<button type="button" class="more" id="more">Show ${Math.min(60, out.length - LIMIT)} more (${out.length - LIMIT} not shown)</button>` : "");
+  const m = document.getElementById("more");
+  if (m) m.onclick = () => { LIMIT += 60; render(); };
+}
+function save() { try { localStorage.setItem("yyc-sources-filters", JSON.stringify(sel)); } catch (e) {} }
+try { Object.assign(sel, JSON.parse(localStorage.getItem("yyc-sources-filters") || "{}")); } catch (e) {}
+document.getElementById("q").oninput = () => { LIMIT = 60; render(); };
+fetch("sources.json", {cache: "no-store"}).then(r => r.json()).then(d => {
+  const so = {active: 0, researching: 1, unknown: 2, closed: 3}, co = {yes: 0, setup: 1, no: 2};
+  PROOF = d.proof || PROOF;
+  rows = d.rows.slice().sort((a, b) => (so[a.status] ?? 9) - (so[b.status] ?? 9) || co[a.collected] - co[b.collected] || a.name.localeCompare(b.name, "zh-Hant"));
+  document.getElementById("sub").innerHTML = `The Hong Kong and Macau sources in the WiseSearch (WisersOne) catalogue that YYC did not collect before: ${d.titles} catalogue titles, ${rows.length} rows once titles of the same outlet are merged. Collection is from the live database, updated ${esc(d.generated.replace("T", " ").replace(/\+08:?00$/, ""))} HKT. <a href="${esc(PROOF)}?catalogue=1" target="_blank" rel="noopener">Check every new source post by post →</a>`;
+  counts(); groups(); render();
+}).catch(e => { document.getElementById("sub").textContent = "Could not load the data: " + e; });
+</script>
+</body>
+</html>

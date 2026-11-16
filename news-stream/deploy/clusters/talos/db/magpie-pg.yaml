@@ -1,0 +1,121 @@
+# magpie-pg (decision 2; magpie spec 18.2 with pg-ha 4; DESIGN 15.8): magpie's own CloudNativePG Cluster, three
+# synchronous instances, because every Claude Code transcript write commits in it synchronously and must survive a
+# failover. A commit waits for one standby (`any 1`, dataDurability required); failoverQuorum promotes only a standby
+# shown to hold every synchronously committed transaction. Planned restarts switch over first
+# (primaryUpdateMethod switchover). Clients: magpie and the importers in yyc-ai, at magpie-pg-rw.db.svc.cluster.local.
+#
+# Placement (DESIGN 15.7): all three instances in ONE location (a Hetzner Volume stays in its location, so a failover
+# or a drain moves an instance only within it; nbg1, where YYC AI's three workers yyc-talos-w1..3 are, cax21), on three different nodes in
+# network yyc labelled pool=apps (required anti-affinity). Volumes: 3 x 10 GB yyc-block (WaitForFirstConsumer: each in
+# its pod's location), EUR 2.0592 a month with VAT (EXPENSES.md, Hetzner).
+#
+# Parameters: min_wal_size 1GB and max_wal_size 2GB are REQUIRED (WP-12; aviary crates/magpie/README.md): magpie 6.10's
+# p99 <= 150 ms for a 1 MiB image line was measured at these (47-53 ms); at Postgres's defaults new WAL segment files
+# cost 150-200 ms each. yyc-ai.yml's check fails a commit that drops or lowers them.
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: pg-pitr
+  namespace: db
+spec:
+  retentionPolicy: "14d"   # Deyao, 2026-11-09: point-in-time restore to any moment of the last 14 days
+  configuration:
+    destinationPath: s3://yyc-pg-pitr/
+    endpointURL: https://fsn1.your-objectstorage.com
+    s3Credentials:
+      accessKeyId: {name: pg-backup-s3, key: ACCESS_KEY_ID}
+      secretAccessKey: {name: pg-backup-s3, key: ACCESS_SECRET_KEY}
+    wal: {compression: gzip, maxParallel: 4}
+    data: {compression: gzip, jobs: 2}
+  instanceSidecarConfiguration:
+    env:
+      # boto3's default request checksums are refused by S3-compatible stores like Hetzner's
+      - {name: AWS_REQUEST_CHECKSUM_CALCULATION, value: when_required}
+      - {name: AWS_RESPONSE_CHECKSUM_VALIDATION, value: when_required}
+    resources:                  # as pg's (news-stream/deploy/db/postgres.yaml): at 128Mi the sidecar was OOM-killed
+      requests: {cpu: 50m, memory: 128Mi}   # archiving 4 WAL files at once on its first start (2026-11-05)
+      limits: {memory: 512Mi}
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: magpie-pg
+  namespace: db
+spec:
+  instances: 3
+  imageName: ghcr.io/cloudnative-pg/postgresql:17.11-standard-trixie   # Cluster pg's image, upgraded together
+  # supervised: a change that restarts the copies restarts the standbys and then waits; the primary moves only through
+  # db/switchover.sh, which fences writes first so the apps can safely run cut work again (Deyao, 2026-11-09: zero
+  # downtime), never through the operator's own unfenced switchover
+  primaryUpdateStrategy: supervised
+  primaryUpdateMethod: switchover
+  enableSuperuserAccess: false
+  priorityClassName: serving
+  storage:
+    storageClass: yyc-block
+    size: 10Gi
+  resources:
+    requests: {cpu: 250m, memory: 1Gi}
+    limits: {memory: 1Gi}
+  affinity:
+    podAntiAffinityType: required
+    topologyKey: kubernetes.io/hostname
+    nodeSelector: {pool: apps, yyc.hetzner/network: "yyc"}
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms: [{matchExpressions: [{key: topology.kubernetes.io/region, operator: In, values: [nbg1]}]}]
+  postgresql:
+    synchronous: {method: any, number: 1, dataDurability: required, failoverQuorum: true}
+    parameters:
+      max_connections: "150"
+      shared_buffers: 256MB
+      min_wal_size: 1GB
+      max_wal_size: 2GB
+  bootstrap:
+    initdb:
+      database: magpie
+      owner: magpie
+      secret: {name: pg-role-magpie}
+  plugins:
+    - name: barman-cloud.cloudnative-pg.io
+      isWALArchiver: true
+      parameters: {barmanObjectName: pg-pitr, serverName: magpie-pg}
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: magpie-pg-nightly
+  namespace: db
+spec:
+  schedule: "0 15 19 * * *"         # 03:15 HKT (seconds field first), before the 03:30 dumps
+  backupOwnerReference: self
+  cluster: {name: magpie-pg}
+  method: plugin
+  pluginConfiguration: {name: barman-cloud.cloudnative-pg.io}
+  target: prefer-standby
+  immediate: true
+---
+# Who may connect (pg-ha 4.1, DESIGN 15.8): by selector only. Under Cilium an ipBlock never matches a pod address
+# (DESIGN 15.2 N3); never the sandbox hosts. The database admits only role magpie, and yyc-ai's postgres-magpie lets
+# only magpie and the importers out to it.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: magpie-pg-ingress
+  namespace: db
+spec:
+  podSelector: {matchLabels: {cnpg.io/cluster: magpie-pg}}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector: {matchLabels: {cnpg.io/cluster: magpie-pg}}          # the standbys' streaming, instance calls
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: yyc-ai}}
+          podSelector: {matchExpressions: [{key: app, operator: In, values: [magpie, import]}]}
+        - podSelector: {matchLabels: {app: pg-dump-magpie}}                 # the daily logical dump
+        - podSelector: {matchLabels: {app: pg-heartbeat}}                   # ops.heartbeat (heartbeat.yaml)
+      ports: [{port: 5432, protocol: TCP}]
+    - from:
+        - podSelector: {matchLabels: {cnpg.io/cluster: magpie-pg}}
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: cnpg-system}}
+          podSelector: {matchLabels: {app.kubernetes.io/name: cloudnative-pg}}
+      ports: [{port: 8000, protocol: TCP}]   # the operator's and the instance managers' status calls

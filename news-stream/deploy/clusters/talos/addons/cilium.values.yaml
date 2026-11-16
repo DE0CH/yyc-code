@@ -1,0 +1,22 @@
+# Cilium on yyc-talos (yyc-ai/refactor DESIGN 15.2.1 I2, I6; Talos's Cilium guide for the cgroup and capabilities).
+ipam:
+  mode: kubernetes              # node pod /24s from 10.210.0.0/16, matching the cloud controller's routes (I3)
+kubeProxyReplacement: false     # Talos's kube-proxy stays: NodePorts answer on every interface, wg0 included
+routingMode: tunnel
+tunnelProtocol: vxlan
+MTU: 1320                       # KubeSpan's 1370 minus VXLAN's 50
+enableIPv4Masquerade: true      # pod traffic leaving the pod network (10.0.0.0/16 included) leaves as the node
+bpf:
+  masquerade: false
+k8sServiceHost: localhost       # KubePrism: every node's local API load balancer
+k8sServicePort: 7445
+cgroup:
+  autoMount:
+    enabled: false
+  hostRoot: /sys/fs/cgroup
+securityContext:
+  capabilities:
+    ciliumAgent: [CHOWN, KILL, NET_ADMIN, NET_RAW, IPC_LOCK, SYS_ADMIN, SYS_RESOURCE, DAC_OVERRIDE, FOWNER, SETGID, SETUID]
+    cleanCiliumState: [NET_ADMIN, SYS_ADMIN, SYS_RESOURCE]
+operator:
+  replicas: 2

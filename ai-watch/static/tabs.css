@@ -1,0 +1,277 @@
+/* AI 觀察: the case tabs in static/tabs.js (問題樹, 共同與分歧, 來源, 圖譜, 回答, 論壇, and the overview's stakeholder,
+   recency and news blocks). Everything is scoped to a `.tx` root, so it overrides app.css's older rules for these
+   blocks without touching the rest. Same rules as app.css: body 16px, nothing under 12px, controls at least 44px,
+   text at least 4.5:1, no motion. Navy ink for text, data blue for data marks and selection, the yellow highlighter
+   only on high-risk statements. */
+:root { --dot-off: #8a93a3; --bar: #1e40af; --bar-soft: #dbe4fb; --sel: #1e40af; --on-sel: #ffffff; --tx-mark: var(--mark); }
+@media (prefers-color-scheme: dark) {
+  :root { --dot-off: #6c7891; --bar: #9db4ff; --bar-soft: #263559; --sel: #9db4ff; --on-sel: #0e1424; --tx-mark: #5c5210; }
+}
+
+.tx-gap, .tx > .tx-gap { margin-top: 18px; }
+.tx .icon.faint { opacity: .55; }
+.tx .hot { color: var(--neg); font-weight: 600; }
+.tx .cnt { font: 400 14px/1 var(--sans); color: var(--ink-3); margin-left: 10px; }
+.tx .tag { display: inline-flex; align-items: center; font-size: 12px; line-height: 20px; color: var(--ink-2); border: 1px solid var(--rule);
+  border-radius: 2px; padding: 0 6px; white-space: nowrap; }
+.tx .sum { color: var(--ink-2); font-size: 14px; line-height: 1.6; margin: 4px 0 0; max-width: 52em; }
+
+/* the apps as dots: filled = says it; the hollow ones keep a 3:1 outline */
+.tx .dots { display: inline-flex; gap: 3px; align-items: center; }
+.tx .dot { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--dot-off); display: inline-block; flex: none; }
+.tx .dot.on { background: var(--ink); border-color: var(--ink); }
+.tx .apps-mark { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.tx .apps-mark .n { font-variant-numeric: tabular-nums; color: var(--ink-2); }
+.tx .dotkey { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; margin: 6px 0 14px; color: var(--ink-2); }
+.tx .dotkey > span { display: inline-flex; align-items: center; gap: 5px; }
+
+/* risk as a number with its level; the high ones in the risk colour */
+.tx .risk { display: inline-flex; align-items: baseline; gap: 4px; white-space: nowrap; color: var(--ink-2); }
+.tx .risk b { font: 700 17px/1 var(--serif); color: var(--ink); font-variant-numeric: tabular-nums; }
+.tx .risk.r-hi, .tx .risk.r-hi b { color: var(--neg); }
+
+/* segmented controls: pressed = filled */
+.tx .segs { display: inline-flex; flex-wrap: wrap; border: 1.5px solid var(--ink); border-radius: 3px; overflow: hidden; }
+.tx .segs button { display: inline-flex; align-items: center; gap: 6px; border: none; background: var(--paper); color: var(--ink); padding: 6px 14px;
+  min-height: 44px; cursor: pointer; font-weight: 600; }
+.tx .segs button + button { border-left: 1.5px solid var(--ink); }
+.tx .segs button[aria-pressed=true] { background: var(--ink); color: var(--paper); }
+.tx .segs button b { font-weight: 700; font-variant-numeric: tabular-nums; }
+.tx .segs button:disabled { cursor: default; color: var(--ink-3); }
+.tx .chipbtn { min-height: 44px; display: inline-flex; align-items: center; gap: 8px; padding: 4px 14px; border: 1.5px solid var(--rule);
+  background: var(--paper); color: var(--ink); border-radius: 22px; cursor: pointer; font: inherit; font-size: 15px; white-space: nowrap; }
+.tx .chipbtn[aria-pressed=true] { border-color: var(--sel); background: var(--sel); color: var(--on-sel); }
+.tx .chipbtn.chk input { accent-color: var(--sel); width: 18px; height: 18px; margin: 0; }
+.tx .chipbtn.chk:has(input:checked) { border-color: var(--sel); }
+
+/* ---- overview: stakeholders, recency, news chart ---- */
+.tx.stake .nums .hot { color: var(--neg); }
+.tx.stake .top { font: 400 16px/1.65 var(--serif); }
+.tx.stake .top .risk { margin-right: 6px; font-family: var(--sans); font-size: 14px; }
+.tx.stake .top mark { background: none; color: inherit; }
+.tx.stake .top.high mark { background: linear-gradient(transparent 38%, var(--tx-mark) 38%, var(--tx-mark) 92%, transparent 92%); padding: 0 2px; }
+.tx.recency .err { display: inline-flex; align-items: center; gap: 5px; }
+.tx .newschart { width: 100%; max-width: 480px; height: auto; display: block; }
+.tx .newschart .bar { fill: var(--bar); }
+.tx .newschart .v { font-size: 13px; fill: var(--ink); font-weight: 600; }
+.tx .newschart .l { font-size: 12px; fill: var(--ink-2); }
+.tx .newschart .axis { stroke: var(--ink); stroke-width: 1; }
+
+/* ---- 問題樹: a trunk with branches; each question is one full-width button ---- */
+.tx-tree .tree { margin-top: 4px; }
+.tx-tree .troot { border-left: 3px solid var(--ink); padding: 2px 0 6px 16px; }
+.tx-tree .troot > h3, .tx-tree .thead h3 { font: 700 17px/1.4 var(--serif); }
+.tx-tree .troot > h3 { color: var(--ink-2); font: 600 14px/1.4 var(--sans); }
+.tx-tree ul { list-style: none; margin: 0; padding: 0; }
+.tx-tree .tbranches { margin: 0 0 0 1px; border-left: 1.5px solid var(--rule); }
+.tx-tree .tbranch { position: relative; padding: 22px 0 4px 28px; }
+.tx-tree .tbranch::before { content: ""; position: absolute; left: 0; top: 34px; width: 20px; border-top: 1.5px solid var(--rule); }
+.tx-tree .thead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; }
+.tx-tree .tsum { color: var(--ink-2); font-size: 15px; margin: 2px 0 6px; max-width: 48em; }
+.tx-tree .tnode { padding: 4px 0 10px; border-bottom: 1px solid var(--rule); }
+.tx-tree .tq { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; padding: 6px 0;
+  border: none; background: none; color: var(--ink); text-align: left; cursor: pointer; font: 400 16px/1.55 var(--serif); }
+.tx-tree .tq .chev { color: var(--ink-3); }
+.tx-tree .tq:hover { color: var(--link); }
+.tx-tree .tq:hover span { text-decoration: underline; text-underline-offset: 3px; }
+.tx-tree .tmeta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; color: var(--ink-2); }
+.tx-tree .tmeta .who { color: var(--ink-3); }
+.tx-tree .tmeta .ans { display: inline-flex; align-items: center; gap: 6px; }
+
+/* ---- statement rows (共同與分歧, the graph's list) ---- */
+.tx .srows { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--ink); }
+.tx .srow { display: grid; grid-template-columns: minmax(0, 1fr) 270px; gap: 6px 24px; padding: 14px 0; border-bottom: 1px solid var(--rule); }
+.tx .srow .stext { font: 400 16px/1.7 var(--serif); }
+.tx .srow .stext mark { background: none; color: inherit; }
+.tx .srow.high .stext mark { background: linear-gradient(transparent 38%, var(--tx-mark) 38%, var(--tx-mark) 92%, transparent 92%); padding: 0 2px; }
+.tx .srow .why { font-family: var(--sans); color: var(--ink-2); margin-top: 6px; }
+.tx .srow .why .flag { font-weight: 600; }
+.tx .srow .from { font-family: var(--sans); color: var(--ink-3); margin-top: 4px; }
+.tx .srow .sfacts { display: flex; flex-direction: column; gap: 4px; color: var(--ink-2); }
+.tx .srow .sfacts .f { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 12px; }
+.tx-agree .abar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin: 18px 0 4px; }
+.tx-agree .asec h2 { margin-top: 32px; margin-bottom: 2px; }
+.tx-agree .asec > p { margin: 0 0 10px; }
+
+/* ---- 來源 ---- */
+.tx-src .sfig { display: flex; flex-wrap: wrap; margin: 18px 0 6px; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+.tx-src .sfig div { padding: 10px 22px 10px 0; margin-right: 22px; border-right: 1px solid var(--rule); }
+.tx-src .sfig div:last-child { border-right: none; }
+.tx-src .sfig dt { font-size: 13px; color: var(--ink-3); order: 2; }
+.tx-src .sfig div { display: flex; flex-direction: column; }
+.tx-src .sfig dd { margin: 0; font: 700 22px/1.2 var(--serif); order: 1; }
+.tx-src .sfig dd small { font: 400 14px var(--sans); color: var(--ink-3); }
+.tx-src .filters { margin: 10px 0 10px; gap: 8px 12px; }
+.tx-src .filters .grp { gap: 8px; }
+.tx-src .dtable { width: 100%; border-collapse: collapse; margin-top: 4px; font-size: 15px; background: var(--paper); }
+.tx-src .dtable thead th { position: sticky; top: 0; z-index: 1; background: var(--paper); font-size: 13px; font-weight: 600; color: var(--ink-2);
+  padding: 0 4px; border-bottom: 1.5px solid var(--ink); text-align: right; white-space: nowrap; vertical-align: bottom; }
+.tx-src .dtable thead th button { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 4px; border: none; background: none;
+  font: inherit; color: inherit; cursor: pointer; }
+.tx-src .dtable thead th[aria-sort] button { color: var(--primary); }
+.tx-src .dtable thead th.l { text-align: left; }
+.tx-src .dtable thead th.imp { text-align: left; width: 180px; }
+.tx-src .dtable thead th.eng { text-align: center; padding: 0 2px 12px; font-size: 12px; width: 64px; white-space: normal; line-height: 1.3; }
+.tx-src .dtable td { padding: 0 8px; height: 46px; border-bottom: 1px solid var(--rule); text-align: right; vertical-align: middle; }
+.tx-src .dtable td.l { text-align: left; padding-left: 0; }
+.tx-src .dtable td.n { font-variant-numeric: tabular-nums; color: var(--ink-2); }
+.tx-src .dtable td.eng { text-align: center; padding: 0; }
+.tx-src .dtable td.appsm { display: none; }
+.tx-src .dtable td.imp { text-align: left; }
+.tx-src .dtable td.imp b { font-variant-numeric: tabular-nums; margin-left: 8px; }
+.tx-src .ibar { display: inline-block; width: 110px; height: 8px; background: var(--bar-soft); vertical-align: middle; }
+.tx-src .ibar i { display: block; height: 100%; background: var(--bar); }
+.tx-src .drow { cursor: pointer; }
+.tx-src .drow:hover td, .tx-src .drow.is-open td { background: var(--wash); }
+.tx-src .dbtn { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 4px 0 0; border: none; background: none;
+  color: var(--link); font: inherit; font-weight: 600; cursor: pointer; text-align: left; }
+.tx-src .dbtn .dn { word-break: break-all; }
+.tx-src .dbtn[aria-expanded=true] .chev { transform: rotate(90deg); }
+.tx-src .dbtn:hover .dn { text-decoration: underline; text-underline-offset: 3px; }
+.tx-src td.l .tag { margin-left: 4px; }
+.tx-src .tag.k-official { border-color: var(--pos); color: var(--pos); }
+.tx-src .dopen td { background: var(--wash); text-align: left; padding: 4px 16px 12px 26px; height: auto; }
+.tx-src .pages { list-style: none; margin: 0; padding: 0; }
+.tx-src .pages li { padding: 10px 0; border-bottom: 1px solid var(--rule); }
+.tx-src .pages li:last-child { border-bottom: none; }
+.tx-src .pages a { word-break: break-word; }
+.tx-src .pm { display: flex; flex-wrap: wrap; gap: 2px 14px; color: var(--ink-2); margin-top: 2px; }
+.tx .more { margin: 14px 0 0; }
+.tx .more .btn { font-weight: 600; }
+
+/* ---- 圖譜 ---- */
+.tx-graph > .segs { margin-top: 18px; }
+.tx-graph .gwrap { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 24px; margin-top: 14px; align-items: start; }
+.tx-graph .gscroll { overflow-x: auto; border: 1px solid var(--rule); background: var(--paper); }
+.tx-graph .graph { display: block; width: 100%; height: auto; min-width: 560px; border: none; }
+.tx-graph .graph .edge { fill: none; stroke: var(--dot-off); stroke-opacity: .45; stroke-width: 1; }
+.tx-graph .graph .edge.dim { stroke-opacity: .12; }
+.tx-graph .graph .edge.on { stroke: var(--sel); stroke-opacity: .9; stroke-width: 1.5; }
+.tx-graph .graph .colhead text { font: 600 13px var(--sans); fill: var(--ink-2); }
+.tx-graph .graph .node { cursor: pointer; outline: none; }
+.tx-graph .graph .node .hit { fill: transparent; stroke: none; }
+.tx-graph .graph .node circle:not(.hit), .tx-graph .graph .node rect { fill: var(--ink-3); stroke: var(--paper); stroke-width: 1.5; }
+.tx-graph .graph .node text { font: 400 13px var(--sans); fill: var(--ink); paint-order: stroke; stroke: var(--paper); stroke-width: 4px; stroke-linejoin: round; }
+.tx-graph .graph .node.subj circle:not(.hit) { fill: var(--ink); }
+.tx-graph .graph .node.subj text { font: 700 15px var(--serif); }
+.tx-graph .graph .node.issue rect { fill: var(--paper); stroke: var(--ink); stroke-width: 2.5; }
+.tx-graph .graph .node.issue text { font: 700 13px var(--serif); }
+.tx-graph .graph .node.neg circle:not(.hit) { fill: var(--neg); }
+.tx-graph .graph .node.pos circle:not(.hit) { fill: var(--pos); }
+.tx-graph .graph .node.app circle:not(.hit) { fill: var(--ink); }
+.tx-graph .graph .node.app text { font-weight: 600; }
+.tx-graph .graph .node.dom rect { fill: var(--paper); stroke: var(--ink-2); stroke-width: 2; }
+.tx-graph .graph .node.dim { opacity: .22; }
+.tx-graph .graph .node.pinned circle:not(.hit), .tx-graph .graph .node.pinned rect { stroke: var(--sel); stroke-width: 3; }
+.tx-graph .graph .node.pinned text { fill: var(--sel); font-weight: 700; }
+.tx-graph .graph .node:hover text { text-decoration: underline; }
+.tx-graph .graph .node:focus-visible circle:not(.hit), .tx-graph .graph .node:focus-visible rect { stroke: var(--link); stroke-width: 3; }
+.tx-graph .scrollhint { display: none; margin: 6px 0 0; }
+.tx-graph .glegend { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; margin: 8px 0 0; color: var(--ink-2); }
+.tx-graph .glegend > span { display: inline-flex; align-items: center; gap: 4px; }
+.tx-graph .sw { width: 16px; height: 16px; flex: none; }
+.tx-graph .sw circle, .tx-graph .sw rect { fill: var(--ink-3); }
+.tx-graph .sw.subj circle, .tx-graph .sw.app circle { fill: var(--ink); }
+.tx-graph .sw.neg circle { fill: var(--neg); }
+.tx-graph .sw.pos circle { fill: var(--pos); }
+.tx-graph .sw.issue rect { fill: var(--paper); stroke: var(--ink); stroke-width: 2; }
+.tx-graph .sw.dom rect { fill: var(--paper); stroke: var(--ink-2); stroke-width: 2; }
+.tx-graph .gside { border-top: 2px solid var(--ink); padding-top: 10px; max-height: none; overflow: visible; }
+.tx-graph .gside h3 { font: 700 17px/1.4 var(--serif); margin: 6px 0; }
+.tx-graph .ghead { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.tx-graph .gside .srow { grid-template-columns: 1fr; }
+.tx-graph .gside .srow .sfacts { flex-direction: row; flex-wrap: wrap; gap: 4px 12px; }
+.tx-graph .ents { list-style: none; margin: 4px 0 0; padding: 0; }
+.tx-graph .ents li { border-bottom: 1px solid var(--rule); }
+.tx-graph .ent { display: grid; grid-template-columns: minmax(0, 1fr) auto; width: 100%; align-items: baseline; gap: 2px 10px; min-height: 44px; padding: 10px 0; border: none;
+  background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.tx-graph .ent .nm { color: var(--link); font-weight: 600; }
+.tx-graph .ent:hover .nm { text-decoration: underline; text-underline-offset: 3px; }
+.tx-graph .ent .r { display: inline-flex; gap: 8px; white-space: nowrap; color: var(--ink-2); }
+
+/* ---- 回答 ---- */
+.tx-ans .qlabel { display: block; font-weight: 600; margin: 18px 0 6px; }
+.tx-ans .qsel { font: 400 16px/1.5 var(--serif); width: 100%; min-height: 48px; padding: 8px 10px; border: 1.5px solid var(--ink-3); border-radius: 3px;
+  background: var(--paper); color: var(--ink); }
+.tx-ans .acmp { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin: 10px 0 0; }
+.tx-ans .acmp button { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 44px; padding: 8px 12px; border: 1.5px solid var(--rule);
+  border-radius: 3px; background: var(--paper); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.tx-ans .acmp button:hover { border-color: var(--ink); }
+.tx-ans .acmp .an { font-weight: 700; }
+.tx-ans .acmp .small { display: flex; flex-wrap: wrap; gap: 0 10px; color: var(--ink-2); }
+.tx-ans .cols { display: grid; grid-template-columns: repeat(var(--n), minmax(300px, 1fr)); gap: 0; margin-top: 16px; border-top: 2px solid var(--ink);
+  overflow-x: auto; scroll-snap-type: x proximity; }
+.tx-ans .col { padding: 12px 18px 12px 0; margin-right: 18px; border-right: 1px solid var(--rule); min-width: 0; scroll-snap-align: start; scroll-margin-top: 16px; }
+.tx-ans .col:last-child { border-right: none; margin-right: 0; }
+.tx-ans .col h3 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; font: 700 16px/1.4 var(--sans); margin: 0 0 8px; }
+.tx-ans .col h4 { font: 600 14px/1.4 var(--sans); color: var(--ink-2); margin: 16px 0 4px; }
+.tx-ans .col .answer { font: 400 16px/1.8 var(--serif); white-space: pre-wrap; overflow-wrap: anywhere; }
+.tx-ans .cites { margin: 0; padding-left: 22px; font-size: 14px; columns: 1; }
+.tx-ans .cites li { margin-bottom: 6px; word-break: break-word; }
+
+/* ---- 論壇 ---- */
+.tx-forum .recency .r { gap: 4px; }
+.tx-forum .sites { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
+.tx-forum .segs { margin-top: 4px; }
+.tx-forum .fspan h3 { font: 700 17px/1.4 var(--serif); margin: 24px 0 6px; }
+.tx-forum .posts { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--ink); }
+.tx-forum .posts li { padding: 12px 0; border-bottom: 1px solid var(--rule); }
+.tx-forum .pt { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.tx-forum .pt a { font-weight: 600; }
+
+/* ---- narrower ---- */
+@media (max-width: 1180px) {
+  .tx-graph .gwrap { grid-template-columns: minmax(0, 1fr); }
+  .tx-graph .gmain { min-width: 0; }
+  .tx-graph .graph { width: 100%; }
+  .tx-graph .gside { max-width: 760px; }
+}
+@media (max-width: 860px) {
+  .tx .srow { grid-template-columns: 1fr; }
+  .tx .srow .sfacts { flex-direction: row; flex-wrap: wrap; gap: 4px 14px; }
+  .tx-ans .cols { grid-template-columns: 1fr; overflow: visible; }
+  .tx-ans .col { border-right: none; margin-right: 0; padding-right: 0; border-bottom: 1px solid var(--rule); padding-bottom: 18px; }
+  .tx-src .dtable thead th.eng, .tx-src .dtable td.eng { display: none; }
+  .tx-src .dtable td.appsm { display: table-cell; text-align: left; color: var(--ink-2); font-size: 14px; }
+}
+@media (max-width: 640px) {
+  .tx-tree .tbranch { padding-left: 14px; }
+  .tx-tree .tbranch::before { width: 8px; }
+  .tx-tree .troot { padding-left: 12px; }
+  .tx-src .sfig div { padding-right: 14px; margin-right: 14px; }
+  .tx-src .sfig dd { font-size: 19px; }
+  /* the sources table becomes one block per domain: name, then a bar, then the counts */
+  .tx-src .dtable thead { display: block; }
+  .tx-src .dtable thead tr { display: flex; flex-wrap: wrap; gap: 0 4px; }
+  .tx-src .dtable thead th { position: static; border: none; padding: 0; }
+  .tx-src .dtable thead th.eng { display: none; }
+  .tx-src .dtable thead th.imp { width: auto; }
+  .tx-src .dtable thead tr { border-bottom: 1.5px solid var(--ink); }
+  .tx-src .dtable, .tx-src .dtable tbody { display: block; width: 100%; }
+  .tx-src .dtable tr.drow { display: grid; grid-template-columns: auto 1fr; gap: 0 12px; padding: 4px 0 10px; border-bottom: 1px solid var(--rule); }
+  .tx-src .dtable tr.drow td { display: block; height: auto; border: none; padding: 0; text-align: left; }
+  .tx-src .dtable tr.drow td.l { grid-column: 1 / -1; }
+  .tx-src .dtable tr.drow td.imp { grid-column: 1 / -1; display: flex; align-items: center; }
+  .tx-src .dtable tr.drow td.imp::before { content: attr(data-k); color: var(--ink-3); font-size: 13px; margin-right: 8px; }
+  .tx-src .ibar { flex: 1; max-width: 180px; }
+  .tx-src .dtable tr.drow td.n { display: inline-block; grid-column: auto; }
+  .tx-src .dtable tr.drow td.n::before { content: attr(data-k) " "; color: var(--ink-3); font-size: 13px; }
+  .tx-src .dtable tr.drow td.n { color: var(--ink); }
+  .tx-src .dtable tr.drow { grid-template-columns: repeat(3, auto) 1fr; }
+  .tx-src .dtable tr.drow td.appsm { grid-column: 1 / -1; display: block; }
+  .tx-src .dtable tr.dopen { display: block; }
+  .tx-src .dtable tr.dopen td { display: block; padding: 4px 12px 10px; }
+  .tx-src .dtable tr.drow td.eng { display: none; }
+  .tx .segs { border: none; gap: 6px; overflow: visible; }
+  .tx .segs button, .tx .segs button + button { border: 1.5px solid var(--ink); border-radius: 3px; }
+  .tx-graph .graph { width: 720px; max-width: none; }
+  .tx-graph .scrollhint { display: block; }
+  .tx-graph .gscroll { margin: 0 -16px; border-left: none; border-right: none; }
+}
+@media (min-width: 641px) and (max-width: 1180px) {
+  .tx-graph .graph { max-width: 900px; }
+}
+@media (min-width: 1181px) {
+  /* the pinned list stays beside the drawing while it scrolls */
+  .tx-graph .gside { position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; }
+}

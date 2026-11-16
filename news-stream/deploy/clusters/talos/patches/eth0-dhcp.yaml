@@ -1,0 +1,7 @@
+# Every node made from an old x86 server (the gateway, the news and db nodes, keeping their public IPv6): DHCP on eth0,
+# the public link, stated outright. Without it the node got no lease on eth0 (the control nodes get 100.64.x.x/32 from
+# Talos's hcloud platform), so it could not reach Hetzner's metadata (169.254.169.254 via 172.31.1.1) and never got
+# its public IPv6 or hostname (2026-11-05).
+apiVersion: v1alpha1
+kind: DHCPv4Config
+name: eth0

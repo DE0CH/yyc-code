@@ -1,0 +1,62 @@
+# Per-namespace ceilings (deploy/README.md "Sizes"). Every container in apps/ sets its own requests and limits
+# (memory request = limit, from measured peaks); the LimitRange gives anything that doesn't (a kubectl run, a debug
+# pod) the same shape, and the ResourceQuota caps what a namespace can take from the apps nodes.
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: yyc
+  namespace: yyc
+spec:
+  hard:
+    requests.cpu: "14"        # of the apps nodes' 20 vCPU; jobs at half their measured peaks
+    limits.cpu: "40"
+    requests.memory: 24Gi      # serving 7.4 Gi (6.1 Gi + the site's and yyc-mcp's pods, 2026-10-29) + every CronJob's pod at
+    limits.memory: 24Gi        # once (15.25 Gi) + one surge (the poller's 2 Gi) = 24.7 Gi; the nodes' allocatable memory
+                               # (about 24.5 GiB with large-worker2) is the real ceiling
+    requests.ephemeral-storage: 20Gi
+    limits.ephemeral-storage: 60Gi
+    persistentvolumeclaims: "6"
+    requests.storage: 100Gi
+    pods: "80"
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: yyc
+  namespace: yyc
+spec:
+  limits:
+    - type: Container
+      default: {cpu: 500m, memory: 256Mi, ephemeral-storage: 1Gi}
+      defaultRequest: {cpu: 50m, memory: 256Mi, ephemeral-storage: 50Mi}
+      max: {memory: 3Gi, ephemeral-storage: 6Gi}
+    - type: PersistentVolumeClaim
+      max: {storage: 40Gi}
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: mailmerge
+  namespace: mailmerge
+spec:
+  hard:
+    requests.cpu: "1"
+    limits.cpu: "4"
+    requests.memory: 1Gi       # 2 app pods + 2 connectors (128 Mi each) + rollout surges
+    limits.memory: 1Gi
+    requests.ephemeral-storage: 2Gi
+    limits.ephemeral-storage: 4Gi
+    persistentvolumeclaims: "0"
+    pods: "10"
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: mailmerge
+  namespace: mailmerge
+spec:
+  limits:
+    - type: Container
+      default: {cpu: 200m, memory: 128Mi, ephemeral-storage: 256Mi}
+      defaultRequest: {cpu: 20m, memory: 128Mi, ephemeral-storage: 50Mi}
+      max: {memory: 512Mi, ephemeral-storage: 1Gi}

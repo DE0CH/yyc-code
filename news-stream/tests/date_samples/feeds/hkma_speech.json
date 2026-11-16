@@ -1,0 +1,10 @@
+{
+"source": "hkma_speech",
+"fetched": "2026-10-14",
+"pages": [
+[
+"https://www.hkma.gov.hk/chi/other-information/rss/rss_speeches.xml",
+"<?xml version=\"1.0\" encoding=\"UTF-8\"?><?xml-stylesheet title=\"XSL_formatting\" type=\"text/xsl\" href=\"rssxsl_data.xml\" ?><rss version=\"2.0\"><channel><title><![CDATA[金管局: 演講辭]]></title><link><![CDATA[https://www.hkma.gov.hk/chi/news-and-media/speeches]]></link><description><![CDATA[金管局RSS頻道]]></description><language><![CDATA[chi]]></language><copyright><![CDATA[2026 年香港金融管理局。版權所有。]]></copyright><docs /><image><title><![CDATA[金管局]]></title><url><![CDATA[/chi/img/logo_rss.gif]]></url><link><![CDATA[https://www.hkma.gov.hk/chi]]></link></image><item><title><![CDATA[香港金融管理局副總裁阮國恒：渣打銀行「防騙影院」開幕暨首映禮致辭]]></title><link><![CDATA[https://www.hkma.gov.hk/chi/news-and-media/speeches/2026/10/20261013-1/]]></link><pubDate><![CDATA[Tue, 13 Oct 2026 00:00:00 +0800]]></pubDate><description><![CDATA[]]></description><guid /><sortDate><![CDATA[2026-10-13]]></sortDate></item><item><title><![CDATA[香港金融管理局總裁余偉文：香港貨幣及金融研究中心 第十六屆年度中國經濟國際研討會「超越周期：中國經濟增長、創新與韌性」開幕致辭（英文版本） ]]></title><link><![CDATA[https://www.hkma.gov.hk/eng/news-and-media/speeches/2026/10/20261012-1/]]></link><pubDate><![CDATA[Mon, 12 Oct 2026 00:00:00 +0800]]></pubDate><description><![CDATA[]]></description><guid /><sortDate><![CDATA[2026-10-12]]></sortDate></item></channel></rss>"
+]
+]
+}

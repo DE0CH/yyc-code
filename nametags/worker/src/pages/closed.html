@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh-HK">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>報名已截止 Registration closed</title>
+<meta name="robots" content="noindex">
+<style>
+:root {
+  --ground: #eef0f2; --panel: #ffffff; --ink: #14171a; --muted: #59626b; --rule: #d3d8dd;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --ground: #111315; --panel: #1a1d20; --ink: #e8eaec; --muted: #9ea6ae; --rule: #33393f; color-scheme: dark; }
+}
+* { box-sizing: border-box; margin: 0; padding: 0; border-radius: 0; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  background: var(--ground); color: var(--ink); font-size: 16px; line-height: 1.5;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang HK", "PingFang TC", "Noto Sans HK",
+    "Noto Sans TC", "Noto Sans CJK TC", "Microsoft JhengHei", "Hiragino Sans", system-ui, sans-serif;
+}
+.en { color: var(--muted); font-size: .875rem; line-height: 1.35; display: block; }
+.en:empty { display: none; }
+.wrap { max-width: 720px; margin: 0 auto; padding: 16px; }
+.sheet { background: var(--panel); padding: 24px 20px; }
+.org { font-weight: 700; font-size: .875rem; color: var(--muted); }
+.event { margin-top: 10px; font-weight: 800; font-size: 1.5rem; line-height: 1.2; overflow-wrap: anywhere; }
+.event:has(> .zh:empty) { display: none; }
+.event .en { font-size: 1rem; font-weight: 600; margin-top: 4px; }
+.verdict { display: flex; gap: 12px; align-items: flex-start; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--rule); }
+.pip { flex: none; width: 16px; height: 16px; margin-top: 6px; border: 3px solid var(--muted); }
+h1 { font-size: 1.375rem; font-weight: 800; line-height: 1.3; }
+h1 .en { font-size: 1rem; font-weight: 600; margin-top: 2px; }
+.lead { margin-top: 12px; }
+@media (min-width: 900px) { .wrap { padding: 64px 24px; } .sheet { padding: 40px; } .event { font-size: 2rem; } }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <section class="sheet">
+    <p class="org">YYC</p>
+    <p class="event"><span class="zh">{{event_name}}</span><span class="en" lang="en">{{event_name_en}}</span></p>
+    <div class="verdict"><span class="pip" aria-hidden="true"></span>
+      <div>
+        <h1>此活動現時不接受報名<span class="en" lang="en">This event is not taking registrations</span></h1>
+        <p class="lead">報名可能已截止，或連結有誤。如有疑問，請聯絡邀請你的主辦單位。<span class="en" lang="en">Registration may have closed, or the link is wrong. If in doubt, contact whoever invited you.</span></p>
+      </div>
+    </div>
+  </section>
+</main>
+</body>
+</html>

@@ -1,0 +1,20 @@
+# SealedSecrets of the apps overlay on yyc-talos (namespaces yyc, mailmerge), sealed to infra/sealed-secrets-talos.pem;
+# yyc-apps.yml applies this folder as the fence yyc-deploy/sealed-secrets-applier (infra/seal.py writes the files and
+# lists them here). The news stream's own Secrets join with its move (T4b).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - yyc-catalogue.yaml
+  - video-s3.yaml
+  - wisers.yaml
+  - tunnel.yaml
+  - telegram.yaml
+  - mcp-env.yaml
+  - db-app.yaml
+  - monitor-keys.yaml
+  - mail-account.yaml
+  - isp-proxy.yaml
+  - ghcr-pull.yaml
+  - app-env.yaml
+  - ai-tools.yaml
+  - mailmerge-tunnel.yaml

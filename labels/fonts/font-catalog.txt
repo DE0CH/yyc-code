@@ -1,0 +1,45 @@
+# The labels' font list (labels/fonts/font-catalog.py): category | google/fonts ofl/ folder | the name staff see | files (", " between)
+# Every face is SIL Open Font License 1.1. Upright styles only; static families keep Light to Black.
+黑體 | notosanshk | 思源黑體（香港） | NotoSansHK[wght].ttf
+黑體 | notosanstc | 思源黑體（台灣） | NotoSansTC[wght].ttf
+黑體 | chironheihk | 昭源黑體 | ChironHeiHK[wght].ttf
+黑體 | chocolateclassicalsans | 朱古力黑體 | ChocolateClassicalSans-Regular.ttf
+黑體 | huninn | jf 粉圓 | Huninn-Regular.ttf
+明體 | notoserifhk | 思源宋體（香港） | NotoSerifHK[wght].ttf
+明體 | notoseriftc | 思源宋體（台灣） | NotoSerifTC[wght].ttf
+明體 | chironsunghk | 昭源宋體 | ChironSungHK[wght].ttf
+明體 | cactusclassicalserif | 仙人掌明體 | CactusClassicalSerif-Regular.ttf
+楷書及手寫 | lxgwwenkaitc | 霞鶩文楷 | LXGWWenKaiTC-Bold.ttf, LXGWWenKaiTC-Light.ttf, LXGWWenKaiTC-Regular.ttf
+楷書及手寫 | iansui | 芫荽 | Iansui-Regular.ttf
+楷書及手寫 | lxgwmarkergothic | 霞鶩漫黑 | LXGWMarkerGothic-Regular.ttf
+英文・無襯線 | inter | Inter | Inter[opsz,wght].ttf
+英文・無襯線 | roboto | Roboto | Roboto[wdth,wght].ttf
+英文・無襯線 | opensans | Open Sans | OpenSans[wdth,wght].ttf
+英文・無襯線 | lato | Lato | Lato-Black.ttf, Lato-Bold.ttf, Lato-ExtraBold.ttf, Lato-Light.ttf, Lato-Medium.ttf, Lato-Regular.ttf, Lato-SemiBold.ttf
+英文・無襯線 | montserrat | Montserrat | Montserrat[wght].ttf
+英文・無襯線 | sourcesans3 | Source Sans 3 | SourceSans3[wght].ttf
+英文・無襯線 | worksans | Work Sans | WorkSans[wght].ttf
+英文・無襯線 | ibmplexsans | IBM Plex Sans | IBMPlexSans[wdth,wght].ttf
+英文・無襯線 | notosans | Noto Sans | NotoSans[wdth,wght].ttf
+英文・無襯線 | poppins | Poppins | Poppins-Black.ttf, Poppins-Bold.ttf, Poppins-ExtraBold.ttf, Poppins-Light.ttf, Poppins-Medium.ttf, Poppins-Regular.ttf, Poppins-SemiBold.ttf
+英文・無襯線 | nunito | Nunito | Nunito[wght].ttf
+英文・無襯線 | manrope | Manrope | Manrope[wght].ttf
+英文・無襯線 | barlow | Barlow | Barlow-Black.ttf, Barlow-Bold.ttf, Barlow-ExtraBold.ttf, Barlow-Light.ttf, Barlow-Medium.ttf, Barlow-Regular.ttf, Barlow-SemiBold.ttf
+英文・無襯線 | josefinsans | Josefin Sans | JosefinSans[wght].ttf
+英文・襯線 | playfairdisplay | Playfair Display | PlayfairDisplay[wght].ttf
+英文・襯線 | ebgaramond | EB Garamond | EBGaramond[wght].ttf
+英文・襯線 | cormorantgaramond | Cormorant Garamond | CormorantGaramond[wght].ttf
+英文・襯線 | librebaskerville | Libre Baskerville | LibreBaskerville[wght].ttf
+英文・襯線 | merriweather | Merriweather | Merriweather[opsz,wdth,wght].ttf
+英文・襯線 | sourceserif4 | Source Serif 4 | SourceSerif4[opsz,wght].ttf
+英文・襯線 | lora | Lora | Lora[wght].ttf
+英文・襯線 | notoserif | Noto Serif | NotoSerif[wdth,wght].ttf
+英文・襯線 | crimsonpro | Crimson Pro | CrimsonPro[wght].ttf
+英文・標題 | oswald | Oswald | Oswald[wght].ttf
+英文・標題 | bebasneue | Bebas Neue | BebasNeue-Regular.ttf
+英文・標題 | raleway | Raleway | Raleway[wght].ttf
+英文・標題 | dmserifdisplay | DM Serif Display | DMSerifDisplay-Regular.ttf
+英文・標題 | abrilfatface | Abril Fatface | AbrilFatface-Regular.ttf
+英文・手寫 | greatvibes | Great Vibes | GreatVibes-Regular.ttf
+英文・手寫 | dancingscript | Dancing Script | DancingScript[wght].ttf
+英文・手寫 | pacifico | Pacifico | Pacifico-Regular.ttf

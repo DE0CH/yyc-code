@@ -1,0 +1,232 @@
+/* The proof view (scoped to .page-proof): one column on phones; from 960 px the text on the left and a
+   360 px column on the right, as the item page. From 1200 x 600 (a laptop, Deyao's MacBook Air: 1440 x 830 in the
+   browser) the "fit" layout at the end: one entry fills the window with no page scroll, in a dense type scale.
+   House style (house.css): cards are white sheets on the grey ground, controls are ruled cells (pressed = ink-filled),
+   states carry no hue: passed / filed = an ink-filled square pip, rejected / flagged = an SVG cross, waiting = a
+   dashed pip. Clean lines (house.css): every rule is 1px --rule, a group of buttons is one block split by shared rules
+   with plain ground between groups, nothing centred. The fit layout keeps its dense sizes (a keyboard-driven laptop
+   tool: exempt from the 44px rule). */
+.page-proof { --x-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='square'%3E%3Cpath d='M6 6l12 12M18 6L6 18'/%3E%3C/svg%3E"); }
+.page-proof main { padding:8px var(--gutter) calc(40px + var(--tabbar-h)); }
+.page-proof button { cursor:pointer; }
+.page-proof .card { background:var(--panel); border:0; padding:16px; min-width:0; overflow-wrap:anywhere; }
+.page-proof .card > h2 { font-size:16px; font-weight:700; margin:0 0 10px; display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+.page-proof h1 { font-size:24px; font-weight:800; line-height:1.25; margin:0; }
+.page-proof .sub, .page-proof .muted { color:var(--muted); font-size:13px; }
+.page-proof .sub { margin:6px 0 0; }
+.page-proof .entry { display:grid; grid-template-columns:minmax(0,1fr); gap:8px; margin-top:8px; }
+.page-proof .entry > div { min-width:0; display:flex; flex-direction:column; gap:8px; }
+@media (min-width:960px) { .page-proof .entry { grid-template-columns:minmax(0,1fr) 360px; align-items:start; gap:8px; } }
+
+.page-proof .head .top { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px 12px; }
+/* the views: a segmented row of ruled cells, the current one ink-filled */
+.page-proof .views { display:inline-flex; flex-wrap:wrap; max-width:100%; }
+.page-proof .views button { border:1px solid var(--rule); background:var(--panel); color:var(--ink); padding:0 12px; font-size:14px; min-height:var(--ctl); }
+.page-proof .views button + button { margin-left:-1px; }
+.page-proof .views button:hover { background:var(--ground); }
+.page-proof .views button[aria-pressed="true"] { position:relative; background:var(--ink); color:var(--panel); font-weight:700; }
+.page-proof .views button b { font-family:var(--num); }
+.page-proof .steps { display:flex; align-items:center; justify-content:flex-start; gap:14px; margin-top:12px; flex:1 1 100%; order:5; }
+.page-proof .steps .count { font-family:var(--num); font-size:1.25rem; font-weight:700; min-width:6em; text-align:left; }
+/* a button: house.css's .btn (a --rule outlined cell); here 14px and allowed to wrap. primary / danger / on = ink-filled */
+.page-proof .btn { font-size:14px; font-weight:400; max-width:100%; white-space:normal; text-align:center; }
+.page-proof .btn[disabled], .page-proof .btn[disabled]:hover { color:var(--muted); border-color:var(--rule); background:var(--panel); cursor:default; }
+.page-proof .btn svg.i { width:18px; height:18px; flex:none; }
+.page-proof .btn.step { width:56px; height:var(--ctl); }
+.page-proof .btn.small { min-height:var(--ctl); font-size:13px; padding:0 10px; }
+.page-proof .btn.primary { background:var(--ink); color:var(--panel); border-color:var(--ink); font-weight:700; min-height:var(--ctl); padding:0 18px; }
+.page-proof .btn.primary:hover { background:var(--muted); border-color:var(--muted); }
+/* a group of buttons (.srcbtns: the post's actions, the head's tools, the source steps, the verdict, save / cancel): one
+   block, the members sharing their edges (overlapped by 1px; an ink-filled member drawn over its neighbours' rules);
+   plain ground between the group and what follows it */
+.page-proof .acts { display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px; margin-top:12px; }
+.page-proof .srcbtns > .btn + .btn { margin-left:-1px; }
+.page-proof .srcbtns > .btn:is(.primary, .danger, .on) { position:relative; }
+.page-proof .srcrow { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; margin-top:12px; padding-top:10px; border-top:1px solid var(--rule); font-size:14px; }
+.page-proof .srcbtns { display:inline-flex; flex-wrap:wrap; }
+.page-proof .srclist > summary { display:inline-flex; align-items:center; min-height:var(--ctl); cursor:pointer; }
+.page-proof .srclist { flex:1 1 100%; }
+.page-proof .srclist ol { margin:6px 0 0; padding-left:1.6em; font-size:13.5px; line-height:1.9; }
+.page-proof .linkish { border:0; background:none; padding:0; color:var(--ink); font-weight:600; text-decoration:underline; text-underline-offset:3px; font-size:inherit; }
+.page-proof main:not(.fit) .linkish { display:inline-flex; align-items:center; gap:6px; min-height:var(--ctl); }
+
+.page-proof .kicker { display:flex; flex-wrap:wrap; align-items:center; gap:4px 10px; font-size:14px; color:var(--muted); }
+.page-proof .kicker b { color:var(--ink); }
+/* a badge; its state is a mark before the word: ok = ink-filled pip, bad = cross, wait = dashed pip */
+.page-proof .pill { display:inline-flex; align-items:center; border:1px solid var(--rule); padding:0 6px; font-size:12px; line-height:1.5; color:var(--muted); background:var(--panel); }
+.page-proof .pill.ok, .page-proof .pill.bad, .page-proof .pill.wait { border-color:var(--ink); color:var(--ink); font-weight:600; }
+.page-proof .pill.ok::before, .page-proof .pill.wait::before { content:""; flex:none; width:9px; height:9px; margin-right:5px; border:2px solid var(--ink); }
+.page-proof .pill.ok::before { background:var(--ink); }
+.page-proof .pill.wait::before { border-style:dashed; }
+.page-proof .pill.bad { font-weight:700; }
+.page-proof .pill.bad::before, .page-proof .sgrid .sc.wrong .nm::before, .page-proof .flag.v-wrong > h2::before {
+  content:""; flex:none; display:inline-block; width:11px; height:11px; margin-right:5px; background:currentColor;
+  -webkit-mask:var(--x-mask) center / 100% no-repeat; mask:var(--x-mask) center / 100% no-repeat; }
+.page-proof .post .title { font-size:22px; font-weight:700; line-height:1.4; margin:8px 0 4px; display:block; }
+.page-proof dl.kv { display:grid; grid-template-columns:max-content minmax(0,1fr); gap:6px 14px; margin:10px 0 0; font-size:14px; }
+.page-proof dl.kv dt { color:var(--muted); }
+.page-proof dl.kv dd { margin:0; min-width:0; overflow-wrap:anywhere; }
+.page-proof .url, .page-proof .url a { overflow-wrap:anywhere; word-break:break-all; }
+.page-proof .body { white-space:pre-wrap; font-family:inherit; font-size:16px; line-height:1.8; overflow-wrap:anywhere; margin:0; }
+.page-proof .post .links { margin-top:8px; font-size:13px; }
+.page-proof .post .links .lk { color:var(--muted); }
+.page-proof .post .links ul { margin:2px 0 0; padding-left:1.2em; }
+.page-proof .answers .ans { display:flex; flex-wrap:wrap; gap:2px 10px; align-items:baseline; font-size:13px; padding:4px 0; border-top:1px solid var(--rule); }
+.page-proof .answers .ans:first-of-type { border-top:0; padding-top:0; }
+.page-proof .answers .ans > b { min-width:4.2em; }
+.page-proof .answers .f i { font-style:normal; color:var(--muted); margin-right:3px; }
+.page-proof .sc { border-top:1px solid var(--rule); padding:8px 0; }
+.page-proof .sc:first-of-type { border-top:0; padding-top:0; }
+.page-proof .sc .top { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 10px; font-size:14px; }
+.page-proof .sc.pass b { color:var(--ink); }
+.page-proof .sc .reason { margin:4px 0 0; font-size:13.5px; }
+.page-proof .flag textarea { width:100%; box-sizing:border-box; font:inherit; font-size:16px; padding:8px; border:1px solid var(--rule);
+  background:var(--panel); color:var(--ink); margin-top:6px; }
+.page-proof .flag textarea:focus { border-color:var(--ink); }
+.page-proof .flag label { font-size:13.5px; color:var(--muted); }
+.page-proof .flags { margin:0 0 10px; padding-left:1.2em; font-size:13px; color:var(--ink); font-weight:600; }
+.page-proof .flag-msg { margin:8px 0 0; font-size:13.5px; }
+.page-proof .flag-msg.ok, .page-proof .flag-msg.bad { color:var(--ink); }
+.page-proof .empty p { margin:0; }
+.page-proof code { font-size:12.5px; overflow-wrap:anywhere; }
+
+/* a key: a small ruled square cell in the figure face */
+.page-proof kbd { display:inline-block; min-width:1.6em; text-align:center; font:600 12px/1.5 var(--num); padding:0 4px; border:1px solid var(--rule);
+  color:var(--muted); background:var(--ground); vertical-align:1px; }
+/* in a button the button is the box: the key is plain figure-face text, no box inside it */
+.page-proof :is(.btn, .views button) kbd { border:0; background:none; padding:0; min-width:0; color:inherit; }
+.page-proof .head .tools { display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px; }
+.page-proof .pend { font-size:13px; color:var(--muted); }
+.page-proof .pend.on { color:var(--ink); font-weight:700; }
+.page-proof .pend.on::before { content:""; display:inline-block; width:10px; height:10px; border:2px solid var(--ink); margin-right:6px; vertical-align:-1px; }
+.page-proof .hint { color:var(--muted); }
+@media (max-width:959px) { .page-proof #keys, .page-proof #fs, .page-proof .hint, .page-proof .head .tools kbd, .page-proof .sgrid .k, .page-proof .low kbd, .page-proof .verdict kbd, .page-proof .acts kbd { display:none; } }
+.page-proof .confirm { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:10px; padding:8px 10px; border:3px solid var(--ink); font-size:14px; }
+.page-proof .btn.danger { background:var(--ink); color:var(--panel); border-color:var(--ink); font-weight:700; }
+.page-proof .btn.danger:hover { background:var(--muted); border-color:var(--muted); }
+.page-proof .one { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.page-proof .url.one, .page-proof .url.one a { word-break:normal; overflow-wrap:normal; }
+.page-proof .more-btn { font-size:13px; }
+.page-proof .textcard > h2 .more-btn, .page-proof .textcard > h2 .sub { margin:0; }
+/* the stream scores: one grid row per stream that matters, the rest on one line. No column gap: the space is each
+   cell's right padding, and the cells align to the row's top (not the baseline, which shifts a wrapped pill down), so
+   the cells' top rules meet into one line across the card */
+.page-proof .sgrid { display:grid; grid-template-columns:auto minmax(0,1fr) auto auto auto auto; column-gap:0; row-gap:0; align-items:start; font-size:14px; }
+.page-proof .sgrid > div > :nth-child(-n+5) { padding-right:10px; }  /* every column but the last */
+.page-proof .sgrid > div { display:contents; }
+.page-proof .sgrid .sh > span { font-size:12px; color:var(--muted); padding-bottom:4px; }
+.page-proof .sgrid .sc > * { padding-top:6px; border-top:1px solid var(--rule); }
+.page-proof .sgrid .sc .reason { grid-column:2 / -1; border-top:0; padding-top:1px; padding-bottom:6px; margin:0; font-size:13px; }
+.page-proof .sgrid .sc .nm { color:var(--muted); font-weight:600; }
+.page-proof .sgrid .sc.pass .nm, .page-proof .sgrid .sc.wrong .nm { color:var(--ink); font-weight:700; }
+.page-proof .sgrid .s2.final, .page-proof .sgrid .sc:not(:has(.s2.final)) .s1 { font-weight:700; }
+.page-proof .sgrid .num { text-align:right; font-family:var(--num); }
+.page-proof .sgrid .num, .page-proof .sgrid .sh > span { white-space:nowrap; }
+/* a phone: the stream name keeps its room and a long outcome pill ("rejected by stage 2") wraps in its own column */
+/* (under 960 px the key column is hidden, so the grid has five columns: the header's "#" goes too) */
+@media (max-width:959px) { .page-proof .sgrid { grid-template-columns:minmax(4.5em,1fr) auto auto auto auto; }
+  .page-proof .sgrid .sh > span:first-child { display:none; } .page-proof .sgrid .sc .reason { grid-column:1 / -1; } }
+@media (max-width:599px) { .page-proof .sgrid { grid-template-columns:minmax(4.5em,1fr) auto auto auto minmax(0,6.5em); }
+  .page-proof .sgrid > div > :nth-child(-n+5) { padding-right:8px; }
+  .page-proof .sgrid .pills .pill { white-space:normal; line-height:1.3; } }
+.page-proof .pills { display:inline-flex; flex-wrap:wrap; gap:4px; }
+.page-proof .pend-s2 { color:var(--muted); font-size:.85em; font-weight:700; }
+.page-proof .low { margin:8px 0 0; font-size:13px; line-height:1.6; }
+.page-proof .low b { font-weight:700; }
+.page-proof .verdict { display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px; }
+.page-proof .verdict .btn.on { background:var(--ink); color:var(--panel); font-weight:700; }
+/* a checked entry: flagged wrong = a 3px ink frame and a cross by the heading; correct = the pressed button says it */
+.page-proof .flag.v-wrong { outline:3px solid var(--ink); outline-offset:-3px; }
+.page-proof .flag.v-wrong > h2::before { align-self:center; }
+.page-proof .flag-msg { margin:0; color:var(--muted); }
+.page-proof .note-text { margin:8px 0 0; white-space:pre-wrap; font-size:14px; }
+.page-proof .flag textarea { font-size:16px; }
+.page-proof .toast { position:fixed; left:50%; transform:translateX(-50%); bottom:calc(var(--tabbar-h) + 16px); z-index:60; background:var(--ink);
+  color:var(--panel); padding:10px 14px; font-size:14px; font-weight:600; max-width:calc(100vw - 32px); }
+/* the keys sheet: a modal backdrop (as WiseSearch's dialog), the box a panel in a 3px ink frame */
+.page-proof .keys-overlay { position:fixed; inset:0; z-index:70; background:rgb(17 19 21 / .5); display:flex; align-items:center; justify-content:center; padding:16px; }
+.page-proof .keys-box { background:var(--panel); border:3px solid var(--ink); padding:16px 18px; max-width:560px; width:100%; max-height:calc(100dvh - 32px); overflow:auto; }
+.page-proof .keys-box h2 { font-size:16px; font-weight:700; margin:0 0 10px; }
+.page-proof .keys-box dl { margin:0; display:grid; gap:4px; font-size:13px; }
+.page-proof .keys-box dl > div { display:grid; grid-template-columns:150px minmax(0,1fr); gap:10px; }
+.page-proof .keys-box dd { margin:0; }
+
+/* ---- fit: one entry fills the window, nothing scrolls the page (laptop and desktop screens) ---- */
+@media (min-width:1200px) and (min-height:600px) {
+  .page-proof main.fit { max-width:none; height:calc(100dvh - var(--bar-h)); box-sizing:border-box; padding:8px var(--gutter) 10px;
+    display:flex; flex-direction:column; gap:8px; overflow:hidden; font-size:12.5px; line-height:1.4; }
+  html.proof-fs .page-proof .yyc-bar, html.proof-fs .page-proof .yyc-topfill { display:none; }
+  html.proof-fs .page-proof main.fit { height:100dvh; }
+  .page-proof main.fit > * { flex:none; }
+  .page-proof main.fit .card { padding:8px 10px; }
+  .page-proof main.fit .card > h2 { font-size:12px; margin:0 0 5px; gap:6px; text-transform:none; }
+  .page-proof main.fit h1 { font-size:14px; }
+  .page-proof main.fit .sub, .page-proof main.fit .muted { font-size:12px; }
+  .page-proof main.fit .sub { margin:2px 0 0; }
+  .page-proof main.fit .btn { min-height:24px; padding:0 8px; font-size:12px; gap:4px; }
+  .page-proof main.fit .btn.small { min-height:22px; font-size:12px; padding:0 7px; }
+  .page-proof main.fit .btn.primary { min-height:26px; padding:0 10px; }
+  .page-proof main.fit .btn svg.i { width:14px; height:14px; }
+  .page-proof main.fit kbd { font-size:12px; padding:0 3px; min-width:1.5em; }
+  .page-proof main.fit .srclist > summary { min-height:22px; }
+  .page-proof main.fit .pill.ok::before, .page-proof main.fit .pill.wait::before { width:7px; height:7px; margin-right:4px; }
+  .page-proof main.fit .pill.bad::before { width:8px; height:8px; margin-right:4px; }
+  /* the head: one line (title, views, steps, notes, tools), the sources on a second */
+  .page-proof main.fit .head .top { flex-wrap:nowrap; gap:10px; }
+  .page-proof main.fit .views button { padding:2px 9px; font-size:12px; min-height:24px; }
+  .page-proof main.fit .steps { order:0; flex:none; margin:0 0 0 auto; gap:6px; }
+  .page-proof main.fit .btn.step { width:34px; height:26px; min-height:26px; }
+  .page-proof main.fit .steps .count { font-size:14px; min-width:5.5em; }
+  .page-proof main.fit .head .tools { margin-left:6px; flex-wrap:nowrap; }
+  .page-proof main.fit .pend { font-size:12px; white-space:nowrap; }
+  .page-proof main.fit .head > .sub { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .page-proof main.fit .srcrow { margin-top:4px; padding-top:4px; font-size:12px; gap:4px 10px; flex-wrap:nowrap; }
+  .page-proof main.fit .srclist { flex:0 1 auto; position:relative; }
+  .page-proof main.fit .srclist[open] ol { position:absolute; z-index:30; right:0; top:100%; width:420px; max-height:60vh; overflow:auto; background:var(--panel);
+    border:1px solid var(--ink); padding:6px 10px 6px 2.2em; line-height:1.6; }
+  .page-proof main.fit .confirm { margin-top:6px; padding:4px 8px; font-size:12px; }
+  /* the entry: post left, scores and notes right; each column scrolls inside itself, never the page */
+  .page-proof main.fit .entry-wrap { flex:1 1 auto; min-height:0; display:flex; }
+  .page-proof main.fit .entry { flex:1; min-height:0; margin:0; grid-template-columns:minmax(0,1fr) clamp(380px, 31vw, 520px); gap:8px; align-items:stretch; }
+  .page-proof main.fit .entry > div { min-height:0; gap:8px; }
+  .page-proof main.fit .postcol .post { flex:none; }
+  .page-proof main.fit .kicker { font-size:12px; gap:2px 8px; }
+  .page-proof main.fit .pill { font-size:12px; padding:0 4px; line-height:1.45; }
+  .page-proof main.fit .post .title { font-size:15px; line-height:1.3; margin:3px 0 2px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .page-proof main.fit .post .sub.one { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .page-proof main.fit dl.kv { gap:1px 10px; margin:4px 0 0; font-size:12px; }
+  .page-proof main.fit dl.meta { grid-template-columns:max-content minmax(0,1fr); }
+  .page-proof main.fit dl.meta dd { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .page-proof main.fit .acts { margin-top:5px; gap:6px 10px; }
+  /* (1) the text: its own scrolling panel with a 3px ink rule at its foot while there is more below */
+  .page-proof main.fit .textcard { flex:1 1 auto; min-height:120px; display:flex; flex-direction:column; position:relative; }
+  .page-proof main.fit .textpanel { flex:1 1 auto; min-height:0; overflow:auto; overscroll-behavior:contain; }
+  .page-proof main.fit .textcard.over .textpanel { border-bottom:3px solid var(--ink); }
+  .page-proof main.fit .body { font-size:13px; line-height:1.5; }
+  /* M: more text: the post's details give way to the text */
+  .page-proof main.fit .entry.more .post dl.meta, .page-proof main.fit .entry.more .post .acts, .page-proof main.fit .entry.more .post > .sub { display:none; }
+  /* the right column: the scores and the notes in full; the collection details scroll in what is left */
+  .page-proof main.fit .sidecol > .scores, .page-proof main.fit .sidecol > .flag { flex:none; }
+  .page-proof main.fit .sidecol > .state { flex:1 1 auto; min-height:48px; overflow:auto; }
+  .page-proof main.fit .sgrid { font-size:12.5px; }
+  .page-proof main.fit .sgrid > div > *:not(:last-child) { padding-right:8px; }
+  .page-proof main.fit .sgrid .sh > span { font-size:12px; padding-bottom:2px; }
+  .page-proof main.fit .sgrid .sc > * { padding-top:3px; }
+  .page-proof main.fit .sgrid .sc .reason { font-size:12px; padding-bottom:3px; }
+  .page-proof main.fit .low { margin-top:4px; font-size:12px; line-height:1.5; }
+  .page-proof main.fit .flag textarea { font-size:12.5px; padding:5px 7px; margin-top:4px; }
+  .page-proof main.fit .note-text { font-size:12px; margin-top:4px; max-height:4.2em; overflow:auto; }
+  .page-proof main.fit .flag-msg { font-size:12px; }
+  /* the links in the text: always shown, four lines of them, scrolling in their box (L: up to twelve) */
+  .page-proof main.fit .post .links { margin-top:3px; font-size:12px; }
+  .page-proof main.fit .post .links ul { max-height:calc(4 * 1.4em); overflow:auto; line-height:1.4; }
+  .page-proof main.fit .post .links.all ul { max-height:calc(12 * 1.4em); overflow:auto; }
+  .page-proof main.fit .answers .ans { font-size:12px; padding:2px 0; gap:1px 8px; }
+  .page-proof main.fit .sidecol > .answers { flex:none; }
+  .page-proof main.fit .sidecol { overflow:auto; }
+  .page-proof main.fit .flags { font-size:12px; margin:4px 0 0; }
+  .page-proof main.fit .more-btn { font-size:12px; }
+  .page-proof main.fit .toast { bottom:14px; font-size:12px; padding:6px 12px; }
+}
+/* a text-link button keeps its look but gets a 44px tall hit area on touch screens (padding taken back by the margin) */
+@media (pointer:coarse) { .page-proof .linkish { padding:10px 0; margin:-10px 0; } }

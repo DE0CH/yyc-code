@@ -1,0 +1,4 @@
+{
+  "users": ["@example.com", "tony.leung@example.org"],
+  "admins": ["michelle.yeoh@example.com"]
+}

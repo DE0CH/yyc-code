@@ -1,0 +1,117 @@
+# YYC's own Postgres (Deyao, 2026-10-27: "self host the database and don't use Neon anymore"): the operators. The
+# database itself (Cluster `pg` in namespace db) is ../../db/, its own Flux Kustomization yyc-db (flux-sync.yaml), applied
+# after this folder has installed the CRDs.
+#   CloudNativePG (Apache-2.0, chart 0.29.1 = operator 1.30.1): runs the Postgres instance, its roles and databases.
+#   Barman Cloud plugin (Apache-2.0, chart 0.8.1 = v0.15.1): WAL archive + base backups to the Hetzner bucket
+#     yyc-pg-backups (the operator's in-tree barmanObjectStore is deprecated since 1.26).
+#   cert-manager (Apache-2.0, v1.21.2): the plugin's TLS between operator and plugin (its chart requires it).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cnpg-system
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cert-manager
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: db
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: cnpg
+  namespace: flux-system
+spec:
+  interval: 24h
+  url: https://cloudnative-pg.github.io/charts
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: jetstack
+  namespace: flux-system
+spec:
+  interval: 24h
+  url: https://charts.jetstack.io
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: cert-manager
+  namespace: flux-system
+spec:
+  interval: 1h
+  releaseName: cert-manager
+  targetNamespace: cert-manager
+  chart:
+    spec:
+      chart: cert-manager
+      version: "v1.21.2"
+      sourceRef: {kind: HelmRepository, name: jetstack}
+  install: {crds: Create}
+  upgrade: {crds: CreateReplace}
+  values:
+    crds: {enabled: true}
+    prometheus: {enabled: false}
+    global: {priorityClassName: serving}
+    resources:
+      requests: {cpu: 10m, memory: 64Mi}
+      limits: {memory: 128Mi}
+    webhook:
+      resources:
+        requests: {cpu: 10m, memory: 32Mi}
+        limits: {memory: 64Mi}
+    cainjector:
+      resources:
+        requests: {cpu: 10m, memory: 64Mi}
+        limits: {memory: 128Mi}
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: cloudnative-pg
+  namespace: flux-system
+spec:
+  interval: 1h
+  releaseName: cloudnative-pg
+  targetNamespace: cnpg-system
+  chart:
+    spec:
+      chart: cloudnative-pg
+      version: "0.29.1"
+      sourceRef: {kind: HelmRepository, name: cnpg}
+  install: {crds: Create}
+  upgrade: {crds: CreateReplace}
+  values:
+    priorityClassName: serving
+    monitoring: {podMonitorEnabled: false, grafanaDashboard: {create: false}}
+    resources:
+      requests: {cpu: 50m, memory: 128Mi}
+      limits: {memory: 256Mi}
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: plugin-barman-cloud
+  namespace: flux-system
+spec:
+  interval: 1h
+  releaseName: plugin-barman-cloud
+  targetNamespace: cnpg-system
+  dependsOn: [{name: cert-manager}, {name: cloudnative-pg}]
+  chart:
+    spec:
+      chart: plugin-barman-cloud
+      version: "0.8.1"
+      sourceRef: {kind: HelmRepository, name: cnpg}
+  install: {crds: Create}
+  upgrade: {crds: CreateReplace}
+  values:
+    priorityClassName: serving
+    resources:
+      requests: {cpu: 10m, memory: 64Mi}
+      limits: {memory: 128Mi}

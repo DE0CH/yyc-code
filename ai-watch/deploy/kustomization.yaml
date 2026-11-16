@@ -1,0 +1,19 @@
+# YYC AI watch (../README.md), applied by the cluster's Flux (Kustomization yyc-aiwatch, path ./ai-watch/deploy). Its
+# Secrets are SealedSecrets in ./sealed/, applied by the fenced Kustomization yyc-aiwatch-secrets (infra/seal.py,
+# infra/secrets.txt). The image tag is pinned by .github/workflows/ai-watch-image.yml after each build.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - app.yaml
+  - sealed-secrets-rbac.yaml
+# MIGRATION STATE (move to yyc-talos, yyc-ai/refactor/talos-apps-move.md T4a): AI watch serves from yyc-talos
+# (news-stream/deploy/clusters/talos/aiwatch, which sets the replicas back to 2), so the old cluster's copies are at 0;
+# T6 deletes this patch with the old cluster
+patches:
+  - target: {kind: Deployment, namespace: aiwatch}
+    patch: |-
+      - {op: replace, path: /spec/replicas, value: 0}
+images:
+  - name: yyc-ai-watch
+    newName: ghcr.io/de0ch/yyc-ai-watch
+    newTag: '9e68b6413ffa'

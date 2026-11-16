@@ -1,0 +1,200 @@
+# Who applies the YYC apps on yyc-talos (plan yyc-ai/refactor/talos-apps-move.md, step P3), as yyc-ai-access.yaml does
+# for YYC AI: the apps' namespaces and cluster-level objects, and the rights of `gha:yyc-apps`, the user the control
+# nodes' authenticator maps a GitHub OIDC token of DE0CH/YYC main, environment yyc-apps, workflow yyc-apps.yml to
+# (a rule in patches/controlplane.yaml). The workflow (.github/workflows/yyc-apps.yml) applies ./apps (namespaces yyc,
+# mailmerge; inventory yyc-deploy/inventory-yyc-apps), ./aiwatch (namespace aiwatch; inventory
+# yyc-deploy/inventory-yyc-aiwatch), ./feishu-index (namespace feishu-index; inventory yyc-deploy/inventory-yyc-feishu-index)
+# with tools/yyc-apply, one inventory per folder (an applier run prunes what its
+# folder no longer renders), and their sealed/ folders as the fence yyc-deploy/sealed-secrets-applier
+# (./sealed-secrets.yaml). Listed in kustomization.yaml (talos-cluster.yml applies it).
+#
+# What `gha:yyc-apps` cannot do: read or write Secrets, create or relabel a namespace, touch RBAC outside its
+# namespaces, create anything cluster-scoped. Namespace yyc is declared in yyc-ai-access.yaml, where
+# `gha:yyc-ai` has no rights.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mailmerge
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: feishu-index
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: aiwatch
+  labels:
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/enforce-version: latest
+---
+# the monitor's node read (news-stream/deploy/apps/monitor.yaml; cluster-scoped, so here)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: yyc-monitor-nodes-read
+rules:
+  - apiGroups: [""]
+    resources: [nodes]
+    verbs: [get, list]
+  # the pg pod's kubelet stats (monitor.py, as on the old cluster)
+  - apiGroups: [""]
+    resources: [nodes/stats]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: yyc-monitor-nodes-read
+subjects: [{kind: ServiceAccount, name: monitor, namespace: yyc}]
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: yyc-monitor-nodes-read}
+---
+# the monitor's read of Postgres's pods, its Clusters' archiving condition and the backup tests' results
+# (news-stream/deploy/apps/monitor.yaml, monitor.backups; namespace db is not the deployer's)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: monitor-db-read
+  namespace: db
+rules:
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [get, list]
+  - apiGroups: [postgresql.cnpg.io]
+    resources: [clusters]
+    resourceNames: [pg, magpie-pg]
+    verbs: [get]
+  - apiGroups: [""]
+    resources: [configmaps]
+    resourceNames: [restore-test-pg, restore-test-magpie-pg, dump-load-test]
+    verbs: [get]
+  - apiGroups: [batch]
+    resources: [cronjobs]
+    resourceNames: [pg-offsite-copy]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: monitor-db-read
+  namespace: db
+subjects: [{kind: ServiceAccount, name: monitor, namespace: yyc}]
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: monitor-db-read}
+---
+# the kinds the renders contain, in each of the apps' namespaces; no `secrets`
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: yyc-apps-deployer-ns
+rules:
+  - apiGroups: [""]
+    resources: [configmaps, services, serviceaccounts, persistentvolumeclaims, limitranges, resourcequotas]
+    verbs: [create, get, list, watch, patch, update, delete]
+  - apiGroups: [apps]
+    resources: [deployments, daemonsets, statefulsets]
+    verbs: [create, get, list, watch, patch, update, delete]
+  - apiGroups: [batch]
+    resources: [jobs, cronjobs]
+    verbs: [create, get, list, watch, patch, update, delete]
+  - apiGroups: [policy]
+    resources: [poddisruptionbudgets]
+    verbs: [create, get, list, watch, patch, update, delete]
+  - apiGroups: [networking.k8s.io]
+    resources: [networkpolicies]
+    verbs: [create, get, list, watch, patch, update, delete]
+  - apiGroups: [cilium.io]
+    resources: [ciliumnetworkpolicies]
+    verbs: [create, get, list, watch, patch, update, delete]
+  - apiGroups: [discovery.k8s.io]
+    resources: [endpointslices]
+    verbs: [create, get, list, watch, patch, update, delete]
+  # the monitor's Role monitor-read and its binding (namespace yyc)
+  - apiGroups: [rbac.authorization.k8s.io]
+    resources: [roles, rolebindings]
+    verbs: [create, get, list, watch, patch, update, delete]
+  # read-only: rollout waits, the volume-copy helper's node, the SealedSecrets' Synced status
+  - apiGroups: [""]
+    resources: [pods, events]
+    verbs: [get, list, watch]
+  - apiGroups: [apps]
+    resources: [replicasets, controllerrevisions]
+    verbs: [get, list, watch]
+  - apiGroups: [bitnami.com]
+    resources: [sealedsecrets]
+    verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: {name: yyc-apps-deployer, namespace: yyc}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: yyc-apps-deployer-ns}
+subjects: [{apiGroup: rbac.authorization.k8s.io, kind: User, name: "gha:yyc-apps"}]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: {name: yyc-apps-deployer, namespace: mailmerge}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: yyc-apps-deployer-ns}
+subjects: [{apiGroup: rbac.authorization.k8s.io, kind: User, name: "gha:yyc-apps"}]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: {name: yyc-apps-deployer, namespace: aiwatch}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: yyc-apps-deployer-ns}
+subjects: [{apiGroup: rbac.authorization.k8s.io, kind: User, name: "gha:yyc-apps"}]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: {name: yyc-apps-deployer, namespace: feishu-index}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: yyc-apps-deployer-ns}
+subjects: [{apiGroup: rbac.authorization.k8s.io, kind: User, name: "gha:yyc-apps"}]
+---
+# the fence may write SealedSecrets in the apps' namespaces
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: {name: sealed-secrets-applier, namespace: yyc}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: sealed-secrets-applier}
+subjects: [{kind: ServiceAccount, name: sealed-secrets-applier, namespace: yyc-deploy}]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: {name: sealed-secrets-applier, namespace: mailmerge}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: sealed-secrets-applier}
+subjects: [{kind: ServiceAccount, name: sealed-secrets-applier, namespace: yyc-deploy}]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: {name: sealed-secrets-applier, namespace: aiwatch}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: sealed-secrets-applier}
+subjects: [{kind: ServiceAccount, name: sealed-secrets-applier, namespace: yyc-deploy}]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: {name: sealed-secrets-applier, namespace: feishu-index}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: sealed-secrets-applier}
+subjects: [{kind: ServiceAccount, name: sealed-secrets-applier, namespace: yyc-deploy}]
+---
+# the deploy path: impersonate the fence, keep the inventory
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata: {name: yyc-apps-deployer, namespace: yyc-deploy}
+rules:
+  - apiGroups: [""]
+    resources: [serviceaccounts]
+    resourceNames: [sealed-secrets-applier]
+    verbs: [impersonate]
+  - apiGroups: [""]
+    resources: [configmaps]
+    verbs: [create]
+  - apiGroups: [""]
+    resources: [configmaps]
+    resourceNames: [inventory-yyc-apps, inventory-yyc-aiwatch, inventory-yyc-feishu-index]
+    verbs: [get, patch, update]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: {name: yyc-apps-deployer, namespace: yyc-deploy}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: yyc-apps-deployer}
+subjects: [{apiGroup: rbac.authorization.k8s.io, kind: User, name: "gha:yyc-apps"}]

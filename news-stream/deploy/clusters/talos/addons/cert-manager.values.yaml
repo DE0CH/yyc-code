@@ -1,0 +1,14 @@
+# As ../../hetzner/postgres-operator.yaml (v1.21.2): the Barman Cloud plugin's TLS.
+crds: {enabled: true}
+global: {priorityClassName: serving}
+prometheus: {enabled: false}
+resources: {limits: {memory: 128Mi}, requests: {cpu: 10m, memory: 64Mi}}
+tolerations: [{key: node-role.kubernetes.io/control-plane, operator: Exists, effect: NoSchedule}]
+cainjector:
+  resources: {limits: {memory: 128Mi}, requests: {cpu: 10m, memory: 64Mi}}
+  tolerations: [{key: node-role.kubernetes.io/control-plane, operator: Exists, effect: NoSchedule}]
+webhook:
+  resources: {limits: {memory: 64Mi}, requests: {cpu: 10m, memory: 32Mi}}
+  tolerations: [{key: node-role.kubernetes.io/control-plane, operator: Exists, effect: NoSchedule}]
+startupapicheck:
+  tolerations: [{key: node-role.kubernetes.io/control-plane, operator: Exists, effect: NoSchedule}]

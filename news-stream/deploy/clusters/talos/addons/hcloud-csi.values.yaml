@@ -1,0 +1,7 @@
+# The Hetzner CSI driver (DESIGN 15.2 N6): StorageClass yyc-block is ../storageclass.yaml (WaitForFirstConsumer, so a
+# volume is made in its pod's location). The controller runs on the control nodes.
+controller:
+  tolerations: [{key: node-role.kubernetes.io/control-plane, operator: Exists, effect: NoSchedule}]
+  hcloudToken:
+    existingSecret: {name: hcloud, key: token}
+storageClasses: []

@@ -1,0 +1,31 @@
+// Worker yyc-nametags (src/index.js) on YYC's own Cloudflare account, on the routes tags.yyc-internal.com/* (behind the
+// Access app "YYC 名牌報名", which checks every request before it) and register.yyc-internal.com/* (public:
+// the sign-up form, no Access app), both in news-stream/deploy/cloudflare/tofu/nametags.tf. Deployed by
+// .github/workflows/nametags-worker.yml; the account id comes from CLOUDFLARE_ACCOUNT_ID at deploy.
+// Secrets (wrangler secret put): TURNSTILE_SECRET (the Turnstile widget "yyc-nametags-register"), OPENROUTER_API_KEY
+// (the duplicate check).
+{
+  "name": "yyc-nametags",
+  "main": "src/index.js",
+  "compatibility_date": "2026-10-01",
+  // no workers.dev or preview address: the only ways in are the two routes
+  "workers_dev": false,
+  "preview_urls": false,
+  "vars": {
+    "ACCESS_TEAM": "yyc-hk",
+    // tofu output aud.nametags (the Access app's audience tag)
+    "ACCESS_AUD": "1b05e3e11f296c167070d33c96b9137200919a072819fc635395549acdadd7b7",
+    // requests to this host get only the public routes; the QR codes point at it
+    "REGISTER_ORIGIN": "https://register.yyc-internal.com",
+    // the Turnstile widget's site key
+    "TURNSTILE_SITEKEY": "0x4AAAAAAFsEmTWZHynHJqJl"
+  },
+  // src/pages/*.html are imported as text (the page templates, src/render.js)
+  "rules": [{ "type": "Text", "globs": ["**/*.html"], "fallthrough": true }],
+  // hourly: the day-before reminders (Asia/Hong_Kong dates)
+  "triggers": { "crons": ["0 * * * *"] },
+  "durable_objects": { "bindings": [{ "name": "STORE", "class_name": "Store" }] },
+  // the class is unchanged; its SQLite schema migrates itself (Store.migrate)
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Store"] }],
+  "observability": { "enabled": true }
+}

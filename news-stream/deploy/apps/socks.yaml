@@ -1,0 +1,76 @@
+# yyc-socks (socks/README.md): the cluster's way out to the internet. A pod hands it a domain name and a port over
+# SOCKS5 (socks5h://socks.egress.svc.cluster.local:1080; HTTP proxy on the same port for clients that speak only that,
+# http://socks.egress.svc.cluster.local:1080) and never looks up an outside name or cares whether a site
+# has IPv4 or IPv6: the proxy resolves through its node's resolver over IPv6 and connects IPv6 first, IPv4 through
+# the node's WARP after 250 ms. It refuses non-public addresses (anything inside is reached directly).
+#
+# The pool: one copy on each apps node (host network, so it has the node's native IPv6 and WARP), listening on the
+# node's private address only. Service socks spreads connections over the copies that are ready; ready = DNS, IPv6
+# and IPv4 all seen working from that node in the last 20 s, so a node whose way out breaks drops out by itself.
+# A rollout replaces one copy at a time: on SIGTERM it turns unready, keeps taking connections for 15 s while the
+# endpoints catch up, then closes its listener and lets the open connections finish (up to 600 s).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: egress
+---
+# the fenced SealedSecret applier writes egress/ghcr-pull (Kustomization yyc-apps-secrets)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: sealed-secrets-applier
+  namespace: egress
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: sealed-secrets-applier}
+subjects: [{kind: ServiceAccount, name: sealed-secrets-applier, namespace: flux-system}]
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: socks
+  namespace: egress
+spec:
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels: {app: socks}
+  updateStrategy: {type: RollingUpdate, rollingUpdate: {maxUnavailable: 1}}
+  template:
+    metadata:
+      labels: {app: socks}
+    spec:
+      hostNetwork: true
+      dnsPolicy: Default  # the node's /etc/k8s-resolv.conf: its systemd-resolved over IPv6 (cluster/node-dns.sh)
+      nodeSelector: {pool: apps}
+      priorityClassName: serving
+      imagePullSecrets: [{name: ghcr-pull}]
+      terminationGracePeriodSeconds: 630
+      securityContext: {runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532}
+      containers:
+        - name: socks
+          image: yyc-socks
+          env:
+            - {name: HOST_IP, valueFrom: {fieldRef: {fieldPath: status.hostIP}}}
+            - {name: SOCKS_PORT, value: "1080"}
+            - {name: HEALTH_PORT, value: "1081"}
+          ports:
+            - {name: socks, containerPort: 1080, protocol: TCP}
+            - {name: health, containerPort: 1081, protocol: TCP}
+          readinessProbe: {httpGet: {path: /readyz, port: 1081}, periodSeconds: 5, failureThreshold: 1, successThreshold: 1}
+          livenessProbe: {httpGet: {path: /healthz, port: 1081}, periodSeconds: 10, failureThreshold: 3}
+          resources:
+            requests: {cpu: 50m, memory: 32Mi}
+            limits: {memory: 256Mi}
+          securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: socks
+  namespace: egress
+spec:
+  selector: {app: socks}
+  # a client pod keeps one copy (one exit address) while that copy is ready: cookies a site binds to an address (a
+  # solved Cloudflare challenge) keep working, as they did with the pod's own node's WARP
+  sessionAffinity: ClientIP
+  sessionAffinityConfig: {clientIP: {timeoutSeconds: 10800}}
+  ports:
+    - {name: socks, port: 1080, targetPort: 1080, protocol: TCP}

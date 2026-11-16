@@ -1,0 +1,25 @@
+# yyc-talos's cluster-level manifests (kubectl apply -k of this folder: .github/workflows/talos-cluster.yml, or talos.sh
+# manifests from a session). The Helm add-ons are talos.sh addons (addons/*.values.yaml).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - priorityclasses.yaml
+  - storageclass.yaml
+  - etcd-backup.yaml    # namespace talos-ops, the hourly etcd snapshot
+  - node-work.yaml      # the node-work identity gha:talos-nodes and its Talos ServiceAccount
+  - cluster-access.yaml # gha:talos-cluster, the applier of this folder (talos-cluster.yml)
+  - descheduler.yaml
+  - yyc-ai-access.yaml  # YYC AI's namespaces and gha:yyc-ai's rights (deploy-workflows 12.3)
+  - sealed-secrets.yaml # the fence yyc-deploy/sealed-secrets-applier (DESIGN 15.2 N9)
+  - deploy-access.yaml  # the connector of tunnel yyc-deploy (N1)
+  - db-namespace.yaml   # namespace db (db/: magpie-pg, pg-shared)
+  - pg                  # YYC's main Postgres (T5): a replica cluster of the old one until its promotion
+  - socks.yaml          # the outgoing proxy pool egress/socks
+  - apps-access.yaml    # the apps' namespaces mailmerge, aiwatch and gha:yyc-apps's rights (yyc-apps.yml; talos-apps-move.md P3)
+  # - alloy.yaml        # once a Grafana stack exists (README "Logs")
+  - sealed
+# image tags: each image's workflow pins its own entry (pin-image.py with PIN_FILE)
+images:
+  - name: yyc-socks
+    newName: ghcr.io/de0ch/yyc-socks
+    newTag: '0dbbbd60afa5'

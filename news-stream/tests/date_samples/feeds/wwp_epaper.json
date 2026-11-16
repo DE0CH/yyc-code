@@ -1,0 +1,18 @@
+{
+"source": "wwp_epaper",
+"fetched": "2026-10-14",
+"pages": [
+[
+"https://www.tkww.hk/epaper/sitemap/wwp/sitemapIndex.xml",
+"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<sitemapindex xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\r\n\t\t  <sitemap>\r\n\t\t    <loc>https://www.tkww.hk/epaper/sitemap/wwp/20261013/news.xml</loc>\r\n\t\t  </sitemap><sitemap>\r\n\t\t    <loc>https://www.tkww.hk/epaper/sitemap/wwp/20261014/news.xml</loc>\r\n\t\t  </sitemap></sitemapindex>"
+],
+[
+"https://www.tkww.hk/epaper/sitemap/wwp/20261013/news.xml",
+"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\" xmlns:news=\"http://www.google.com/schemas/sitemap-news/0.9\">\r\n\t\t    <url>\r\n\t\t        <loc>https://www.tkww.hk/epaper/view/newsDetail/2109710872338370560.html</loc>\r\n\t\t        <news:news>\r\n\t\t            <news:publication>\r\n\t\t                <news:name>香港文匯報</news:name>\r\n\t\t                <news:language>zh-HK</news:language>\r\n\t\t            </news:publication>\r\n\t\t            <news:publication_date>2026-10-13T00:00:00Z</news:publication_date>\r\n\t\t            <news:title>議員倡推北都生態遊  打造特色旅遊產品</news:title>\r\n\t\t        </news:news>\r\n\t\t    </url><url>\r\n\t\t        <loc>https://www.tkww.hk/epaper/view/newsDetail/2109710872577445888.html</loc>\r\n\t\t        <news:news>\r\n\t\t            <news:publication>\r\n\t\t                <news:name>香港文匯報</news:name>\r\n\t\t                <news:language>zh-HK</news:language>\r\n\t\t            </news:publication>\r\n\t\t            <news:publication_date>2026-10-13T00:00:00Z</news:publication_date>\r\n\t\t            <news:title>巴塞氣勢如虹客場打「雷」</news:title>\r\n\t\t        </news:news>\r\n\t\t    </url></urlset>"
+],
+[
+"https://www.tkww.hk/epaper/sitemap/wwp/20261014/news.xml",
+"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\" xmlns:news=\"http://www.google.com/schemas/sitemap-news/0.9\">\r\n\t\t    <url>\r\n\t\t        <loc>https://www.tkww.hk/epaper/view/newsDetail/2110068779005382656.html</loc>\r\n\t\t        <news:news>\r\n\t\t            <news:publication>\r\n\t\t                <news:name>香港文匯報</news:name>\r\n\t\t                <news:language>zh-HK</news:language>\r\n\t\t            </news:publication>\r\n\t\t            <news:publication_date>2026-10-14T00:00:00Z</news:publication_date>\r\n\t\t            <news:title>把握APEC機遇  拓港自身發展  財長會月內在港舉行  金融界倡促進區域合作</news:title>\r\n\t\t        </news:news>\r\n\t\t    </url><url>\r\n\t\t        <loc>https://www.tkww.hk/epaper/view/newsDetail/2110068779449978880.html</loc>\r\n\t\t        <news:news>\r\n\t\t            <news:publication>\r\n\t\t                <news:name>香港文匯報</news:name>\r\n\t\t                <news:language>zh-HK</news:language>\r\n\t\t            </news:publication>\r\n\t\t            <news:publication_date>2026-10-14T00:00:00Z</news:publication_date>\r\n\t\t            <news:title>港鐵藍田站路軌旁火警  路軌轉接器短路引起</news:title>\r\n\t\t        </news:news>\r\n\t\t    </url></urlset>"
+]
+]
+}

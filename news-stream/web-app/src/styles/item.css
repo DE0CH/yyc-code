@@ -1,0 +1,162 @@
+/* the item page's own styles (scoped to .page-item), in the house style (house.css): white sheets on the grey ground,
+   1px rules inside them, ink text, hue only on a sentiment mark. The head's two times (發佈, 首次收錄) are plain
+   label/time pairs, the related posts lists are ruled rows with small muted times, scores are ink-filled bars when they
+   pass and hollow when not. */
+.page-item main { padding:8px 0 40px; }
+.page-item button { cursor:pointer; }
+.page-item .layout { display:grid; grid-template-columns:minmax(0,1fr); gap:8px; margin-top:8px; }
+.page-item .layout > div { min-width:0; display:flex; flex-direction:column; gap:8px; }
+@media (min-width:600px) { .page-item main { padding:16px var(--gutter) 40px; } }
+@media (min-width:960px) { .page-item .layout { grid-template-columns:minmax(0,1fr) 380px; align-items:start; } }
+.page-item .card { background:var(--panel); padding:16px; min-width:0; }
+.page-item .card > h2 { font-size:16px; font-weight:700; line-height:1.35; margin:0 0 12px; display:flex; align-items:baseline; gap:4px 10px; flex-wrap:wrap; }
+.page-item .card > h2 .sub { font-weight:400; }
+.page-item .sub { color:var(--muted); font-size:13px; }
+.page-item a { text-underline-offset:3px; }
+
+/* ---- head ---- */
+.page-item .kicker { display:flex; flex-wrap:wrap; align-items:center; gap:4px 12px; font-size:14px; color:var(--muted); }
+.page-item .kicker b { color:var(--ink); font-weight:700; }
+.page-item h1 { font-size:22px; font-weight:800; line-height:1.35; margin:10px 0 8px; overflow-wrap:anywhere; }
+@media (min-width:960px) { .page-item h1 { font-size:28px; } }
+.page-item h1.long { font-size:18px; font-weight:700; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:5; line-clamp:5; overflow:hidden; }
+/* a retitled post's own title (titles.py "retitled"), under the AI headline */
+.page-item .src-title { margin:-2px 0 8px; font-size:14px; color:var(--muted); overflow-wrap:anywhere; }
+.page-item .src-title span { color:var(--ink); }
+
+/* 發佈 and 首次收錄: two label/time pairs side by side (wrapping on a phone), the label muted, the time in the figure
+   face at .875rem; a time the source didn't give is muted */
+.page-item .times { margin-top:12px; font-size:14px; color:var(--muted); overflow-wrap:anywhere; min-width:0; }
+.page-item .times .by { display:block; margin-bottom:6px; }
+.page-item .times .by b { font-weight:600; color:var(--ink); }
+.page-item .stamps { display:flex; flex-wrap:wrap; gap:4px 20px; }
+.page-item .st > em { font-style:normal; }
+.page-item .st > b { margin-left:6px; font-family:var(--num); font-size:.875rem; font-weight:600; color:var(--ink); }
+.page-item .st > b.none { font-weight:400; color:var(--muted); }
+
+/* buttons: house cells; the primary one ink-filled, full width on a phone */
+.page-item .acts { display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
+.page-item .btn { max-width:100%; }
+.page-item .btn svg.i { width:18px; height:18px; flex:none; }
+.page-item .btn .src { font-weight:400; }
+.page-item .acts .primary { flex:1 1 100%; }
+@media (min-width:600px) { .page-item .acts .primary { flex:0 0 auto; } }
+/* buttons that carry an outlet's name wrap inside the card (no clipped name, no page wider than the phone) */
+.page-item .btn.primary, .page-item .more .btn { white-space:normal; overflow-wrap:anywhere; text-align:center; padding-top:6px; padding-bottom:6px; }
+.page-item .note-inline { display:inline-flex; align-items:center; min-height:var(--ctl); font-size:14px; color:var(--muted); padding:0 4px; }
+.page-item .toast { font-size:13px; color:var(--ink); min-height:18px; margin-top:6px; overflow-wrap:anywhere; }
+
+/* ---- text ---- */
+.page-item .body { white-space:pre-wrap; font-size:16px; line-height:1.8; overflow-wrap:anywhere; margin:0; max-width:72ch; }
+.page-item .extract { font-size:16px; line-height:1.75; margin:0; overflow-wrap:anywhere; max-width:72ch; }
+/* a locked note: a ruled row across the card's full width, muted text (no tinted box inside the sheet) */
+.page-item .lock { margin:12px -16px 0; padding:10px 16px 0; border-top:1px solid var(--rule); font-size:14px; color:var(--muted); }
+.page-item .lock a { color:var(--ink); font-weight:600; }
+
+/* disclosure: an SVG chevron (never the ▸ glyph), turned at once when open */
+.page-item summary { display:flex; align-items:center; gap:6px; min-height:var(--ctl); list-style:none; cursor:pointer; }
+.page-item summary::-webkit-details-marker { display:none; }
+.page-item summary::before { content:""; flex:none; width:16px; height:16px; background:currentColor;
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='square'%3E%3Cpath d='M9 5l7 7-7 7'/%3E%3C/svg%3E") center / contain no-repeat;
+          mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='square'%3E%3Cpath d='M9 5l7 7-7 7'/%3E%3C/svg%3E") center / contain no-repeat; }
+.page-item details[open] > summary::before { transform:rotate(90deg); }
+
+/* ---- key/value rows, value plates ---- */
+/* inner rules run to the card's edges: rows take the card's 16px padding back as their own */
+.page-item dl.kv { display:grid; grid-template-columns:max-content minmax(0,1fr); gap:0; margin:0 -16px; font-size:14px; }
+.page-item dl.kv dt, .page-item dl.kv dd { padding:6px 0; border-top:1px solid var(--rule); }
+.page-item dl.kv dt { color:var(--muted); padding-left:16px; padding-right:16px; }
+.page-item dl.kv dd { margin:0; padding-right:16px; overflow-wrap:anywhere; }
+.page-item dl.kv dt:first-of-type, .page-item dl.kv dt:first-of-type + dd { border-top:0; padding-top:0; }
+.page-item dl.kv code { font-size:13px; }
+
+/* value plates: one block, cells split by shared 1px rules. The block's top and left rules are its own; each cell draws
+   its right and bottom rule inside itself, so a short last row ends ragged on plain ground (no grey filler cell) */
+.page-item .stats { display:grid; grid-template-columns:repeat(auto-fill, minmax(132px, 1fr)); gap:0; border-top:1px solid var(--rule); border-left:1px solid var(--rule); }
+.page-item .stat { background:var(--panel); padding:8px 10px; min-width:0; box-shadow:inset -1px -1px 0 var(--rule); }
+.page-item .stat .v { font-size:1.75rem; font-weight:700; line-height:1.15; overflow-wrap:anywhere; }
+.page-item .stat .k { font-size:13px; color:var(--muted); }
+
+/* ---- AI 標籤 / AI 分析 ---- */
+.page-item .prof { border-top:1px solid var(--rule); padding:10px 0; }
+.page-item .prof:first-of-type { border-top:0; padding-top:0; }
+.page-item .prof .top { display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; }
+.page-item .prof .nm { font-weight:700; }
+.page-item .prof .nm a { text-decoration:none; }
+.page-item .prof .nm a:hover { text-decoration:underline; }
+.page-item .prof .row { display:flex; flex-wrap:wrap; gap:4px 8px; margin-top:6px; align-items:center; font-size:13px; }
+.page-item .badge { color:var(--muted); }
+.page-item .badge.yes { color:var(--ink); border-color:var(--ink); font-weight:700; }
+.page-item .badge.fixed { color:var(--ink); border-color:var(--ink); border-style:dashed; }
+.page-item .badge.no { color:var(--muted); }
+.page-item .face { display:inline-flex; align-items:center; gap:4px; font-weight:600; color:var(--ink); }
+.page-item .lab { display:inline-flex; align-items:center; border:1px solid var(--rule); padding:0 6px; font-size:13px; line-height:1.5; color:var(--ink); }
+
+.page-item .ai-tags { display:flex; flex-wrap:wrap; gap:4px 8px; align-items:center; font-size:13px; }
+.page-item .sc { border-top:1px solid var(--rule); padding:12px 0; }
+.page-item .sc:first-of-type { border-top:0; padding-top:2px; }
+.page-item .sc .top { display:flex; align-items:center; gap:6px 8px; flex-wrap:wrap; }
+.page-item .sc .top > .pip { margin-right:2px; }
+.page-item .sc .nm { font-weight:700; }
+.page-item .sc .v { margin-left:auto; font-size:1.75rem; font-weight:700; line-height:1; }
+.page-item .sc .v small { font-size:13px; color:var(--muted); font-weight:500; }
+.page-item .sc:not(.pass) .v { color:var(--muted); }
+.page-item .sc .rescored { margin-top:6px; font-size:14px; }
+/* the score against the threshold: ink-filled when it passes, a hollow muted outline when not; the threshold a 2px tick */
+.page-item .scbar { position:relative; height:10px; background:var(--ground); margin:10px 0 6px; }
+.page-item .scbar i { position:absolute; left:0; top:0; bottom:0; border:2px solid var(--muted); }
+.page-item .sc.pass .scbar i { background:var(--ink); border-color:var(--ink); }
+.page-item .scbar i[style*="width: 0%"], .page-item .scbar i[style*="width:0%"] { display:none; }
+.page-item .scbar b { position:absolute; top:-4px; bottom:-4px; width:2px; margin-left:-1px; background:var(--ink); }
+.page-item .sc .mk { font-size:14px; margin-top:6px; display:flex; flex-wrap:wrap; gap:2px 6px; align-items:baseline; overflow-wrap:anywhere; }
+.page-item .sc .screen { font-size:13px; margin-top:4px; overflow-wrap:anywhere; }
+.page-item .sc .why { font-size:14px; line-height:1.6; margin-top:4px; overflow-wrap:anywhere; }
+.page-item .legend { margin:12px 0 0; font-size:13px; }
+.page-item .legend summary { color:var(--ink); font-weight:600; }
+.page-item .legend dl { display:grid; grid-template-columns:max-content minmax(0,1fr); gap:6px 10px; margin:4px 0 0; }
+.page-item .legend dt { white-space:nowrap; } .page-item .legend dd { margin:0; color:var(--muted); }
+
+/* ---- lists ---- */
+.page-item ul.plain { list-style:none; margin:0; padding:0; }
+.page-item ul.plain > li { border-top:1px solid var(--rule); padding:10px 0; min-width:0; }
+.page-item ul.plain > li:first-child { border-top:0; padding-top:0; }
+.page-item .ln { text-decoration:none; font-weight:600; overflow-wrap:anywhere; color:var(--ink); }
+.page-item .ln:hover { text-decoration:underline; }
+.page-item .clip3 { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; line-clamp:3; overflow:hidden; }
+.page-item .m { display:flex; flex-wrap:wrap; gap:2px 12px; font-size:13px; color:var(--muted); margin-top:2px; overflow-wrap:anywhere; }
+.page-item .m .num { font-family:var(--num); font-size:.875rem; }
+/* comments: this post's own comment marked by an ink line down its left edge */
+.page-item .cm .who { font-size:14px; font-weight:700; overflow-wrap:anywhere; }
+.page-item .cm .tx { font-size:15px; line-height:1.65; margin-top:2px; overflow-wrap:anywhere; white-space:pre-wrap; }
+.page-item .cm.me { border-left:3px solid var(--ink); padding-left:13px; }
+.page-item ul.plain > li.cm.me:first-child { padding-top:0; }
+.page-item ul.folded > li.cm:nth-child(n+21 of .cm):not(.me) { display:none; }  /* the 21st comment on (the divider row is not one) */
+/* one block: the buttons stacked, sharing one rule */
+.page-item .more { display:flex; flex-direction:column; gap:0; }
+.page-item .more .btn { justify-content:flex-start; text-align:left; }
+.page-item .more .btn + .btn { margin-top:-1px; }
+.page-item .empty { color:var(--muted); font-size:14px; margin:0; }
+.page-item .loading { padding:40px var(--gutter); text-align:left; color:var(--muted); }
+
+/* ---- media ---- */
+.page-item .clip + .clip { margin-top:16px; padding-top:12px; border-top:1px solid var(--rule); }
+.page-item .clip-h { display:flex; gap:4px 10px; align-items:baseline; flex-wrap:wrap; margin-bottom:6px; font-size:14px; }
+.page-item .transcript { font-size:15px; }
+.page-item .lock.tight { margin-top:8px; }
+.page-item .captions summary { font-size:14px; }
+.page-item .pics { display:grid; grid-template-columns:repeat(auto-fill, minmax(160px, 1fr)); gap:8px; }
+.page-item .pic { margin:0; min-width:0; }
+.page-item .pic img { width:100%; height:auto; max-height:320px; object-fit:contain; background:var(--ground); display:block; }
+.page-item .pic figcaption { font-size:13px; color:var(--muted); margin-top:4px; overflow-wrap:anywhere; }
+.page-item .pic details summary, .page-item .more-pics > summary { color:var(--ink); }
+.page-item .more-pics { margin-top:10px; }
+.page-item .more-pics > summary { font-size:14px; margin-bottom:8px; }
+.page-item .saved-video { display:block; }
+
+/* the comments the post's latest scoring saw sit above this line (twopass.py): the 3px ink cut across the sheet */
+.scorecut, .page-item ul.plain > li.scorecut { list-style: none; margin: 0 -16px; padding: 8px 16px; border-top: 3px solid var(--ink); color: var(--muted); font-size: 13px; }
+.page-item .linkurl { overflow-wrap:anywhere; word-break:break-all; min-width:0; }  /* LinksCard: a long address wraps on a phone */
+
+/* a card's inner rules run edge to edge: list rows, profiles, scores and clips take the card's 16px padding back as their
+   own, so their top rules span the whole sheet (after the rows' own padding shorthands) */
+.page-item ul.plain > li, .page-item .prof, .page-item .sc, .page-item .clip + .clip { margin-inline:-16px; padding-inline:16px; }

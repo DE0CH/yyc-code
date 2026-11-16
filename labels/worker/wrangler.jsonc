@@ -1,0 +1,24 @@
+// Worker yyc-labels (src/index.js, labels/README.md) on YYC's own Cloudflare account, on the route
+// labels.yyc-internal.com/* behind the Access app "YYC 標籤" (news-stream/deploy/cloudflare/tofu/labels.tf).
+// Deployed by .github/workflows/labels-worker.yml after the font catalogue is built; the account id
+// comes from CLOUDFLARE_ACCOUNT_ID at deploy.
+{
+  "name": "yyc-labels",
+  "main": "src/index.js",
+  "compatibility_date": "2026-10-01",
+  // no workers.dev or preview address: the only way in is the route, behind Access
+  "workers_dev": false,
+  "preview_urls": false,
+  "vars": {
+    "ACCESS_TEAM": "yyc-hk",
+    // tofu output aud.labels (the Access app's audience tag)
+    "ACCESS_AUD": "48e018a837af37c0948c819e44a5039e4e18eadf6ab93755d97a40d0ade55f0e"
+  },
+  // public/: the staff pages (app/), print.js (lib/) and the fonts (fonts/, served by /api/v2/fonts); every
+  // request goes through the Worker first (Access)
+  "assets": { "directory": "public", "binding": "ASSETS", "run_worker_first": true },
+  "rules": [{ "type": "Text", "globs": ["**/*.html"], "fallthrough": true }],
+  "durable_objects": { "bindings": [{ "name": "STORE", "class_name": "Store" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Store"] }],
+  "observability": { "enabled": true }
+}

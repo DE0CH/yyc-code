@@ -1,0 +1,74 @@
+# Withdrawn shown muted and labelled; a Chinese search; long text that shrinks and wraps; a table number; prints.
+appId: dev.de0ch.yycnametags
+name: withdrawn, Chinese name, long name, table number
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+    arguments:
+      apiBase: "http://127.0.0.1:8787"
+      testToken: "test-token"
+- extendedWaitUntil:
+    visible: "共 6 位嘉賓"
+    timeout: 30000
+- assertVisible: ".*Ki Cheung Otto KWOK.*Withdrawn.*"
+- tapOn: ".*Ki Cheung Otto KWOK.*"
+- extendedWaitUntil:
+    visible: "此嘉賓已取消出席"
+    timeout: 10000
+- takeScreenshot: 03-withdrawn-detail
+
+- launchApp:
+    arguments:
+      apiBase: "http://127.0.0.1:8787"
+      testToken: "test-token"
+- extendedWaitUntil:
+    visible: "共 6 位嘉賓"
+    timeout: 30000
+- tapOn: { id: "searchField" }
+- inputText: "陳"
+- assertVisible: ".*陳大文.*"
+- takeScreenshot: 03-search-chinese
+- tapOn: ".*陳大文.*"
+- extendedWaitUntil:
+    visible: { id: "tagPreview" }
+    timeout: 10000
+- takeScreenshot: 03-detail-chinese-table
+- tapOn: { id: "printButton" }
+- extendedWaitUntil:
+    visible: { id: "printStatus", text: "已打印" }
+    timeout: 30000
+
+- launchApp:
+    arguments:
+      apiBase: "http://127.0.0.1:8787"
+      testToken: "test-token"
+- extendedWaitUntil:
+    visible: "共 6 位嘉賓"
+    timeout: 30000
+- tapOn: ".*Alexandria Montgomery-Fitzwilliam.*"
+- extendedWaitUntil:
+    visible: { id: "tagPreview" }
+    timeout: 10000
+- takeScreenshot: 03-detail-long-name
+- tapOn: { id: "printButton" }
+- extendedWaitUntil:
+    visible: { id: "printStatus", text: "已打印" }
+    timeout: 30000
+
+- launchApp:
+    arguments:
+      apiBase: "http://127.0.0.1:8787"
+      testToken: "test-token"
+- extendedWaitUntil:
+    visible: "共 6 位嘉賓"
+    timeout: 30000
+- tapOn: ".*Mei Ling WONG.*"
+- extendedWaitUntil:
+    visible: { id: "tagPreview" }
+    timeout: 10000
+- tapOn: { id: "printButton" }
+- extendedWaitUntil:
+    visible: { id: "printStatus", text: "已打印" }
+    timeout: 30000
+- takeScreenshot: 03-printed-table

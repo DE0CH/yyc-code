@@ -1,0 +1,7 @@
+# SealedSecrets of namespace aiwatch (infra/seal.py writes them and lists them here)
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - tunnel.yaml
+  - ghcr-pull.yaml
+  - app-env.yaml

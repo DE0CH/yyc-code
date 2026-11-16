@@ -1,0 +1,169 @@
+# Deyao's monitor (monitor.py): sources' health, the jobs, account balances and spending, for Deyao alone; also the live
+# dashboard's YYC AI and systems-health areas (kv live:sys, events kind ai: monitor.live_once; Postgres's load, space and
+# backups from its metrics exporter and kubelet, the object storage buckets: Role monitor-db-read, nodes/stats). The page is
+# /app/monitor (Deyao's Access identity only), on the edge app and web.py, which read the data from Postgres: this
+# Deployment computes each panel and publishes it into kv monitor:data. It holds the provider keys nothing else has
+# (Secret monitor-keys: IPROYAL_API, NEON_API_KEY, OPENROUTER_MANAGEMENT_KEY, TWOCAPTCHA_API, HETZNER_YYC_READ, CLOUDFLARE_YYC_*), reads the
+# namespace with a read-only ServiceAccount, and nothing reaches it over the network: no Service, and the NetworkPolicy
+# below admits no ingress (the probes run inside the pod). A rollout starts the new pod and waits for its readiness
+# (every panel's first snapshot, /readyz) before the old one goes; a panel the new pod can't compute yet keeps the old
+# pod's published one.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: monitor
+  namespace: yyc
+automountServiceAccountToken: true
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: monitor-read
+  namespace: yyc
+rules:
+  - apiGroups: [batch]
+    resources: [cronjobs, jobs]
+    verbs: [get, list]
+  - apiGroups: [apps]
+    resources: [deployments]
+    verbs: [get, list]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: monitor-read
+  namespace: yyc
+subjects: [{kind: ServiceAccount, name: monitor, namespace: yyc}]
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: monitor-read}
+---
+# the live dashboard's systems health (monitor.nodes): the cluster's nodes, read-only; nodes/stats: the kubelet's
+# /stats/summary (monitor.database: Postgres's CPU, memory and its volume's free space), never nodes/proxy
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: yyc-monitor-nodes-read
+rules:
+  - apiGroups: [""]
+    resources: [nodes]
+    verbs: [get, list]
+  - apiGroups: [""]
+    resources: [nodes/stats]
+    verbs: [get]
+---
+# monitor.database: which pod of Cluster db/pg is primary, its node and memory limit (the pod's metrics exporter on
+# port 9187 is read over the pod network, which policy db/pg-ingress admits), read-only
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: monitor-db-read
+  namespace: db
+rules:
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [get, list]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: monitor-db-read
+  namespace: db
+subjects: [{kind: ServiceAccount, name: monitor, namespace: yyc}]
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: monitor-db-read}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: yyc-monitor-nodes-read
+subjects: [{kind: ServiceAccount, name: monitor, namespace: yyc}]
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: yyc-monitor-nodes-read}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: monitor
+  namespace: yyc
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels: {app: monitor}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxUnavailable: 0, maxSurge: 1}
+  template:
+    metadata:
+      annotations: {yyc/secrets-rev: "switch HERMIT_OPS_TOKEN"}  # bump to roll the pods after a Secret change
+      labels: {app: monitor}
+    spec:
+      serviceAccountName: monitor
+      securityContext: {runAsUser: 10001, runAsGroup: 10001, fsGroup: 10001}
+      imagePullSecrets: [{name: ghcr-pull}]
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 40
+      containers:
+        - name: monitor
+          image: yyc-news-stream
+          command: [gunicorn, --chdir, /app, --bind, "0.0.0.0:8901", --workers, "1", --threads, "4", --timeout, "120", --graceful-timeout, "30", monitor:application]
+          ports: [{name: http, containerPort: 8901}]
+          envFrom:
+            - secretRef: {name: app-env}  # OPENROUTER_API (key yyc-stream), TIKHUB_API
+            - secretRef: {name: ai-tools, optional: true}  # ANYAPI_API_KEY
+            - secretRef: {name: monitor-keys}  # HERMIT_OPS_TOKEN (YYC AI hermit's monitor pair token: its operator snapshot for the live dashboard, through bridge B4, Service hermit-bridge), IPROYAL_API, NEON_API_KEY, OPENROUTER_MANAGEMENT_KEY (management key yyc-monitor: the account's credit), HETZNER_YYC_READ (read-only token yyc-monitor of project yyc), CLOUDFLARE_YYC_MONITOR_TOKEN + CLOUDFLARE_YYC_ACCOUNT_ID (token yyc-monitor on account YYC)
+          env:
+            - {name: DATABASE_URL, valueFrom: {secretKeyRef: {name: db-app, key: uri}}}
+            - {name: MONITOR_WARM, value: "1"}  # one background loop per panel; /data only serves their snapshots
+            - {name: FLAGD_HOST, value: flagd.yyc.svc.cluster.local}
+            # monitor.storage: the buckets' sizes (HEAD bucket only) with the project-scoped S3 credential yyc-videos
+            - {name: VIDEO_S3_ACCESS_KEY, valueFrom: {secretKeyRef: {name: video-s3, key: VIDEO_S3_ACCESS_KEY}}}
+            - {name: VIDEO_S3_SECRET_KEY, valueFrom: {secretKeyRef: {name: video-s3, key: VIDEO_S3_SECRET_KEY}}}
+          # probes inside the pod (exec), so the NetworkPolicy can refuse every connection from outside
+          readinessProbe:  # ready once every panel has its first snapshot
+            exec: {command: [python3, -c, "import urllib.request as u; u.urlopen('http://127.0.0.1:8901/readyz', timeout=5)"]}
+            periodSeconds: 10
+            timeoutSeconds: 8
+          livenessProbe:
+            exec: {command: [python3, -c, "import urllib.request as u; u.urlopen('http://127.0.0.1:8901/healthz', timeout=8)"]}
+            initialDelaySeconds: 20
+            periodSeconds: 30
+            timeoutSeconds: 10
+          lifecycle:
+            preStop:
+              exec: {command: [sleep, "5"]}
+          # memory: OOM-killed at 512 Mi from 8 Nov (each start; 136 restarts in 22 h). Measured 9 Nov, one panel per
+          # process: spending 453 Mi (its 24-hour cost profile alone 331 Mi, 77 s), pipeline 92 Mi, the rest under 70 Mi;
+          # all run in one process, and the exec probes' python3 shares the cgroup. 1 Gi, request = limit; never run
+          # commands in this pod (cost-profile.sh's run: a one-off Job)
+          resources:
+            requests:
+              cpu: 200m  # half its measured peak (436m, 21 Oct)
+              memory: 1Gi
+              ephemeral-storage: 50Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+              ephemeral-storage: 512Mi
+      priorityClassName: serving
+---
+# nothing may connect to the monitor (it holds the provider keys; the page reads Postgres, not this pod)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: monitor-no-ingress
+  namespace: yyc
+spec:
+  podSelector:
+    matchLabels: {app: monitor}
+  policyTypes: [Ingress]
+  ingress: []
+---
+# a singleton is never evicted: a node move goes through cluster/drain.sh (its own rolling update, new pod first,
+# lock handover), so a bare `kubectl drain` waits here instead of cutting it (tests/test_rollouts.py Disruptions)
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: monitor
+  namespace: yyc
+spec:
+  maxUnavailable: 0
+  selector:
+    matchLabels: {app: monitor}

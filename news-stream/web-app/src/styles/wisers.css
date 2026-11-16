@@ -1,0 +1,286 @@
+/* WiseSearch 轉接 (/app/wisers/, routes/-wisers/): WisersOne's WiseSearch layout in Deyao's house style (claude-env
+   deyao-web-design, 2026-10-28): square edges, flat white sheets on a grey ground with 1px rules, colour only for meaning
+   (a search hit; a quota or error state, always with an SVG mark), Archivo for figures, system CJK, inline SVG icons, no
+   motion, controls >= 44px. Phone first (375px, no sideways scroll); from 960px the results get WisersOne's left sidebar.
+   Scoped to .page-wisers; the tokens, type faces and reset are the site's (house.css). */
+.page-wisers { --bad:var(--c-1); background:var(--ground); min-height:100vh; }
+.page-wisers *, .page-wisers *::before, .page-wisers *::after { border-radius:0 !important; box-sizing:border-box; transition:none !important; animation:none !important; }
+.page-wisers .wi { width:20px; height:20px; flex:none; vertical-align:middle; }
+.page-wisers .hint { color:var(--muted); font-size:13px; }
+.page-wisers .sub { color:var(--muted); font-size:14px; margin:0 0 12px; }
+.page-wisers .ttl { font-size:22px; font-weight:800; margin:4px 0 8px; }
+.page-wisers mark { background:var(--hit); color:var(--hit-ink); padding:0 1px; }
+.page-wisers .nohl mark { background:none; color:inherit; }
+
+/* the bar is the shell's (shell.css): .yyc-bar, the title in a 56px .yyc-row, the tabs a level-2 .yyc-sub row (the current
+   one, a[data-status=active], with the 3px ink bar on the row's rule). The page's main starts on the same --gutter edge,
+   flush left (the form keeps a reading width, ragged right) */
+.page-wisers .wbar h1 { display:flex; align-items:center; font-size:16px; margin:0; font-weight:700; }
+.page-wisers .wmain { max-width:calc(880px + 2 * var(--gutter)); padding:16px var(--gutter) 48px; }
+.page-wisers .wmain.wide { max-width:none; }
+
+/* controls: --rule outlined cells like the fields (one rule colour on the page); ink only for fills, .go, the 3px .kw frame
+   and the 3px dialog / sheet frames */
+.page-wisers .go, .page-wisers .sec, .page-wisers .tb, .page-wisers .ib { display:inline-flex; align-items:center; justify-content:center; gap:6px;
+  min-height:44px; padding:0 14px; border:1px solid var(--rule); background:var(--panel); color:var(--ink); cursor:pointer; text-decoration:none; font-size:15px; white-space:nowrap; }
+.page-wisers .go { background:var(--ink); border-color:var(--ink); color:var(--panel); font-weight:700; }
+.page-wisers .go:hover { background:var(--muted); border-color:var(--muted); }
+.page-wisers .sec:hover, .page-wisers .tb:hover, .page-wisers .ib:hover { background:var(--ground); }
+.page-wisers .ib { padding:0; width:44px; }
+.page-wisers .ib[aria-expanded="true"] { background:var(--ink); color:var(--panel); }
+/* unavailable: muted text, a rule border, no fill change on hover */
+.page-wisers .tb.off, .page-wisers .go:disabled, .page-wisers .sec:disabled, .page-wisers .tb:disabled, .page-wisers .ib:disabled,
+.page-wisers .seg button:disabled, .page-wisers .chip:disabled { color:var(--muted); border-color:var(--rule); background:var(--panel); cursor:default; }
+.page-wisers button:disabled { cursor:default; }
+.page-wisers .lk { display:inline-flex; align-items:center; gap:4px; min-height:44px; background:none; border:0; padding:0; cursor:pointer;
+  color:var(--ink); text-decoration:underline; text-underline-offset:3px; font-size:14px; }
+/* the segmented choices are the house .seg (house.css); an icon-only cell is square */
+.page-wisers .seg button { min-width:44px; }
+/* a row of cells sharing edges (house .cellrow) made of this page's buttons */
+.page-wisers .cellrow > :is(.tb, .ib, .sec) { border:0; }
+.page-wisers .cellrow > * + * { border-left:1px solid var(--rule); }
+/* a date range (house .range): the fields lose their own outline inside the block */
+.page-wisers .range input[type=date] { border:0; flex:1 1 9em; width:9em; min-width:0; }
+.page-wisers input[type=text], .page-wisers input:not([type]), .page-wisers input[type=date], .page-wisers select,
+.page-wisers .fld input { min-height:44px; border:1px solid var(--rule); background:var(--panel); padding:0 10px; color:var(--ink); min-width:0; max-width:100%; }
+.page-wisers input:focus, .page-wisers select:focus { border-color:var(--ink); }
+.page-wisers .fld { display:grid; gap:4px; font-size:14px; color:var(--muted); min-width:0; }
+.page-wisers .cb { display:inline-flex; align-items:center; gap:8px; min-height:44px; font-size:15px; color:var(--ink); cursor:pointer; overflow-wrap:anywhere; }
+.page-wisers .cb input { width:18px; height:18px; margin:0; accent-color:var(--ink); flex:none; }
+/* chosen items: one block of cells that share their edges, also across wrapped lines (each cell overlaps its left and
+   upper neighbour by the 1px rule) */
+.page-wisers .chips { display:flex; flex-wrap:wrap; align-items:stretch; gap:0; margin:6px 0; padding:1px 0 0 1px; }
+.page-wisers .chips > * { margin:-1px 0 0 -1px; }
+.page-wisers .chips > .lk { margin-left:12px; }
+.page-wisers .chip { display:inline-flex; align-items:center; gap:6px; min-height:44px; padding:0 4px 0 10px; border:1px solid var(--rule); background:var(--panel); font-size:14px;
+  font-weight:400; color:var(--ink); white-space:normal; overflow-wrap:anywhere; text-align:left; cursor:pointer; }
+.page-wisers span.chip { padding:0 10px; cursor:default; }
+.page-wisers span.chip:hover { background:var(--panel); }
+.page-wisers .chip .wi { width:16px; height:16px; }
+.page-wisers .chip.exc { border-style:dashed; }
+/* key: value pairs as plain type on the sheet (no box per pair): the key muted, the value bold */
+.page-wisers .plates { display:flex; flex-wrap:wrap; gap:4px 16px; }
+.page-wisers .plate { display:inline-flex; align-items:baseline; font-size:14px; }
+.page-wisers .plate > span { padding:0 6px 0 0; color:var(--muted); white-space:nowrap; }
+.page-wisers .plate > b { padding:0; font-weight:600; overflow-wrap:anywhere; }
+
+/* the form */
+.page-wisers .wform { background:var(--panel); padding:16px; display:grid; grid-template-columns:minmax(0,1fr); gap:12px; }
+.page-wisers .modes { display:flex; gap:8px; align-items:center; }
+.page-wisers .kw { position:relative; }
+.page-wisers .kw input { width:100%; min-height:52px; font-size:18px; border:3px solid var(--ink); }
+.page-wisers .slist { position:absolute; left:0; right:0; z-index:5; list-style:none; margin:0; padding:0; background:var(--panel); border:3px solid var(--ink); border-top:0; }
+.page-wisers .sugg { position:relative; margin:6px 0; }
+.page-wisers .sugg input { width:100%; }
+.page-wisers .slist button { display:block; width:100%; text-align:left; min-height:48px; padding:0 12px; background:none; border:0; border-top:1px solid var(--rule); cursor:pointer; }
+.page-wisers .slist li.on button, .page-wisers .slist button:hover { background:var(--ink); color:var(--panel); }
+.page-wisers .logic { display:grid; gap:8px; grid-template-columns:minmax(0,1fr); }
+@media (min-width:700px) { .page-wisers .logic { grid-template-columns:repeat(2, minmax(0,1fr)); } .page-wisers .logic .hint { grid-column:1 / -1; } }
+.page-wisers .guide { border-left:3px solid var(--ink); padding:4px 12px; font-size:14px; }
+.page-wisers .guide p { margin:4px 0; }
+.page-wisers .line { display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px; }
+.page-wisers .lbl { font-weight:700; min-width:4em; }
+.page-wisers .row3 { display:grid; gap:10px; grid-template-columns:minmax(0,1fr); margin-top:8px; }
+@media (min-width:700px) { .page-wisers .row3 { grid-template-columns:repeat(3, minmax(0,1fr)); } }
+.page-wisers details.adv { border-top:1px solid var(--rule); }
+.page-wisers details.adv > summary { list-style:none; display:flex; align-items:center; justify-content:space-between; min-height:48px; cursor:pointer; font-weight:700; }
+.page-wisers details.adv > summary::-webkit-details-marker { display:none; }
+.page-wisers details[open].adv > summary .wi { transform:rotate(180deg); }
+.page-wisers details.adv h4 { margin:10px 0 2px; font-size:14px; color:var(--muted); font-weight:600; }
+.page-wisers .cnt { margin-left:8px; font-weight:400; font-size:13px; padding:1px 6px; background:var(--ink); color:var(--panel); }
+.page-wisers .cbs { display:flex; flex-wrap:wrap; gap:0 16px; }
+.page-wisers .grp { display:flex; flex-direction:column; width:100%; }
+.page-wisers .grp .kids { display:flex; flex-wrap:wrap; gap:0 14px; padding-left:26px; }
+.page-wisers .cb.par { font-weight:600; }
+.page-wisers ul.lv { list-style:none; margin:0; padding-left:0; }
+.page-wisers ul.lv ul.lv { padding-left:22px; border-left:1px solid var(--rule); margin-left:21px; }
+.page-wisers ul.lv li { display:flex; flex-wrap:wrap; align-items:center; }
+.page-wisers ul.lv li > ul { flex-basis:100%; }
+.page-wisers .tw { width:44px; height:44px; display:inline-flex; align-items:center; justify-content:center; border:0; background:none; cursor:pointer; padding:0; }
+.page-wisers .picker input { width:100%; }
+.page-wisers .mlist { list-style:none; margin:4px 0; padding:0; border:1px solid var(--rule); }
+.page-wisers .mlist li { display:flex; align-items:center; gap:4px; border-top:1px solid var(--rule); padding-left:10px; }
+.page-wisers .mlist li:first-child { border-top:0; }
+.page-wisers .mlist .nm { flex:1; min-width:0; overflow-wrap:anywhere; }
+.page-wisers .mlist button { width:44px; height:44px; border:0; border-left:1px solid var(--rule); background:var(--panel); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
+.page-wisers .mlist button:hover { background:var(--ink); color:var(--panel); }
+.page-wisers .pg { display:flex; gap:0; margin-top:6px; }
+.page-wisers .pg > * + * { margin-left:-1px; }
+.page-wisers .acts { display:flex; flex-wrap:wrap; justify-content:flex-start; gap:8px; margin-top:4px; }
+.page-wisers .wdlg { border:3px solid var(--ink); background:var(--panel); color:var(--ink); padding:16px; max-width:min(520px, calc(100vw - 32px)); }
+.page-wisers .wdlg::backdrop { background:rgba(0,0,0,.4); }
+.page-wisers .wdlg h3 { margin:0 0 8px; }
+
+/* waiting */
+.page-wisers .wwait { background:var(--panel); padding:16px; margin:8px 0; }
+.page-wisers .wwait p { display:flex; align-items:center; gap:8px; margin:6px 0; }
+/* progress: ten cells of one ruled strip (1px gaps over --rule), the done ones ink-filled */
+.page-wisers .strip { display:grid; grid-template-columns:repeat(10, 1fr); gap:1px; background:var(--rule); border:1px solid var(--rule); }
+.page-wisers .strip span { height:8px; background:var(--panel); }
+.page-wisers .strip span.on { background:var(--ink); }
+
+/* results. The head: a 56px row, 修改搜尋 and 重新搜尋 full-height cells at its ends (one shared rule each), the
+   criteria between them as plain type; on a phone the criteria take a second line under a rule */
+.page-wisers .rhead { display:flex; flex-wrap:wrap; align-items:stretch; gap:0; background:var(--panel); padding:0; min-height:56px; }
+.page-wisers .rhead > .tb { border:0; min-height:56px; }
+.page-wisers .rhead > .tb:first-child { border-right:1px solid var(--rule); }
+.page-wisers .rhead > .plates + .tb { border-left:1px solid var(--rule); }
+.page-wisers .rhead .plates { flex:1; min-width:0; align-content:center; padding:8px 12px; }
+/* the media-type tabs: flush left, label over count, split by shared rules; the current one has the 3px ink bar */
+.page-wisers .tabs { display:flex; overflow-x:auto; scrollbar-width:none; background:var(--panel); border-top:1px solid var(--rule); margin-bottom:8px; }
+.page-wisers .tabs::-webkit-scrollbar { display:none; }
+.page-wisers .tabs button { flex:0 0 auto; min-width:84px; min-height:56px; display:flex; flex-direction:column; align-items:flex-start; justify-content:center;
+  border:0; border-left:1px solid var(--rule); background:var(--panel); cursor:pointer; padding:3px 16px 0; border-bottom:3px solid transparent; }
+.page-wisers .tabs button:first-child { border-left:0; }
+.page-wisers .tabs button:hover { background:var(--ground); }
+.page-wisers .tabs .hint { display:flex; align-items:center; padding:0 12px; border-left:1px solid var(--rule); }
+.page-wisers .tabs button .num { font-size:13px; color:var(--muted); }
+.page-wisers .tabs button.on { border-bottom-color:var(--ink); font-weight:700; }
+.page-wisers .tabs button.on .num { color:var(--ink); }
+.page-wisers .count { display:flex; flex-wrap:wrap; align-items:center; gap:6px 14px; margin:0 0 8px; }
+.page-wisers .count b { font-size:22px; font-weight:700; }
+.page-wisers .side-btn { margin-left:auto; }
+.page-wisers .rgrid { display:grid; gap:8px; grid-template-columns:minmax(0,1fr); }
+@media (min-width:960px) { .page-wisers .rgrid.with-side { grid-template-columns:300px minmax(0,1fr); } }
+/* the results toolbar: a 44px row on its 1px baseline, never wrapping (it scrolls sideways inside itself on a phone).
+   Its cells (the buttons, the selects, the view choice) are flush top and bottom and split by shared left rules; the
+   checkboxes and the count are plain type between them */
+.page-wisers .tools { display:flex; flex-wrap:nowrap; align-items:stretch; gap:0; overflow-x:auto; scrollbar-width:none; background:var(--panel);
+  padding:0 0 0 10px; min-height:45px; border-bottom:1px solid var(--rule); }
+.page-wisers .tools::-webkit-scrollbar { display:none; }
+.page-wisers .tools > * { flex:none; }
+.page-wisers .tools > .hint { display:inline-flex; align-items:center; padding-right:10px; }
+.page-wisers .tools > .cb { padding-right:10px; }
+.page-wisers .tools > :is(.tb, select, .seg) { border:0; border-left:1px solid var(--rule); min-height:44px; }
+.page-wisers .tools > .seg { overflow:visible; }
+.page-wisers .tools > select + .cb, .page-wisers .tools > .tb + .gap { border-left:1px solid var(--rule); padding-left:10px; }
+.page-wisers .tools .gap { flex:1 0 10px; }
+.page-wisers .rows.grid { display:grid; gap:8px; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); }
+.page-wisers .rows.cards { display:grid; gap:8px; }
+.page-wisers .wrow { display:flex; gap:10px; background:var(--panel); padding:12px; border-bottom:1px solid var(--rule); min-width:0; }
+.page-wisers .rows.list .wrow + .wrow { margin-top:0; }
+/* cards and grid: each row is a sheet, the panel fill on the ground (no border) */
+.page-wisers .rows.cards .wrow, .page-wisers .rows.grid .wrow { border:0; }
+.page-wisers .rows.grid .wrow { flex-direction:column; }
+.page-wisers .rows.grid .ex { display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; overflow:hidden; }
+.page-wisers .wrow .lead { display:flex; flex-direction:column; align-items:flex-start; gap:2px; flex:none; width:44px; }
+.page-wisers .rows.grid .wrow .lead { flex-direction:row; width:auto; }
+.page-wisers .wrow .lead .n { color:var(--muted); font-size:14px; padding-left:11px; }  /* under the checkbox's left edge */
+.page-wisers .wrow .lead input { width:22px; height:22px; margin:11px; accent-color:var(--ink); }
+.page-wisers .wrow .body { min-width:0; flex:1; }
+.page-wisers .wrow h2 { font-size:17px; font-weight:700; margin:0 0 2px; line-height:1.4; overflow-wrap:anywhere; }
+.page-wisers .wrow h2 a { text-decoration:none; }
+.page-wisers .wrow h2 a:hover { text-decoration:underline; }
+.page-wisers .icons { display:flex; flex-wrap:wrap; align-items:center; gap:0; }
+.page-wisers .icons .ico + .ico { margin-left:-1px; }  /* one block, shared edges */
+.page-wisers .ico { display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px; border:1px solid var(--rule); color:var(--ink); }
+.page-wisers .ico:hover { background:var(--ink); color:var(--panel); }
+.page-wisers .kind { font-size:13px; color:var(--muted); margin-left:6px; }
+.page-wisers .meta { display:flex; flex-wrap:wrap; gap:2px 12px; font-size:14px; color:var(--muted); margin:2px 0; align-items:center; }
+.page-wisers .ex { margin:6px 0; font-size:15px; overflow-wrap:anywhere; }
+.page-wisers .foot { display:flex; flex-wrap:wrap; gap:4px 16px; align-items:center; }
+.page-wisers details.more > summary { cursor:pointer; min-height:44px; display:flex; align-items:center; font-size:14px; color:var(--muted); }
+.page-wisers dl.kv { display:grid; grid-template-columns:max-content minmax(0,1fr); gap:2px 12px; font-size:13px; margin:4px 0; }
+.page-wisers dl.kv dt { color:var(--muted); }
+.page-wisers dl.kv dd { margin:0; overflow-wrap:anywhere; }
+/* the similar articles merged into a row: ruled rows under it, each time small and muted */
+.page-wisers .branch { list-style:none; margin:6px 0 0; padding:0; border-top:1px solid var(--rule); }
+.page-wisers .branch li { padding:8px 0; border-bottom:1px solid var(--rule); overflow-wrap:anywhere; }
+.page-wisers .branch .meta { display:inline-flex; margin-left:8px; font-size:.875rem; }
+/* the pager: one block of cells sharing their edges, the current page ink-filled (its rules kept), the note on the ground */
+.page-wisers .pager { display:flex; flex-wrap:wrap; align-items:center; gap:0; margin:12px 0; }
+.page-wisers .pager > * + * { margin-left:-1px; }
+.page-wisers .pager a, .page-wisers .pager span.on, .page-wisers .pager span.off { min-width:44px; min-height:44px; display:inline-flex; align-items:center; justify-content:center;
+  border:1px solid var(--rule); background:var(--panel); text-decoration:none; }
+.page-wisers .pager span.on { position:relative; background:var(--ink); color:var(--panel); font-weight:700; }
+.page-wisers .pager a:hover { background:var(--ground); }
+.page-wisers .pager span.off { color:var(--muted); }
+.page-wisers .pager .hint { margin-left:12px; }
+.page-wisers .side { background:var(--panel); padding:10px; align-self:start; display:grid; gap:8px; }
+.page-wisers .side .seg { display:flex; } .page-wisers .side .seg button { flex:1; }
+.page-wisers .fsec { border-top:1px solid var(--rule); }
+.page-wisers .fh { display:flex; width:100%; align-items:center; justify-content:space-between; min-height:48px; background:none; border:0; cursor:pointer; font-weight:700; padding:0; }
+.page-wisers ul.facet { list-style:none; margin:0; padding:0; }
+.page-wisers ul.facet li { display:flex; align-items:center; justify-content:space-between; gap:8px; border-top:1px solid var(--rule); }
+.page-wisers ul.facet li .num { color:var(--muted); font-size:14px; }
+.page-wisers .within { display:grid; gap:6px; }
+.page-wisers ol.hotw { list-style:none; margin:0; padding:0; }
+.page-wisers ol.hotw li { display:grid; grid-template-columns:2em minmax(0,1fr) auto; grid-template-areas:"rk w n" ". bar bar"; align-items:center; gap:0 8px; border-top:1px solid var(--rule); padding-bottom:6px; }
+.page-wisers ol.hotw .rk { grid-area:rk; color:var(--muted); font-size:14px; }
+.page-wisers ol.hotw .lk { grid-area:w; justify-self:start; }
+.page-wisers ol.hotw .num:last-child { grid-area:n; }
+.page-wisers ol.hotw .bar { grid-area:bar; height:4px; background:var(--ink); }
+.page-wisers .sheet { background:var(--panel); border:3px solid var(--ink); padding:12px 16px; margin:8px 0; display:grid; gap:8px; }
+.page-wisers .sheet .sh { display:flex; align-items:center; justify-content:space-between; }
+.page-wisers .sheet h3, .page-wisers .sheet h4 { margin:0; }
+
+/* the reader */
+.page-wisers .dtools { display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px; margin-bottom:8px; }
+.page-wisers .dtools .gap { flex:1; }
+.page-wisers article.doc { background:var(--panel); padding:16px; margin-bottom:8px; }
+.page-wisers .dh { font-size:26px; font-weight:800; line-height:1.3; margin:0 0 8px; overflow-wrap:anywhere; }
+.page-wisers .dgrid { display:grid; gap:16px; grid-template-columns:minmax(0,1fr); margin-top:12px; }
+@media (min-width:900px) { .page-wisers .dgrid.with-imgs { grid-template-columns:minmax(0,3fr) minmax(0,1fr); } }
+.page-wisers .text { font-size:17px; line-height:1.8; overflow-wrap:anywhere; }
+.page-wisers .text p { margin:0 0 12px; }
+.page-wisers .text table { border-collapse:collapse; max-width:100%; display:block; overflow-x:auto; }
+.page-wisers .text td, .page-wisers .text th { border:1px solid var(--rule); padding:4px 8px; }
+.page-wisers .orig { margin:8px 0; }
+.page-wisers .imgs h3 { font-size:15px; margin:0 0 6px; }
+.page-wisers .imgs .page-img { display:block; width:100%; max-width:700px; padding:0; border:1px solid var(--rule); background:var(--panel); cursor:zoom-in; }
+.page-wisers .imgs .page-img img { display:block; width:100%; height:auto; }
+.page-wisers .thumbs { list-style:none; margin:8px 0 0; padding:0; display:flex; flex-wrap:wrap; gap:6px; }
+.page-wisers .imgs:not(.big) .thumbs { display:grid; grid-template-columns:repeat(auto-fill, minmax(96px, 1fr)); }
+/* thumbnails: the images apart by plain ground, no frame each; the open one has a 3px ink frame inside it */
+.page-wisers .thumbs button { padding:0; border:0; background:var(--panel); cursor:pointer; display:block; }
+.page-wisers .thumbs li.on button { outline:3px solid var(--ink); outline-offset:-3px; }
+.page-wisers .thumbs img { display:block; width:96px; height:auto; }
+.page-wisers .imgs:not(.big) .thumbs img { width:100%; }
+.page-wisers .samepage { margin-top:16px; border-top:1px solid var(--rule); padding-top:8px; }
+.page-wisers .samepage h3 { font-size:15px; margin:0 0 6px; }
+/* the other news on the same print page: ruled rows; the open one has an ink rule down its left edge, its headline bold */
+.page-wisers ol.samelist { list-style:none; margin:0; padding:0; border-top:1px solid var(--rule); }
+.page-wisers ol.samelist li { display:flex; align-items:center; padding:8px 0; min-height:44px; border-bottom:1px solid var(--rule); overflow-wrap:anywhere; }
+.page-wisers ol.samelist li.here { padding-left:10px; border-left:var(--mark-w) solid var(--ink); }
+.page-wisers .dfoot { display:flex; flex-wrap:wrap; gap:4px 16px; margin-top:16px; padding-top:8px; border-top:1px solid var(--rule); color:var(--muted); font-size:13px; }
+.page-wisers .quota { display:flex; align-items:center; gap:8px; color:var(--bad); font-weight:700; }
+.page-wisers .quota.soft { color:var(--muted); font-weight:400; }
+.page-wisers video, .page-wisers audio { display:block; max-width:100%; width:442px; margin:8px 0; }
+.page-wisers .viewer { position:fixed; inset:0; z-index:50; background:var(--ground); display:grid; grid-template-rows:auto minmax(0,1fr) auto; }
+/* the viewer's bar: a 44px row on its baseline rule, its buttons full-height cells split by shared rules */
+.page-wisers .vbar { display:flex; flex-wrap:wrap; align-items:stretch; gap:0; padding:0; background:var(--panel); border-bottom:1px solid var(--rule); }
+.page-wisers .vbar > .ib { border:0; border-left:1px solid var(--rule); }
+.page-wisers .vbar > .ib:first-child { border-left:0; border-right:1px solid var(--rule); }
+.page-wisers .vbar > :is(.num, input[type=range]) { align-self:center; margin:0 10px; }
+.page-wisers .vbar .gap { flex:1; }
+.page-wisers .vbar input[type=range] { width:120px; accent-color:var(--ink); }
+.page-wisers .vimg { overflow:auto; padding:8px; }
+.page-wisers .vimg img { display:block; margin:0 auto; max-width:none; height:auto; }
+.page-wisers .vmeta { display:grid; grid-template-columns:repeat(auto-fill, minmax(160px, 1fr)); gap:0; margin:0; background:var(--panel); border-top:1px solid var(--rule); font-size:13px; }
+.page-wisers .vmeta dt { color:var(--muted); padding:4px 8px 0; }
+.page-wisers .vmeta dd { margin:0; padding:0 8px 4px; border-bottom:1px solid var(--rule); }
+.page-wisers .rowlink { display:flex; flex-direction:column; text-decoration:none; }
+.page-wisers .logrow { flex-direction:column; gap:0; }
+.page-wisers .sum { margin:8px 0; }
+.page-wisers .wait-note, .page-wisers .note { color:var(--muted); font-size:14px; }
+
+/* phone */
+@media (max-width:599px) {
+  .page-wisers .wmain { padding:12px var(--gutter) 40px; }
+  .page-wisers .wrow { padding:10px 8px; gap:6px; }
+  .page-wisers .tools .seg, .page-wisers .tools .gap { display:none; }
+  .page-wisers .dh { font-size:22px; }
+  .page-wisers article.doc { padding:12px; }
+  .page-wisers .side-btn { margin-left:0; }
+  .page-wisers .rhead .plates { order:3; flex-basis:100%; border-top:1px solid var(--rule); }
+  .page-wisers .rhead > .plates + .tb { margin-left:auto; }
+}
+
+/* print (/app/wisers/print) */
+@media print {
+  .page-wisers { background:#fff; color:#000; }
+  .page-wisers .wbar, .page-wisers .noprint, .page-wisers .dtools, .page-wisers .samepage, .page-wisers .thumbs { display:none !important; }
+  .page-wisers article.doc { padding:0; }
+  .page-wisers .paged article.doc + article.doc { break-before:page; }
+  .page-wisers .imgs .page-img { border:0; }
+}

@@ -1,0 +1,126 @@
+# feishu-index's image (feishu-index/, Deployment feishu-index/feishu-index on yyc-talos:
+# news-stream/deploy/clusters/talos/feishu-index/). test: the unit tests and the end-to-end tests against Postgres 17
+# with pgvector (Cluster pg's versions) and a mock Feishu + OpenRouter. build: the image (amd64, the pool=news nodes),
+# whose build runs the unit tests again; then the tag is pinned in that folder's kustomization.yaml by pin-image.py,
+# never moving back to an older commit, and yyc-apps.yml is dispatched to deploy it.
+name: feishu-index-image
+on:
+  push:
+    branches: [main]
+    paths:
+      - feishu-index/**
+      - '!feishu-index/**.md'
+      - .github/workflows/feishu-index-image.yml
+  pull_request:
+    paths:
+      - feishu-index/**
+      - .github/workflows/feishu-index-image.yml
+  workflow_dispatch:
+concurrency:
+  group: feishu-index-image-${{ github.ref }}
+  cancel-in-progress: false
+permissions:
+  contents: read
+env:
+  IMAGE: ghcr.io/de0ch/yyc-feishu-index
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Postgres 17 with pgvector (PGDG), poppler-utils
+        run: |
+          set -e
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -q
+          sudo apt-get install -yq --no-install-recommends postgresql-17 postgresql-17-pgvector poppler-utils
+          # the runner's postgresql-common creates no cluster on install
+          PORT=5433
+          pg_lsclusters -h | awk '$1==17 && $2=="main"' | grep -q . || sudo pg_createcluster 17 main -p "$PORT"
+          sudo pg_ctlcluster 17 main start
+          PORT=$(pg_lsclusters -h | awk '$1==17 && $2=="main" {print $3}')
+          sudo -u postgres psql -p "$PORT" -qc "CREATE ROLE ci SUPERUSER LOGIN PASSWORD 'ci'"
+          echo "FEISHU_INDEX_TEST_PG=postgres://ci:ci@127.0.0.1:$PORT/postgres" >> "$GITHUB_ENV"
+      - uses: dtolnay/rust-toolchain@master
+        with: {toolchain: 1.99.1, components: clippy}
+      - uses: Swatinem/rust-cache@v2
+        with: {workspaces: feishu-index}
+      - name: clippy
+        working-directory: feishu-index
+        run: cargo clippy --locked --all-targets -- -D warnings
+      - name: tests
+        working-directory: feishu-index
+        run: cargo test --locked
+
+  build:
+    needs: test
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      packages: write
+      actions: write   # dispatch yyc-apps.yml after the pin (a push made with GITHUB_TOKEN starts no workflow)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        run: S=$(git rev-parse HEAD); echo "tag=${S::12}" >> "$GITHUB_OUTPUT"; echo "sha=$S" >> "$GITHUB_OUTPUT"
+      - uses: docker/build-push-action@v6
+        with:
+          context: feishu-index
+          platforms: linux/amd64
+          provenance: false
+          push: true
+          tags: ${{ env.IMAGE }}:${{ steps.meta.outputs.tag }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ steps.meta.outputs.sha }}
+          cache-from: type=gha,scope=feishu-index
+          cache-to: type=gha,mode=max,scope=feishu-index
+      - name: the container starts and refuses to run unconfigured
+        run: |
+          set -e
+          out=$(docker run --rm "$IMAGE:${{ steps.meta.outputs.tag }}" 2>&1 || true)
+          echo "$out"
+          echo "$out" | grep -q "DATABASE_URL is not set"
+          docker run --rm --entrypoint pdftotext "$IMAGE:${{ steps.meta.outputs.tag }}" -v 2>&1 | grep -q poppler
+      - name: pin the tag, then deploy
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          TAG="${{ steps.meta.outputs.tag }}"
+          F=news-stream/deploy/clusters/talos/feishu-index/kustomization.yaml
+          git config user.name "feishu-index-image bot"; git config user.email "actions@users.noreply.github.com"
+          for attempt in 1 2 3 4 5 6; do
+            git fetch -q origin main && git reset -q --hard origin/main
+            CUR=$(PIN_FILE=$F news-stream/deploy/pin-image.py yyc-feishu-index)
+            if [ "$CUR" != unset ] && git cat-file -e "$CUR^{commit}" 2>/dev/null && git merge-base --is-ancestor "${{ steps.meta.outputs.sha }}" "$CUR" && [ "$CUR" != "$TAG" ]; then
+              echo "$F already pins $CUR, newer than $TAG"; exit 0
+            fi
+            PIN_FILE=$F news-stream/deploy/pin-image.py yyc-feishu-index "$TAG"
+            git add "$F"
+            git diff --cached --quiet && { echo "already pinned"; exit 0; }
+            git commit -q -m "feishu-index: pin image $TAG"
+            if git push -q origin HEAD:main; then
+              # GitHub can still resolve main to the commit before the pin for a few seconds after the push (2026-11-11:
+              # the dispatched apply ran on the parent and the pin waited 3 h for the scheduled run): dispatch once main has it
+              PIN=$(git rev-parse HEAD)
+              for w in $(seq 1 30); do
+                case $(gh api "repos/$GITHUB_REPOSITORY/compare/$PIN...main" --jq .status 2>/dev/null) in identical|ahead) break;; esac
+                sleep 2
+              done
+              gh workflow run yyc-apps.yml --ref main -R "$GITHUB_REPOSITORY" && echo "dispatched yyc-apps.yml"
+              exit 0
+            fi
+            sleep $((attempt * 3))
+          done
+          exit 1

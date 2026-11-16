@@ -1,0 +1,12 @@
+{
+  "name": "yyc-whatsapp-gateway",
+  "private": true,
+  "type": "module",
+  "main": "gateway.js",
+  "scripts": {"test": "node --test test/*.test.js"},
+  "dependencies": {
+    "baileys": "7.0.0-rc14",
+    "pg": "8.16.3",
+    "pino": "9.7.0"
+  }
+}

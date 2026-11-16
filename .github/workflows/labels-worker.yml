@@ -1,0 +1,60 @@
+# Tests and deploys the label app's Worker (labels/worker: Worker yyc-labels with its Durable Object Store, on YYC's
+# own Cloudflare account) on every push touching it; the font catalogue comes from the cache unless its list or script
+# changed. A Worker deploy is atomic: requests
+# in flight finish on the old version, new ones get the new one; open staff pages reconnect their live channel by
+# themselves. Its route and Access app are in news-stream/deploy/cloudflare/tofu/labels.tf. Secrets: YYC_CF_API_TOKEN
+# (token yyc-edge: YYC's account only) and YYC_CF_ACCOUNT_ID.
+name: labels-worker
+on:
+  push:
+    branches: [main]
+    paths:
+      - labels/worker/**
+      - nametags/worker/src/auth.js
+      - nametags/worker/test/hooks.mjs
+      - nametags/worker/test/cf-stub.mjs
+      - labels/fonts/**
+      - .github/workflows/labels-worker.yml
+  workflow_dispatch:
+concurrency:
+  group: labels-worker
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: labels/worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # The font catalogue (labels/fonts/font-catalog.py: fonts from google/fonts, brotli-compressed, with previews),
+      # likewise from the cache unless its list or script changed.
+      - id: fonts
+        uses: actions/cache@v4
+        with:
+          path: labels/worker/public/fonts
+          key: label-fonts-${{ hashFiles('labels/fonts/font-catalog.*') }}
+      - if: steps.fonts.outputs.cache-hit != 'true'
+        working-directory: .
+        run: |
+          sudo apt-get install -y -qq brotli
+          pip install --quiet fonttools==4.60.1 pillow==11.3.0
+          python3 labels/fonts/font-catalog.py
+      - run: npm test
+      - run: npx --yes wrangler@4.151.0 deploy --dry-run --outdir /tmp/bundle
+      - name: deploy
+        if: github.ref == 'refs/heads/main'
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then echo "::warning::YYC_CF_API_TOKEN is not set on the repo: not deployed"; exit 0; fi
+          npx --yes wrangler@4.151.0 deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.YYC_CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.YYC_CF_ACCOUNT_ID }}

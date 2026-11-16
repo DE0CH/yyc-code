@@ -1,0 +1,13 @@
+# Talos's own service logs and the kernel log to the node's Alloy (../alloy.yaml). Not in the node configs until
+# Alloy runs (it needs a Grafana stack: README "Logs"); then talos.sh gen includes it.
+machine:
+  logging:
+    destinations:               # Talos's own services (machined, apid, kubelet, etcd, containerd...) to the node's
+      - endpoint: tcp://127.0.0.1:6050/   # Alloy (../alloy.yaml, host network); json_lines, Talos's format
+        format: json_lines
+---
+---
+apiVersion: v1alpha1
+kind: KmsgLogConfig
+name: alloy                     # the kernel's log (OOM kills, link changes) to the node's Alloy (../alloy.yaml)
+url: tcp://127.0.0.1:6051

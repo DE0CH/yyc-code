@@ -1,0 +1,123 @@
+# The Descheduler (the Talos plan "Staying packed"; yyc-ai/refactor DESIGN 15.2 N8, input I8): at 04:00 HKT one run
+# of HighNodeUtilization evicts the pods of nearly empty workers, so the scheduler (MostAllocated,
+# ../patches/controlplane.yaml) packs them onto the fuller ones and free memory stays in usable blocks.
+#
+# - `suspend: true` below stops it (a hand edit and push, applied by talos-cluster.yml).
+# - Never evicts in namespaces db (a CloudNativePG instance's eviction is a failover and a Volume re-attach) and
+#   yyc-ai-fabric (the sandbox gateway), on the one plugin it runs; nor in kube-system (cluster add-ons; Claude's
+#   addition). Evictions go through the eviction API, so PodDisruptionBudgets hold (the default); a pod is evicted only
+#   when it fits on another node (nodeFit). Only workers (pool=apps) are looked at.
+# - Thresholds: a worker whose requested memory is under 40% of its allocatable counts as nearly empty (Claude's
+#   choice; tune from the room the nodes show). The strategy does nothing unless there is at least one nearly empty and
+#   one fuller worker.
+# Check (N8): talos-ready.sh runs this policy with `descheduler --dry-run` and finds no pod of db or yyc-ai-fabric.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: descheduler
+  namespace: kube-system
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: descheduler-policy
+  namespace: kube-system
+data:
+  policy.yaml: |
+    apiVersion: descheduler/v1alpha2
+    kind: DeschedulerPolicy
+    nodeSelector: pool=apps
+    profiles:
+      - name: packing
+        pluginConfig:
+          - name: DefaultEvictor
+            args:
+              nodeFit: true
+          - name: HighNodeUtilization
+            args:
+              thresholds:
+                memory: 40
+              evictableNamespaces:
+                exclude: [db, yyc-ai-fabric, kube-system]
+        plugins:
+          balance:
+            enabled: [HighNodeUtilization]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: descheduler
+rules:
+  - apiGroups: [events.k8s.io]
+    resources: [events]
+    verbs: [create, update]
+  - apiGroups: [""]
+    resources: [nodes, namespaces, pods, persistentvolumeclaims]
+    verbs: [get, watch, list]
+  - apiGroups: [""]
+    resources: [pods/eviction]
+    verbs: [create]
+  - apiGroups: [scheduling.k8s.io]
+    resources: [priorityclasses]
+    verbs: [get, watch, list]
+  - apiGroups: [policy]
+    resources: [poddisruptionbudgets]
+    verbs: [get, watch, list]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: descheduler
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: descheduler}
+subjects:
+  - {kind: ServiceAccount, name: descheduler, namespace: kube-system}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: descheduler
+  namespace: kube-system
+spec:
+  schedule: "0 4 * * *"
+  timeZone: Asia/Hong_Kong
+  suspend: false
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 1800
+      ttlSecondsAfterFinished: 604800
+      template:
+        metadata:
+          labels: {app: descheduler}
+        spec:
+          restartPolicy: Never
+          serviceAccountName: descheduler
+          priorityClassName: system-cluster-critical
+          tolerations: [{key: node-role.kubernetes.io/control-plane, operator: Exists, effect: NoSchedule}]
+          affinity:
+            nodeAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+                - weight: 100
+                  preference:
+                    matchExpressions: [{key: node-role.kubernetes.io/control-plane, operator: Exists}]
+          containers:
+            - name: descheduler
+              image: registry.k8s.io/descheduler/descheduler:v0.37.0@sha256:88deef34ff5c85cb69676d7073dd641bd5c35b156bc1ef4a35ca8fbf9644da98
+              command: [/bin/descheduler]
+              args: [--policy-config-file=/policy-dir/policy.yaml, --v=3]
+              resources:
+                requests: {cpu: 100m, memory: 128Mi}
+                limits: {memory: 256Mi}
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities: {drop: [ALL]}
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                runAsUser: 1000
+                seccompProfile: {type: RuntimeDefault}
+              volumeMounts: [{name: policy, mountPath: /policy-dir}]
+          volumes:
+            - {name: policy, configMap: {name: descheduler-policy}}

@@ -1,0 +1,15 @@
+# YYC AI watch's way to the socks pool on yyc-talos (kustomization.yaml's header): port 1080 to this cluster's nodes
+# (a host-network pool) and to the pods of namespace egress (a pod pool). Cilium adds it to the NetworkPolicy
+# egress-dns-internet-postgres (allow rules of both kinds add up).
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: socks-pool
+  namespace: aiwatch
+spec:
+  endpointSelector: {}
+  egress:
+    - toEntities: [host, remote-node]
+      toPorts: [{ports: [{port: "1080", protocol: TCP}]}]
+    - toEndpoints: [{matchLabels: {k8s:io.kubernetes.pod.namespace: egress}}]
+      toPorts: [{ports: [{port: "1080", protocol: TCP}]}]

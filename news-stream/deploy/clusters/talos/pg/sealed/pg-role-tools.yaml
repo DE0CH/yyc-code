@@ -1,0 +1,17 @@
+# SealedSecret made by infra/seal.py from the store `yyc` (map: infra/secrets.txt). Don't edit: re-seal.
+# cert: infra/sealed-secrets-talos.pem sha256:81f61330757d262c
+---
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: pg-role-tools
+  namespace: db
+spec:
+  encryptedData:
+    password: AgDEirJJXuQAgUM3deaxTMR7Kp5mh+O//jS2Rvc1SB5hScKUD8CZnBOCjkS5GpCbZPXutduM6uC03lZ4D9bvrFe5I+ylZA4nuCVjlaC3rNhfdVwqAvGiIkdmNTnxuLLNXj4viUjxx2HedYd9tXcKkqrS/2e2hFD5Syse1sQjy1Z0M9ULT6XrW2apf7Cm4c//p+Ud6hKr9zh2x/Iz9gz2OShKAc+/g1L1FH6aE/xUVugR+JfRoJw9PkludSXM6xfZBwZDBwiuHP51i6j2SGY3DpXjcMocTNt8gaV42T4zAcUZJ3uzqqbJpUruIVdxstPSMdWkGhArXzceI0EdCmzc9Njrosb0RIE5/09qsc0UIzSx4pXDrVUo8QNhDACwHqDgHr72YlLvwpYITV+18zweZrzDIs+R/GkXxNM84vlnNJxarES6oEYuq2XwwX6og0rcicXQXtGjefVxoFb1aaht919YcsCLpxZEJdu3vScIH6lFK8iPxTSFdSp0r3An85K96CypgSe6p1UMm8pkwJoyIPYZcWKVYryBfv3PjEs20edMC/cjcyP25QUADzAKjU2p67mOf97E4RGOmbaz3SC/cCJDowmwIjJjF4Ebra+dmHb3fAqVBpwe2kk08m/bt2IKgSgQp5lm8duL4/3jBIKUg/u7MP6VVT8c4QloCh0sGtomKcP/yRTneU28eR6IqZj9TgYktgqmUR4bTiTu91/RCHhly5LFtS6Ms0hawhh9saPDNZQhM+TaP5Ulmjsz4vePBlvd3oDR3p0Ywf7SRU+KhPuP
+    username: AgBofSmQdcDVMnN6WIB+1SCTPoVVY9WBAaUpBXFbdrUWA2Ozh+xwLxpmyg3xMrvnjxGp3iIVfBV9cShE9OiNnY+7H/jfJ4pUURz6sEDGTS9K1KwPgMMFW4WxN5JMhLm+4j5oFmwOBQIHuSb5LFcfqZhzgxJJ4/8CsJf5q6RotLSnRnDGvMFpRBaJfmcp8HeOT8E4/mkOiVUBEXF/seLFQDnonXY+3xWz64s37LLSQPKFoIqI89lzt8Egi+tQmG8Op99+f27SOgiM2faciSO/Zo6VIyEJLg6HyK8x2Q+I8PNhNTOEktcNaeI2wV1HN3m1bbv2JgMlz21B8VBFKeiIIU7V87pWlESPeguYqb+vfjqwe5R1VRdSpKPq8f9Px6PWSt94R+DTjj3w8T0UXr3CMDMdE1qT9JXI4M7zdD6DpBZ14JcUFpmZYy10SLyYDgYrZyUzxE/eMDuwW2kgiGb/N56LWN8Ku5h0QBEvV22NGixmrAqQLEBqcOxMZ2K27d3jWykZbUeir0js8hYO3x0bLSxoe+/BZB2RfBQ3nKoDTl817bPI16nfxbjPXZ2j3XvEz0dGprG3X+bzUxe8WrQkw6lOlqW5+suqHaBzQa7qul81bpJzgeMRw8oqJVpQvrYWUb+jpjdQMh6BBi1OcyOqsR26NTwnEHoktT6hpQ4Kf9mE2+vbiv0mr09gveQgfvPwYBUkmW9jSA==
+  template:
+    metadata:
+      name: pg-role-tools
+      namespace: db
+    type: kubernetes.io/basic-auth

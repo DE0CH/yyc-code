@@ -1,0 +1,14 @@
+# YYC's main Postgres on yyc-talos (T5 of the Talos move; plan yyc-ai/refactor/talos-apps-move.md, "Postgres"). Listed
+# in ../kustomization.yaml (talos-cluster.yml) since T5-prep. Namespace db is the cluster's (../db/). Its
+# Secrets (./sealed/, sealed for this cluster): the role passwords db/pg-role-*@talos, db/pg-backup-s3@talos (../db/
+# has it), and the old cluster's streaming_replica client certificate and CA as pg-k3s-replication and pg-k3s-ca.
+# The db nodes' Talos patch is ../node-patches/db.yaml.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - pg.yaml
+  - pg-ingress.yaml
+  - feishu-index-db.yaml
+  - pg-dump-daily.yaml
+  - gin-clean.yaml
+  - sealed

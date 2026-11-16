@@ -1,0 +1,58 @@
+# Node work on yyc-talos (README "Node work"; yyc-ai/refactor DESIGN 15.2 N8): the workflow talos-nodes.yml reaches the
+# Kubernetes API through tunnel yyc-deploy as `gha:talos-nodes` (its own GitHub environment, ../patches/controlplane.yaml)
+# and runs node-work.sh, which starts one Job per node in talos-ops. The Job's talosctl carries the Talos role os:admin
+# (talosctl upgrade and upgrade-k8s need it) from the Talos ServiceAccount below, and runs on another node than the one
+# it upgrades. Nothing here is stored in GitHub: the Talos credential exists only as the Secret Talos writes here.
+#
+# What `gha:talos-nodes` can do: read nodes; create, watch and delete Jobs and read their Pods and logs in talos-ops.
+# Through such a Job it is Talos admin of every node, which is what an upgrade is. It cannot read Secrets, create
+# Pods directly, or touch any other namespace. The namespace itself is in etcd-backup.yaml.
+apiVersion: talos.dev/v1alpha1
+kind: ServiceAccount
+metadata:
+  name: node-work               # Talos writes Secret talos-ops/node-work (key `config`, a talosconfig, 6 h certs)
+  namespace: talos-ops
+spec:
+  roles: [os:admin]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: talos-node-work-read
+rules:
+  - apiGroups: [""]
+    resources: [nodes]
+    verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: talos-node-work-read
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: talos-node-work-read}
+subjects:
+  - {apiGroup: rbac.authorization.k8s.io, kind: User, name: "gha:talos-nodes"}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: node-work
+  namespace: talos-ops
+rules:
+  - apiGroups: [batch]
+    resources: [jobs]
+    verbs: [create, get, list, watch, delete]
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [get, list, watch]
+  - apiGroups: [""]
+    resources: [pods/log]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: node-work
+  namespace: talos-ops
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: node-work}
+subjects:
+  - {apiGroup: rbac.authorization.k8s.io, kind: User, name: "gha:talos-nodes"}

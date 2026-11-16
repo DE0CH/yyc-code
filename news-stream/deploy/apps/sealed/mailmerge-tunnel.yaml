@@ -1,0 +1,15 @@
+# SealedSecret made by infra/seal.py from the store `yyc` (map: infra/secrets.txt). Don't edit: re-seal.
+---
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: tunnel
+  namespace: mailmerge
+spec:
+  encryptedData:
+    token: AgBmLjFcYb34EHUW9HgJgvpWqnXhJ0zpt0+ECT4bETf3geEA1yBHHsSNY5JrTuNuiFAhWb6pcF84pWfftnFltSb18pDsAOw3tJ0loDnQd00Gkv6GO8sLBJsFRTNHscF5Cg1QTYSqXHY3z0UNwsKqKEa9MLEYhjkCnDamXG03XUbFyPa1s83AvmkME9V4qOj72XQERioVElqj/j63BtKWS1583D9YpaCmrmYCyKkSoe4OAxedgLqCvqAEEMQiqh9jLedTh/HejcUUsRpGUNHmDhdm5Jor+WgxlvBMuV8HPiFvJWoTPoNgRV0fUNFhHQXbrHVmIQCO78tbufVU/3b2+ZNMxvRW4/D31H7gMq5kblz8m60JvBZcRD5qz+ngRYHR1EyzIYSvTVRVchgaaQBX4VC+gJF07VulWBrQ9vV/2EOohVSennS4fK3XkiCroClghc2837Q0sQ9zrkR52z7ovpm98HN04Y0EyGXR1/4LYgd/6i8Fbb/BIgmWk+CBlNs4TWLpVIG0CKd5CHW5YnUSSq1e1X5PLO6ZgmoLZ8kQ4b1oea8Kb9wV60XXOBCMuklyU49CIGoneuB9zHX1delodpX3L42FbVANBy8AkA0T3neuD+OtVNUmwU0ETgVOpG/oN4+Kj4efTsmnKe+K1y/rFgufm3Ky6oYniS9H4mEl+292xuFQJpZCCFKqAnwHKKb+OTyNSvQUe1SpQSJwRrmy+amiVzWWzoLxZj9vkfDGZARpxsxwoAS+RJO+u2aZexGVNzpXqv7C2m39P8vCFtin0LBp7tZmeMpvUrmhR1o2P1i70OavvakBo7MdM/uzSGIOIzTadJJp687ar4lcPmrWrrA1Tzj9fekxYhXapYhlJ5lpGdSONJvYsde8e8PMOMij51UiUtis3ZERoFBhFStNy04WqzAmijzgHWMqeBx+ukxt+4xZe4QiC85vuxcNVsRKymotOcDmxZIzmbfZtlU8vGiv3IRmDmPo4G8Uh3a64pyShyNxpLVlcAOJVucZIq9yxbo=
+  template:
+    metadata:
+      name: tunnel
+      namespace: mailmerge
+    type: Opaque

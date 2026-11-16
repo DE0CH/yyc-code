@@ -1,0 +1,23 @@
+{
+  "name": "yyc-mcp",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "YYC's read-only data over MCP and a REST API: OAuth 2.1 with Cloudflare Access as the sign-in step, YYC's access catalogue as who may use it; Node in YYC's cluster. See README.md.",
+  "scripts": {
+    "build": "node build.mjs",
+    "start": "node dist/server.js",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test --experimental-strip-types test/*.test.ts"
+  },
+  "dependencies": {
+    "postgres": "3.4.9",
+    "undici": "7.30.1"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "esbuild": "0.28.2",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2"
+  }
+}

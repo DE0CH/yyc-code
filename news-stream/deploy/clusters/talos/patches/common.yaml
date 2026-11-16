@@ -1,0 +1,25 @@
+# Every node of yyc-talos (README; yyc-ai/refactor DESIGN 15.2.1 inputs I1, I2, I3, I6). Talos v1.14 documents.
+apiVersion: v1alpha1
+kind: KubeNetworkConfig
+podSubnets: [10.210.0.0/16]
+serviceSubnets: [10.211.0.0/16]
+nodeCIDRMaskSizeIPv4: 24
+---
+apiVersion: v1alpha1
+kind: KubeFlannelCNIConfig
+$patch: delete            # no CNI from Talos: Cilium, installed by talos.sh addons (I2)
+---
+apiVersion: v1alpha1
+kind: KubeNodeConfig
+nodeIP:
+  validSubnets: [10.0.0.0/16]   # the node's address is its network `yyc` one
+---
+apiVersion: v1alpha1
+kind: KubeSpanConfig
+enabled: true
+advertiseKubernetesNetworks: false   # pod traffic rides Cilium's VXLAN (I6)
+mtu: 1370
+---
+cluster:
+  externalCloudProvider:
+    enabled: true               # the Hetzner cloud controller (I3)

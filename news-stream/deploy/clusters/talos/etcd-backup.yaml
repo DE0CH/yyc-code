@@ -1,0 +1,119 @@
+# etcd snapshots of yyc-talos (the Talos plan "etcd backups"; README "etcd snapshots"): every hour a Job asks a control
+# node's Talos API for an etcd snapshot (talosctl etcd snapshot, role os:etcd:backup through Talos's Kubernetes access:
+# ../patches/controlplane.yaml KubeTalosAPIAccessConfig) and uploads it to the Hetzner bucket yyc-talos-etcd (project
+# yyc, fsn1) as yyc-talos/<UTC time>.db; snapshots older than 7 days are deleted (the old cluster kept 7 days too).
+# Secrets in the snapshot are encrypted at rest by Talos's secretbox key, which is in YYC_TALOS_SECRETS, not here.
+# Restore: Talos's disaster-recovery guide (talosctl bootstrap --recover-from=<file>) with the machine secrets.
+#
+# Credential: Secret talos-ops/etcd-backup-s3 (sealed/etcd-backup-s3.yaml; infra/secrets.txt line, store keys
+# YYC_S3_ACCESS_KEY / YYC_S3_SECRET_KEY, the project's Object Storage credential, as db/pg-backup-s3).
+# The talosctl binary comes from its own image as an image volume (copied into an emptyDir before use); rclone's image
+# gives the shell. It runs on the control nodes (it tolerates their taint; both images are multi-arch), so it works
+# before any worker exists. CP_NODES: the control nodes' addresses, tried in order until one answers.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: talos-ops
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+---
+apiVersion: talos.dev/v1alpha1
+kind: ServiceAccount
+metadata:
+  name: etcd-backup             # Talos writes Secret talos-ops/etcd-backup (key `config`, a talosconfig, 6 h certs)
+  namespace: talos-ops
+spec:
+  roles: [os:etcd:backup]
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: etcd-backup
+  namespace: talos-ops
+spec:
+  schedule: "17 * * * *"
+  timeZone: Etc/UTC
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 1500
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels: {app: etcd-backup}
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          enableServiceLinks: false
+          priorityClassName: batch
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            fsGroup: 65534
+            seccompProfile: {type: RuntimeDefault}
+          tolerations: [{key: node-role.kubernetes.io/control-plane, operator: Exists, effect: NoSchedule}]
+          affinity:
+            nodeAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+                - weight: 100
+                  preference:
+                    matchExpressions: [{key: node-role.kubernetes.io/control-plane, operator: Exists}]
+          containers:
+            - name: snapshot
+              image: rclone/rclone:1.71.2@sha256:3103526c506266a9ecdf064efe99bf3677d92ef6407af124d8c56b4f49cbaa51
+              command:
+                - sh
+                - -c
+                - |
+                  set -eu
+                  cp /opt/talos/talosctl /work/talosctl && chmod 0755 /work/talosctl
+                  f=/work/$(date -u +%Y-%m-%dT%H%M%SZ).db
+                  from=
+                  for n in $CP_NODES; do
+                    if /work/talosctl -n "$n" etcd snapshot "$f"; then from=$n; break; fi
+                    echo "no snapshot from $n; trying the next control node"
+                  done
+                  [ -n "$from" ] || { echo "no control node gave an etcd snapshot"; exit 1; }
+                  rclone copyto "$f" "hz:$BUCKET/yyc-talos/$(basename "$f")" -v
+                  rclone check /work "hz:$BUCKET/yyc-talos" --include "$(basename "$f")" --size-only --one-way
+                  rclone delete "hz:$BUCKET/yyc-talos" --min-age 7d -v
+                  echo "etcd snapshot from $from: $(basename "$f"), $(wc -c < "$f") bytes"
+              env:
+                - {name: CP_NODES, value: "10.0.0.21 10.0.0.22 10.0.0.23"}
+                - {name: BUCKET, value: yyc-talos-etcd}
+                - {name: TALOSCONFIG, value: /var/run/secrets/talos.dev/config}
+                - {name: HOME, value: /tmp}
+                # Hetzner Object Storage; the bucket exists (no create), region = its location
+                - {name: RCLONE_CONFIG_HZ_TYPE, value: s3}
+                - {name: RCLONE_CONFIG_HZ_PROVIDER, value: Other}
+                - {name: RCLONE_CONFIG_HZ_ENDPOINT, value: "https://fsn1.your-objectstorage.com"}
+                - {name: RCLONE_CONFIG_HZ_REGION, value: fsn1}
+                - {name: RCLONE_S3_NO_CHECK_BUCKET, value: "true"}
+                - {name: RCLONE_CONFIG_HZ_ACCESS_KEY_ID, valueFrom: {secretKeyRef: {name: etcd-backup-s3, key: ACCESS_KEY_ID}}}
+                - {name: RCLONE_CONFIG_HZ_SECRET_ACCESS_KEY, valueFrom: {secretKeyRef: {name: etcd-backup-s3, key: ACCESS_SECRET_KEY}}}
+              resources:
+                requests: {cpu: 100m, memory: 128Mi}
+                limits: {memory: 384Mi}
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities: {drop: [ALL]}
+              volumeMounts:
+                - {name: work, mountPath: /work}
+                - {name: tmp, mountPath: /tmp}
+                - {name: talosctl, mountPath: /opt/talos, readOnly: true}
+                - {name: talosconfig, mountPath: /var/run/secrets/talos.dev, readOnly: true}
+          volumes:
+            - {name: work, emptyDir: {sizeLimit: 2Gi}}
+            - {name: tmp, emptyDir: {sizeLimit: 64Mi}}
+            - name: talosctl
+              image:
+                reference: ghcr.io/siderolabs/talosctl:v1.14.5@sha256:0b852e35c1f513ee5eacc22183d6193486012420569fde39fcd5260c51938443
+                pullPolicy: IfNotPresent
+            - name: talosconfig
+              secret: {secretName: etcd-backup}

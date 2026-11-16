@@ -1,0 +1,12 @@
+# Who applies this folder (README "Applying"; DESIGN 15.3): .github/workflows/talos-cluster.yml reaches the API through
+# tunnel yyc-deploy (Access service token) and authenticates with its own GitHub OIDC token as `gha:talos-cluster`
+# (GitHub environment talos-cluster, main only; the rule in patches/controlplane.yaml's KubeAuthenticationConfig).
+# The folder makes namespaces, ClusterRoles and their bindings, kube-system workloads and CRD objects, so its applier
+# is cluster-admin: anything that may write RBAC can grant itself the rest. No cluster credential is stored in GitHub.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: talos-cluster-apply
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: cluster-admin}
+subjects:
+  - {apiGroup: rbac.authorization.k8s.io, kind: User, name: "gha:talos-cluster"}

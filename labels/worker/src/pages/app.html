@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="zh-HK">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>標籤</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/svg+xml" href="/app/icon.svg">
+<style>
+/* the house style (claude-env deyao-web-design): square, flat, colour only for states (flight-deck colours) */
+@font-face { font-family: "Archivo"; font-weight: 500; font-display: swap; src: url(/app/archivo-latin-500-normal.woff2) format("woff2"); }
+@font-face { font-family: "Archivo"; font-weight: 600; font-display: swap; src: url(/app/archivo-latin-600-normal.woff2) format("woff2"); }
+@font-face { font-family: "Archivo"; font-weight: 700; font-display: swap; src: url(/app/archivo-latin-700-normal.woff2) format("woff2"); }
+:root {
+  --ground: #eef0f2; --panel: #ffffff; --ink: #14171a; --muted: #59626b; --rule: #d3d8dd; --on-ink: #ffffff;
+  --st-bad: #c8102e; --st-warn: #f2a900; --st-warn-ink: #7a5000; --st-ok: #00774a; --st-info: #005eb8;
+  --num: "Archivo", "PingFang HK", "Noto Sans HK", "Microsoft JhengHei", sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ground: #111315; --panel: #1a1d20; --ink: #e8eaec; --muted: #9ea6ae; --rule: #33393f; --on-ink: #111315;
+    --st-bad: #ff4d5a; --st-warn: #ffb81c; --st-warn-ink: #ffb81c; --st-ok: #3cc48a; --st-info: #5aa9ff;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; margin: 0; padding: 0; border-radius: 0; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  background: var(--ground); color: var(--ink); font-size: 16px; line-height: 1.5; font-variant-numeric: tabular-nums;
+  font-family: "PingFang HK", "PingFang TC", "Noto Sans HK", "Noto Sans TC", "Microsoft JhengHei", "Hiragino Sans", system-ui, sans-serif;
+}
+a { color: inherit; }
+button { font: inherit; color: inherit; background: var(--panel); border: 1px solid var(--rule); min-height: 44px; padding: 0 14px; cursor: pointer; }
+button:hover:not(:disabled) { background: var(--ground); }
+button:disabled { color: var(--muted); cursor: default; }
+button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+button.primary:hover:not(:disabled) { background: var(--ink); }
+button.primary:disabled { background: var(--panel); color: var(--muted); border-color: var(--rule); }
+:focus-visible { outline: 3px solid var(--st-info); outline-offset: 2px; }
+svg.i { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: square; vertical-align: -4px; }
+
+.bar { position: sticky; top: 0; z-index: 2; background: var(--panel); border-bottom: 1px solid var(--rule); }
+.bar-in { max-width: 1280px; margin: 0 auto; padding: 6px 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; min-height: 56px; }
+.bar h1 { font-size: 1.25rem; font-weight: 700; margin-right: auto; }
+.back { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; text-decoration: none; padding-right: 8px; }
+.seg { display: inline-flex; border: 1px solid var(--rule); }
+.seg button { border: 0; border-left: 1px solid var(--rule); }
+.seg button:first-child { border-left: 0; }
+.seg button.on { background: var(--ink); color: var(--on-ink); }
+main { max-width: 1280px; margin: 0 auto; padding: 16px 16px 48px; }
+.note { color: var(--muted); font-size: 0.875rem; }
+.status { background: var(--panel); padding: 10px 14px; margin-bottom: 8px; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+.status.bad { border-left: 3px solid var(--st-bad); }
+.status.warn { border-left: 3px solid var(--st-warn); }
+.status.info { border-left: 3px solid var(--st-info); }
+.status .grow { flex: 1 1 240px; }
+
+/* the templates */
+.templates { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 8px; }
+.template { background: var(--panel); }
+.template .pics { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 12px; }
+.template .txt { padding: 10px 14px 12px; border-top: 1px solid var(--rule); }
+.template h2 { font-size: 1.125rem; font-weight: 700; }
+.template .lock { border-top: 1px solid var(--rule); border-left: 3px solid var(--st-info); padding: 8px 12px; font-size: 0.875rem; }
+img.lbl, .blank { display: block; width: 100%; aspect-ratio: 848 / 590; background: #fff; outline: 1px solid var(--rule); image-rendering: pixelated; }
+
+/* the print page */
+.steps { background: var(--panel); margin-bottom: 8px; }
+.step { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 12px 16px; border-top: 1px solid var(--rule); }
+.step:first-child { border-top: 0; }
+.step .n { width: 32px; height: 32px; border: 2px solid var(--ink); display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--num); font-weight: 700; flex: none; }
+.step.done .n { background: var(--ink); color: var(--on-ink); }
+.step.off { color: var(--muted); }
+.step.off .n { border-color: var(--rule); }
+.step .what { flex: 1 1 220px; }
+.step .what b { display: block; font-weight: 600; }
+.step .what span { color: var(--muted); font-size: 0.875rem; }
+.cancel-row { display: flex; justify-content: flex-end; padding: 12px 16px; border-top: 1px solid var(--rule); }
+.prog { flex: 1 1 100%; display: flex; flex-direction: column; gap: 6px; }
+.prog-bar { height: 10px; background: var(--ground); border: 1px solid var(--rule); }
+.prog-bar i { display: block; height: 100%; background: var(--ink); }
+#prog-text { font-size: 0.875rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ended { background: var(--panel); padding: 24px 16px; margin-bottom: 8px; font-size: 1.125rem; }
+.ended.bad { border-left: 3px solid var(--st-bad); }
+.ended.ok { border-left: 3px solid var(--st-ok); }
+.labels { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+.label { background: var(--panel); }
+.label .pic { padding: 12px 12px 8px; }
+.label .cap { padding: 0 12px 8px; font-size: 0.875rem; color: var(--muted); }
+.label .cap .num { font-family: var(--num); font-weight: 600; }
+.label.done .cap::after { content: " 已打印"; color: var(--st-ok); font-weight: 600; }
+.empty { background: var(--panel); padding: 24px 16px; }
+@media (max-width: 600px) {
+  .bar { position: static; }
+  .bar h1 { flex-basis: 100%; }
+  .templates { grid-template-columns: 1fr; }
+  .labels { grid-template-columns: 1fr 1fr; }
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script type="module" src="/app/page.js"></script>
+</body>
+</html>

@@ -1,0 +1,71 @@
+# The poll loop (python app.py): sources every 5 min, tagging, corpus, alerts, Telegram. One copy works at a time,
+# handed over without a gap: a deploy starts the new pod first (maxSurge 1, maxUnavailable 0); it is Ready as soon as
+# it runs and waits on the Postgres poller lock while the old pod, on SIGTERM, finishes its poll in hand (and that
+# poll's corpus/tags/alerts, and the Telegram message in hand), exits and releases it (app.py take_poller_lock / drain).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: poller
+  namespace: yyc
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels: {app: poller}
+  strategy: {type: RollingUpdate, rollingUpdate: {maxSurge: 1, maxUnavailable: 0}}
+  template:
+    metadata:
+      labels: {app: poller}
+    spec:
+      securityContext: {runAsUser: 10001, runAsGroup: 10001, fsGroup: 10001, fsGroupChangePolicy: OnRootMismatch}
+      imagePullSecrets: [{name: ghcr-pull}]
+      # the longest drain: the scoring batch in hand when SIGTERM comes (it runs beside the poll in hand and its
+      # after_poll, which take under a minute): stage 1 (ai.MODEL, 2 tries of up to 180 s) + ONE stage-2 call (no new
+      # one and no second try while draining, streams.confirm; its timeout is 600 s, the slowest measured 362 s (Gemini)
+      # on 20 Oct) + titles (180 s) + filing and its Telegram message = 1,140 s, with room. The lock stays this pod's
+      # until the drain ends (app.py keep_lock, tests/test_drain_holds_lock.py); the log says "drained in N s"
+      terminationGracePeriodSeconds: 1500
+      containers:
+        - name: poller
+          image: yyc-news-stream
+          command: [python, /app/app.py]
+          envFrom: [{secretRef: {name: app-env}}, {secretRef: {name: telegram}}]  # telegram: the alert bot's token
+          env:
+            - {name: DATABASE_URL, valueFrom: {secretKeyRef: {name: db-app, key: uri}}}
+            - {name: FLAGD_HOST, value: flagd.yyc.svc.cluster.local}  # flags pictures, transcription (flags.py)
+            - name: ISP_PROXY  # FSTB LinkedIn's second route (sources_extra.linkedin_read): YYC's IPRoyal ISP IP, lock 'yyc youtube'
+              valueFrom: {secretKeyRef: {name: isp-proxy, key: ISP_PROXY}}
+          # Ready once started, NOT once it holds the lock (that would deadlock the rollout); alive = a heartbeat file
+          # the process touches every 30 s, lock or not
+          readinessProbe: {exec: {command: [test, -f, /tmp/poller-started]}, periodSeconds: 2}
+          livenessProbe:
+            exec: {command: [sh, -c, "test -n \"$(find /tmp/poller-alive -mmin -3)\""]}
+            initialDelaySeconds: 60
+            periodSeconds: 30
+          # memory: peak 904 Mi (2026-10-20, old node); 1234 Mi on the cluster (cgroup memory.peak, 20 Oct 23:50 UTC,
+          # 1160 Mi current, 2050 catalogue sites and the forums since), OOM-killed 4 times at 1280 Mi that day. 2 Gi,
+          # request = limit (deploy/README.md "Sizes"). Never run scripts in this pod: a one-off Job (they share its cgroup)
+          resources:
+            requests:
+              cpu: 600m  # half its measured peak (1273m, 21 Oct)
+              memory: 2Gi
+              ephemeral-storage: 50Mi
+            limits:
+              cpu: '2'
+              memory: 2Gi
+              ephemeral-storage: 1Gi
+          volumeMounts: [{name: data, mountPath: /var/lib/yyc/data}]
+      volumes: [{name: data, emptyDir: {sizeLimit: 512Mi}}]
+      priorityClassName: serving
+---
+# a singleton is never evicted: a node move goes through cluster/drain.sh (its own rolling update, new pod first,
+# lock handover), so a bare `kubectl drain` waits here instead of cutting it (tests/test_rollouts.py Disruptions)
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: poller
+  namespace: yyc
+spec:
+  maxUnavailable: 0
+  selector:
+    matchLabels: {app: poller}

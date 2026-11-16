@@ -1,0 +1,15 @@
+# The Hetzner cloud controller (I3): node locations and addresses, and a Hetzner route in network `yyc` for each
+# node's pod /24 (cluster CIDR 10.210.0.0/16; it leaves the old cluster's 10.244.x and the fabrics' routes alone).
+networking:
+  enabled: true
+  clusterCIDR: 10.210.0.0/16
+env:
+  HCLOUD_TOKEN:
+    valueFrom:
+      secretKeyRef: {name: hcloud, key: token}
+  HCLOUD_NETWORK:
+    valueFrom:
+      secretKeyRef: {name: hcloud, key: network}
+  HCLOUD_NETWORK_ROUTES_ENABLED:
+    value: "true"
+replicaCount: 2

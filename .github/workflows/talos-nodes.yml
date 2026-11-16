@@ -1,0 +1,100 @@
+name: talos-nodes
+# Node work of YYC's Talos cluster yyc-talos (news-stream/deploy/clusters/talos/README.md "Node work"; yyc-ai/refactor
+# DESIGN 15.2 N8). Weekly at 04:00 HKT on Tuesday: if Siderolabs has a newer patch release of the minor in
+# release.env, commit it there, then upgrade every node to release.env's version, one at a time (node-work.sh). A push
+# that changes release.env does the same; a dispatch runs `upgrade` (optionally one node) or `upgrade-k8s`.
+#
+# - The sandbox gateway node (hermit.yyc/gateway=true) is upgraded only by hermit's gateway-maintenance runbook
+#   (hermit 14.7), which dispatches this workflow with gateway_runbook=true, mode=apply, node=<gateway>; upgrade-k8s
+#   (every kubelet) likewise. Every other run skips it.
+# - The runner reaches the Kubernetes API through tunnel yyc-deploy (deploy-workflows.md 3; Access service token) and
+#   authenticates with its own GitHub OIDC token as gha:talos-nodes (environment talos-nodes; the authenticator in
+#   clusters/talos/patches/controlplane.yaml, RBAC in clusters/talos/node-work.yaml). It holds no Talos or cluster
+#   credential: the upgrade runs as a Job in talos-ops with the Talos role Talos itself issues there.
+on:
+  schedule:
+    - cron: "0 20 * * 1"          # Tuesday 04:00 HKT (Monday 20:00 UTC)
+  push:
+    branches: [main]
+    paths: [news-stream/deploy/clusters/talos/release.env]
+  workflow_dispatch:
+    inputs:
+      action: {type: choice, options: [upgrade, upgrade-k8s], default: upgrade}
+      mode: {type: choice, options: [dry-run, apply], default: dry-run}
+      node: {description: "upgrade: only this node (empty: every node)", type: string, default: ""}
+      k8s_version: {description: "upgrade-k8s: the Kubernetes version, e.g. 1.37.2", type: string, default: ""}
+      gateway_runbook: {description: "run as step 3 of hermit's gateway-maintenance runbook (touches the gateway node)", type: boolean, default: false}
+concurrency: {group: talos-nodes, cancel-in-progress: false}
+permissions: {contents: read}
+jobs:
+  nodes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    environment: talos-nodes                       # deployment branches: main only; holds the Access secrets
+    permissions: {contents: write, id-token: write}
+    env:
+      D: news-stream/deploy/clusters/talos
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - name: newest patch release of this minor
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          . "$D/release.env"
+          minor=${TALOS_VERSION%.*}
+          latest=$(gh api 'repos/siderolabs/talos/releases?per_page=100' \
+            --jq "[.[] | select(.draft | not) | select(.prerelease | not) | .tag_name | select(startswith(\"$minor.\"))] | .[]" \
+            | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
+          if [ -z "$latest" ] || [ "$(printf '%s\n%s\n' "$TALOS_VERSION" "$latest" | sort -V | tail -1)" = "$TALOS_VERSION" ]; then
+            echo "release.env's $TALOS_VERSION is the newest $minor release"; exit 0
+          fi
+          echo "newer patch release: $latest"
+          sed -i "s/^TALOS_VERSION=.*/TALOS_VERSION=$latest/" "$D/release.env"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -qm "yyc-talos: Talos $latest (talos-nodes.yml, weekly patch release)" -- "$D/release.env"
+          for i in 1 2 3; do
+            git push origin HEAD:main && exit 0
+            git pull --rebase -q origin main
+          done
+          echo "::error::could not push the release.env bump"; exit 1
+      - uses: ./.github/actions/k8s-tools
+      - name: connect
+        env:
+          TUNNEL_SERVICE_TOKEN_ID: ${{ secrets.YYC_DEPLOY_ACCESS_CLIENT_ID }}
+          TUNNEL_SERVICE_TOKEN_SECRET: ${{ secrets.YYC_DEPLOY_ACCESS_CLIENT_SECRET }}
+          YYC_DEPLOY_CA: ${{ github.workspace }}/infra/yyc-talos-ca.pem
+        run: tools/yyc-apply/connect.sh
+      - name: node work
+        env:
+          EVENT: ${{ github.event_name }}
+          ACTION: ${{ inputs.action }}
+          MODE: ${{ inputs.mode }}
+          NODE: ${{ inputs.node }}
+          K8S: ${{ inputs.k8s_version }}
+          GW: ${{ inputs.gateway_runbook }}
+        run: |
+          set -euo pipefail
+          args=()
+          if [ "$EVENT" = workflow_dispatch ]; then
+            [ "$MODE" = apply ] || args+=(--dry-run)
+            [ "$GW" = true ] && args+=(--gateway-runbook)
+            if [ "$ACTION" = upgrade-k8s ]; then
+              [ -n "$K8S" ] || { echo "::error::upgrade-k8s needs k8s_version"; exit 1; }
+              exec "$D/node-work.sh" upgrade-k8s --to "$K8S" "${args[@]}"
+            fi
+            [ -n "$NODE" ] && args+=(--node "$NODE")
+          fi
+          git pull -q --ff-only origin main || true      # release.env as just committed
+          exec "$D/node-work.sh" upgrade "${args[@]}"
+      - name: tell Discord
+        if: failure()
+        env:
+          WEBHOOK: ${{ secrets.YYC_DISCORD_WEBHOOK }}
+        run: |
+          url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          msg="yyc-talos node work failed; the node stopped at may be cordoned or on its old version. $url"
+          [ -n "$WEBHOOK" ] && curl -s -X POST -H "Content-Type: application/json" -d "$(jq -n --arg c "$msg" '{content:$c}')" "$WEBHOOK" >/dev/null || true

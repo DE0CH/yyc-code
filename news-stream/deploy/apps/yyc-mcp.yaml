@@ -1,0 +1,175 @@
+# yyc-mcp (../../mcp-edge/): YYC's data for AI apps over MCP (/mcp) and REST (/api/v1), OAuth 2.1 with Cloudflare
+# Access as the sign-in step and YYC's access catalogue (the store's YYC_CATALOGUE_JSON, Secret yyc-catalogue) as the
+# list of who may use it; on Node beside Postgres. Two replicas behind Service yyc-mcp; a rollout starts the new pod
+# before the old one goes (maxUnavailable 0), preStop takes a pod off the Service before the server gets SIGTERM, then
+# it finishes the requests in flight and their audit writes. State lives in Postgres (database mcp: the OAuth store,
+# tokens, rate counts, the call log), so any pod answers any request.
+# Who reaches it: YYC AI's tools (namespace jarvis) and cloudflared (https://mcp.yyc-internal.com).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: yyc-mcp
+  namespace: yyc
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels: {app: yyc-mcp}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxUnavailable: 0, maxSurge: 1}  # the new pod is ready before an old one goes
+  template:
+    metadata:
+      labels: {app: yyc-mcp}
+    spec:
+      topologySpreadConstraints:
+        - {maxSkew: 1, topologyKey: kubernetes.io/hostname, whenUnsatisfiable: ScheduleAnyway, labelSelector: {matchLabels: {app: yyc-mcp}}}
+      securityContext: {runAsUser: 1000, runAsGroup: 1000, runAsNonRoot: true}
+      imagePullSecrets: [{name: ghcr-pull}]
+      terminationGracePeriodSeconds: 60
+      enableServiceLinks: false
+      automountServiceAccountToken: false
+      containers:
+        - name: yyc-mcp
+          image: yyc-mcp
+          ports: [{name: http, containerPort: 8080}]
+          envFrom: [{secretRef: {name: mcp-env}}]  # DATABASE_URL, MCP_DATABASE_URL, OIDC_CLIENT_ID/SECRET, CONSENT_SECRET, WISERS_INTERNAL_TOKEN
+          env:
+            - {name: BASE_URL, value: https://mcp.yyc-internal.com}
+            - {name: CATALOGUE, value: /etc/yyc-catalogue/config.json}
+            - {name: RATE_PER_MIN, value: "120"}
+            - {name: OIDC_ISSUER, value: https://yyc-hk.cloudflareaccess.com/cdn-cgi/access/sso/oidc/a4e393ac13576916843b0703f13e5e628fba73f606fb2532759f81374a3d7e63}  # Access app "YYC MCP sign-in" (tofu output mcp_oidc_client_id)
+            - {name: WISERS_API, value: http://wisers.yyc.svc.cluster.local:8899/app/wisers/api/}
+            # SHA-256 of the service tokens (not secret): YYC AI's YYC_JARVIS_MCP_TOKEN, Deyao's sessions' YYC_MCP_TOKEN
+            - name: SERVICE_TOKENS
+              value: '{"ba95527f34989339292b021b9330c93c9e024bdab888c7205178fcbe227bfbd9": "yyc-ai@ai.yyc-internal.com", "f46611c743d3532de806ab91692bfe1d324b1b3c5ed2dbc31131d55042f6b0e6": "chendeyao000@gmail.com"}'
+          volumeMounts: [{name: catalogue, mountPath: /etc/yyc-catalogue, readOnly: true}]
+          readinessProbe:  # the process only: a Postgres restart must not take both pods out of the Service
+            httpGet: {path: /healthz, port: http}
+            periodSeconds: 3
+            timeoutSeconds: 3
+            failureThreshold: 2
+          livenessProbe:
+            httpGet: {path: /healthz, port: http}
+            initialDelaySeconds: 10
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          lifecycle:
+            preStop:
+              exec: {command: [sleep, "10"]}
+          resources:
+            requests: {cpu: 100m, memory: 128Mi, ephemeral-storage: 50Mi}
+            limits: {cpu: 500m, memory: 256Mi, ephemeral-storage: 256Mi}
+          securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+      volumes:
+        - name: catalogue  # no subPath: the kubelet then updates the file when the catalogue changes
+          secret: {secretName: yyc-catalogue}
+      priorityClassName: serving
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: yyc-mcp
+  namespace: yyc
+spec:
+  selector: {app: yyc-mcp}
+  ports: [{name: http, port: 80, targetPort: http}]
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: yyc-mcp
+  namespace: yyc
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels: {app: yyc-mcp}
+---
+# daily: rate counters, calls older than a year, expired OAuth grants and tokens (node/cron.ts)
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: mcp-cleanup
+  namespace: yyc
+spec:
+  schedule: "17 3 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 600
+      template:
+        metadata:
+          labels: {app: mcp-cleanup}
+        spec:
+          restartPolicy: Never
+          securityContext: {runAsUser: 1000, runAsGroup: 1000, runAsNonRoot: true}
+          imagePullSecrets: [{name: ghcr-pull}]
+          automountServiceAccountToken: false
+          containers:
+            - name: cleanup
+              image: yyc-mcp
+              command: [node, --enable-source-maps, dist/cron.js]
+              envFrom: [{secretRef: {name: mcp-env}}]
+              env:
+                - {name: BASE_URL, value: https://mcp.yyc-internal.com}
+                - {name: CATALOGUE, value: /etc/yyc-catalogue/config.json}
+                - {name: RATE_PER_MIN, value: "120"}
+                - {name: OIDC_ISSUER, value: https://yyc-hk.cloudflareaccess.com/cdn-cgi/access/sso/oidc/a4e393ac13576916843b0703f13e5e628fba73f606fb2532759f81374a3d7e63}
+              volumeMounts: [{name: catalogue, mountPath: /etc/yyc-catalogue, readOnly: true}]
+              resources:
+                requests: {cpu: 50m, memory: 128Mi}
+                limits: {cpu: 500m, memory: 128Mi}
+              securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+          volumes:
+            - name: catalogue
+              secret: {secretName: yyc-catalogue}
+          priorityClassName: batch
+---
+# who may connect: YYC AI's tools server (namespace jarvis; the new stack's tools on the new cluster through bridge B5,
+# bridge yyc-bridge-old 10.0.255.1, yyc-ai-bridges.yaml) and cloudflared (mcp.yyc-internal.com)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: yyc-mcp-ingress
+  namespace: yyc
+spec:
+  podSelector: {matchLabels: {app: yyc-mcp}}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: yyc-ai}}
+          podSelector: {matchLabels: {app: tools}}
+        - podSelector: {matchLabels: {app: cloudflared}}
+      ports: [{port: 8080, protocol: TCP}]
+---
+# where it may connect (the SSRF guard's second layer; the first is node/egress.ts): DNS, Postgres, the WiseSearch relay,
+# and the public internet (Cloudflare Access's sign-in endpoints, OAuth clients' metadata documents), never the cluster's or a private network
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: yyc-mcp-egress
+  namespace: yyc
+spec:
+  podSelector: {matchLabels: {app: yyc-mcp}}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}
+          podSelector: {matchLabels: {k8s-app: kube-dns}}
+      ports: [{port: 53, protocol: UDP}, {port: 53, protocol: TCP}]
+    - to:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: db}}
+          podSelector: {matchLabels: {cnpg.io/cluster: pg}}
+      ports: [{port: 5432, protocol: TCP}]
+    - to:
+        - podSelector: {matchLabels: {app: wisers}}
+      ports: [{port: 8899, protocol: TCP}]
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10, 169.254.0.0/16, 127.0.0.0/8]
+      ports: [{port: 443, protocol: TCP}]

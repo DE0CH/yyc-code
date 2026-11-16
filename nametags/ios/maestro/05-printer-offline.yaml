@@ -1,0 +1,23 @@
+# The Mac bridge isn't polling: □ 打印機離線, and a print waits in the queue.
+appId: dev.de0ch.yycnametags
+name: printer offline
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+    arguments:
+      apiBase: "http://127.0.0.1:8787"
+      testToken: "offline-token"
+- extendedWaitUntil:
+    visible: "打印機離線"
+    timeout: 30000
+- takeScreenshot: 05-printer-offline
+- tapOn: ".*Jing HUANG.*"
+- extendedWaitUntil:
+    visible: { id: "tagPreview" }
+    timeout: 10000
+- tapOn: { id: "printButton" }
+- extendedWaitUntil:
+    visible: { id: "printStatus", text: "已排隊：打印機離線，連線後會自動打印" }
+    timeout: 10000
+- takeScreenshot: 05-queued-offline

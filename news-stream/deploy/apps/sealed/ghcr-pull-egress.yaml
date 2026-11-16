@@ -1,0 +1,15 @@
+# SealedSecret made by infra/seal.py from the store `yyc` (map: infra/secrets.txt). Don't edit: re-seal.
+---
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: ghcr-pull
+  namespace: egress
+spec:
+  encryptedData:
+    .dockerconfigjson: AgA4OIXJfnl9CEANwOVYVzVx2eVCqjX7hDHGfknSmAKLDuOenOsoLaXBqbllyFmNLZnHXMBk0uxTkPKTZ/r0F4t4T/nHYskQ/UYNPro4bgLrMIpk2bVZJVfvfTVmiy6jPAJwow3fYsbghOLZwiBMeUrIXt6e06YusRV0oKq/xjhLVtpr2OeoESXUoE9trp3NkdQywCRuF479yfKXpMKKEf8xEQy1lJ8PnaONg/bbx9ZmAnO7v6fLF5vg/RGmDcShUm5de/J28f4uSXhWQl2Pn60cTYkF8nAvgA5JMkHNTVZ2IbnFb05XGxdzuxfz2pojXvIiy+YXYYj97pW1kIfCVnoknwasFK1er7f886XmdKgzy5fjrbvaATQEtxQ7XTD2LAzE7rI3mKVvqQBNF93RWkC/OlL7cjR5VHGzpR8hRgFt4keEnmUMEUDeR/8n/bZcAXbfJLn6xjFAlI5V0soYHDzx4Kux9rx6jp6555AeRWxO7FwDhEE6RQ9xkhHvm5ewoKcNip3nqiSiQKZBCqPs1JKmVH0CcuRDkaWZ94sj44b3l65kDEqtsWWusymbSiOMzG+0C7VKT3fz24MWtdyvtOu0Z7YLvgLpe008Jq3iWm0ea5Bzt9TA4eFycTGZwsRZkWoma2WoNQ+e4/sCOo0uMRBNuh9lSRPXUW++sTGGXKU2zST24dwYxg4Rb4E9XQfnt746ebrCKWqeijyBa/M+eXQYKnIMehf0+F6HJXtfLueUTUxbxUMpJxENQ3+cgAt5RYwmjzZFWo38AnO0tHrqWcWMzbmXDjwsCJ2I1CJFw2SWYNROnX5CKiRxCyaVv3ly4kHgjmewpU9ritbDkPNIpWZD+HXGw6PsRfXwwnuXjfdl2RZPvvxUA4xU8DTJj4iuWFo/hXJb+eCYnWV/tuYE8Hg1Fd1u7fZ/wGDkyZgprpEwvKw=
+  template:
+    metadata:
+      name: ghcr-pull
+      namespace: egress
+    type: kubernetes.io/dockerconfigjson

@@ -1,0 +1,393 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>澳門日報電子版</title>
+<meta name="description" content="澳門日報版權所有 澳門日報電子報由澳門日報出版社出版" />
+<link href="../../../tplimg/global.css" type="text/css" rel="stylesheet">
+<link href="../../../tplimg/calendar.css" rel="stylesheet" type="text/css">
+<SCRIPT language=Javascript src="../../../tplimg/prototype.js"></SCRIPT>
+<SCRIPT language=Javascript src="../../../tplimg/range2.js"></SCRIPT>
+<SCRIPT language=Javascript src="../../../tplimg/mp.js"></SCRIPT>
+<SCRIPT language=Javascript src="../../../tplimg/calendar2.js"></SCRIPT>
+<SCRIPT language=Javascript src="../../../tplimg/jquery-1.3.2.min.js"></SCRIPT>
+<SCRIPT language=Javascript src="../../../tplimg/ScrollPic.js"></SCRIPT>
+<SCRIPT language=Javascript src="../../../tplimg/thickbox.js"></SCRIPT>
+<link href="../../../tplimg/thickbox.css" rel="stylesheet" type="text/css">
+
+
+<script type="text/javascript">
+
+ var _gaq = _gaq || [];
+ _gaq.push(['_setAccount', 'UA-26059557-1']);
+ _gaq.push(['_trackPageview']);
+
+ (function() {
+ var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+ ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+ var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+ })();
+
+</script>
+
+<style type="text/css">
+<!--
+.STYLE1 {
+	font-family: "宋体";
+	font-size: 12px;
+}
+.STYLE8 {font-size: 14px}
+.STYLE9 {font-family: "宋体"}
+.STYLE10 {font-family: Arial, Helvetica, sans-serif}
+.STYLE11 {font-weight: bold; font-size: 14px;}
+.STYLE21 {
+	color: #B8000F;
+	font-size: 12px;
+	font-family: "宋体";
+}
+.style24 {color: #990000}
+-->
+</style>
+ <style type="text/css">
+ }
+ .thumbnail{
+ position: relative;
+ z-index: 0;
+ }
+ 
+ .thumbnail:hover{
+ background-color: transparent;
+ z-index: 50;
+ }
+ 
+ .thumbnail span{ /*CSS for enlarged image*/
+ position: absolute;
+ background-color: lightyellow;
+ padding: 5px;
+ left: -1000px;
+ border: 1px dashed gray;
+ visibility: hidden;
+ color: black;
+ text-decoration: none;
+ }
+ 
+ .thumbnail span img{ /*CSS for enlarged image*/
+ border-width: 0;
+ padding: 2px;
+ }
+ 
+ .thumbnail:hover span{ /*CSS for enlarged image on hover*/
+ visibility: visible;
+ top: 0;
+ left: -300px; /*控制原图出现的位置 position where enlarged image should offset horizontally */
+ </style>
+</head>
+<script language="javascript">
+<!--
+var lastMenu = null;
+var currd ;
+function overMenu()
+{
+ var e = window.event.srcElement;
+
+ with(e.style)
+ {
+ cursor = "hand";
+ //color = "blue";
+ }
+}
+function outMenu()
+{
+ var e = window.event.srcElement;
+ with(e.style)
+ {
+ cursor = "default";
+ //color = "black";
+ }
+}
+
+function getFirstPage(){
+ if(window.document.all.pageLink.length>1)
+ window.location=window.document.all.pageLink[0].href;
+ if(window.document.all.pageLink.length=1) window.location=window.document.all.pageLink.href;
+} 
+
+function expandMenu(mnu)
+{
+ var mnuid = mnu.id;
+ var subid = "sub" + mnuid.substr(3);
+ var obj = document.all[subid];
+ var i = 0, c = 0;
+
+// if(lastMenu != null)
+// {
+// if(lastMenu != obj)
+// {
+// c = lastMenu.length;
+// if(c != null)
+// {
+// for(i=0; i<lastMenu.length; i++)
+// {
+//
+// lastMenu[i].style.display = "none";
+// }
+// }
+// else
+// {
+// lastMenu.style.display = "none";
+// }
+// }
+// }
+
+ if(obj != null)
+ {
+ c = obj.length;
+ if(c != null)
+ {
+ for(i=0; i<obj.length; i++)
+ {
+ if(obj[i].style.display == "none")
+ {
+ obj[i].style.display = "block";
+ }
+ else
+ {
+ obj[i].style.display = "none";
+ }
+ }
+ }
+ else
+ {
+ if(obj.style.display == "none")
+ {
+ obj.style.display = "block";
+ }
+ else
+ {
+ obj.style.display = "none";
+ }
+ }
+ lastMenu = obj;
+ }
+}
+
+
+var rangeDeltaX = 15;
+var rangeDeltaY = -15;
+
+//-->
+</script>
+
+ <SCRIPT id=oMapScript event=onmouseover() for=pagepicmap>
+ rangeDeltaX = 15;
+ rangeDeltaY = -13;
+ drawLine(event.srcElement);
+ </SCRIPT>
+
+
+<SPAN id=leveldiv title=点击查看内容 style="BORDER-TOP-WIDTH: 0px; BORDER-LEFT-WIDTH: 0px; Z-INDEX: 100; LEFT: 233px; BORDER-BOTTOM-WIDTH: 0px; WIDTH: 210px; CURSOR: hand; POSITION: absolute; TOP: 123px; HEIGHT: 34px; BORDER-RIGHT-WIDTH: 0px"></SPAN>
+
+<body leftmargin="0" marginwidth="0" marginheight="0">
+<div align="center">
+<table width="1005" height="742" border="0" cellpadding="0" cellspacing="0" id="table11" style="border-collapse: collapse">
+	<tr>
+		<td width="440" height="722" valign="top">
+		<table id="table12" width="440" height="631" border="0" cellpadding="0" cellspacing="0">
+	<tr>
+		<td rowspan="2">
+			<img src="../../../tplimg/amrb_01.jpg" alt="top" width="30" height="620" align="top"></td>
+		<td>
+			<img src="../../../tplimg/amrb_02.jpg" alt="top" width="398" height="22" align="top"></td>
+		<td rowspan="2">
+			<img src="../../../tplimg/amrb_03.jpg" alt="top" width="12" height="620" align="texttop"></td>
+	</tr>
+	<tr>
+		<td width="398" height="598" background=#ffffff>
+			<MAP NAME="pagepicmap"><Area coords="8,18,250,18,250,175,168,175,168,237,8,237,8,101,52,101,52,96,8,96" shape="polygon" href="content_1940018.htm"><Area coords="256,18,380,18,380,176,256,176" shape="polygon" href="content_1940021.htm"><Area coords="176,180,384,180,384,271,176,271" shape="polygon" href="content_1940023.htm"></MAP><img src=../../../page/1/2026-10-15/A12/89861792000705648.jpg border=0 USEMAP=#PagePicMap> </td></tr>
+	<tr>
+		<td colspan="3" align="center" valign="top">
+			<img src="../../../tplimg/amrb_05.jpg" alt="" width="439" height="11" align="top">
+			
+		<table width="97%" height="75" border="0" cellpadding="0" cellspacing="0" id="table22" style="border-collapse: collapse">
+			<tr>
+				<td width="177" align="left" class=px12>第A12版：<STRONG>澳聞</STRONG> </td>
+ <td width="131" nowrap class=px12 
+ style="PADDING-RIGHT: 0px; PADDING-LEFT: 0px; PADDING-BOTTOM: 0px; PADDING-TOP: 0px"><a class=preart href="node_29.htm">上一版<span style='font-size:12px;font-family:webdings'>3</span></a>&nbsp;&nbsp;<a class=preart href="node_141.htm"><span style='font-size:12px;font-family:webdings'>4</span>下一版</a>&nbsp;&nbsp;</td>
+ <td width=119 align="left" valign=center nowrap class=px12 style="PADDING-RIGHT: 5px"></td>
+			</tr>
+			<tr bgcolor="#CCFF99">
+			 <td height="21" colspan="3" align="left" class=px12><span class="default">&nbsp;&nbsp;<img border="0" src="../../../tplimg/icon1.jpg" width="10" height="9" /></span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="deepgreen">本版標題導航</span></td>
+			 </tr>
+			<tr>
+			 <td height="25" colspan="3" align="left" class=px12><TABLE cellSpacing=0 cellPadding=1 border=0> <TBODY> <tr> <TD class=default valign="top"> <img src="../../../tplimg/checkbox.gif" width="10" height="10"> </TD> <td class=default valign="top"> <a href=content_1940018.htm><div style="display:inline" id=mp1940018>僑總賀三慶續發揮優勢</div></a> </td> </TR><tr> <TD class=default valign="top"> <img src="../../../tplimg/checkbox.gif" width="10" height="10"> </TD> <td class=default valign="top"> <a href=content_1940021.htm><div style="display:inline" id=mp1940021>科學館國慶假接客二萬六人次</div></a> </td> </TR><tr> <TD class=default valign="top"> <img src="../../../tplimg/checkbox.gif" width="10" height="10"> </TD> <td class=default valign="top"> <a href=content_1940023.htm><div style="display:inline" id=mp1940023>真善之友山東學習拓視野</div></a> </td> </TR> </TBODY> </TABLE> </td>
+			 </tr>
+			</table>
+		</td>
+	</tr>
+</table>
+	 <td valign="top" width="591">
+		<table width="565" height="231" border="0" cellpadding="0" cellspacing="0" id="table13" style="border-collapse: collapse">
+			<tr>
+				<td height="62" colspan="2">
+				<img border="0" src="../../../tplimg/logo1.jpg" width="560" height="85" align="left"></td>
+			</tr>
+			<tr>
+				<td height="2" colspan="0"></td>
+			</tr>
+			<tr>
+				<td height="25" align=left class=greennav background="../../../tplimg/bkg-01.jpg" colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;
+				<!--設為首頁開始-->
+				 <a href="#" onClick="this.style.behavior='url(#default#homepage)';this.setHomePage('http://www.macaodaily.com')" class=date> <span style="font-size: 9pt"><font color="#297129">[ 設為首頁 ]</font></span></a> <span class="STYLE11">
+				 <!--設為首頁結束-->
+ |
+ <!--加入鏈接開始-->
+ <script language="JavaScript">
+ </script>
+ </span>
+ <script language="JavaScript"> function bookmarkit(){window.external.addFavorite('http://www.macaodaily.com','澳門日報數字報')}
+if (document.all)document.write('<a href="#" onClick="bookmarkit()"><span style="font-size: 9pt"><font color="#297129">[ 加入收藏 ]</font></span></a>')</script>
+ <!--加入鏈接結束-->|
+				<a href="http://www.macaodaily.com">[ 返回主頁 ]</a> |
+ </td>
+			</tr>
+			<tr valign="middle">
+			 <td height=21 align=middle colspan="2"><table height="21" cellspacing="0" cellpadding="0" width="561" border="0">
+ <tr align="left">
+ <td width="69"><span class="prenext px12"><strong>今日日期：</strong></span></td>
+ <td width="143"><script language=JavaScript>
+ today=new Date();
+ function initArray(){
+ this.length=initArray.arguments.length
+ for(var i=0;i<this.length;i++)
+ this[i+1]=initArray.arguments[i] }
+ var d=new initArray(
+ "星期日",
+ "星期一",
+ "星期二",
+ "星期三",
+ "星期四",
+ "星期五",
+ "星期六");
+document.write(
+ "<font color=#000000 style='font-size:9pt;font-family: 宋体'> ",
+ today.getFullYear(),"年",
+ today.getMonth()+1,"月",
+ today.getDate(),"日",
+ d[today.getDay()+1],
+ "</font>" ); 
+ </script></td>
+ <td width="16">&nbsp;</td>
+ <td width="62" valign="center">&nbsp;</td>
+ <td width="168" height="22" align="left" valign="center">
+</td> 
+ <td width="17" height="21" valign="center"><img src="../../../tplimg/checkbox01.gif" width="13" height="13"></td>
+ <td width="66" valign="center" class="px12"><a href="node_30.htm">版面導航</a></td>
+ </tr>
+ </table></td>
+		 </tr>
+			<tr valign="middle">
+				<td height=78 align=middle colspan="2">
+				<!-- 广告位：內容頁頂部adv_21 560*68 -->
+<iframe src="../../../other-adv/adv21.htm" frameborder=0 width="560" scrolling=no height="86"></iframe></td>
+			</tr>
+			<tr valign="middle">
+				<tr valign="middle">
+				<td width="108" height="25"><span class="STYLE11"><strong> 當前報紙日期：</strong></span></td>
+				<td width="457" height="25">
+				<table width="458" border="0" cellpadding="0" cellspacing="0" id="table23">
+				<tr><td width="458" height=25><span class="STYLE11">
+				 2026
+ <span class="STYLE11">年</strong></span><span class="STYLE11"><strong>10月</strong></span><span class="STYLE11"><strong>15日　星期</strong></span><span class="STYLE11"><strong><font class=weekday>四</font>
+ </strong></span> </td>
+			 </table>			 </td>
+			</tr>
+		</table>
+<table width="560" height="250" border="0" cellpadding="0" cellspacing="0" id="table15" style="border-collapse: collapse">
+				<tr>
+				 <td width="244" height="246" valign="top">
+				 <table height="31" cellspacing="0" cellpadding="0" width="560" border="0">
+ <tr>
+ <td height="31">&nbsp;</td>
+ </tr>
+ </table>
+				 <table width="560" border="0" cellpadding="5" cellspacing="0" bordercolor="#FFCC99">
+ <tr align="right" bgcolor="#e8e8e8">
+ <td width="114" height="22" align="left" valign="center"><table width=100% border=0><tr><td nowrap width=50% class=px12><a class=preart href="content_1940021.htm">下一篇<FONT face=Webdings>4</FONT></a>&nbsp;&nbsp;</td></tr></table></td>
+ <td width="218" align="middle" valign="center">&nbsp;</td>
+ <td width="199" align="right" valign="center"><span class="px12">
+ <script language=JavaScript type=text/javascript>
+function zoomIn() {
+ newZoom= parseInt(ozoom.style.zoom)+10+'%'
+ ozoom.style.zoom =newZoom;
+ } 
+function zoomOut() {
+ newZoom= parseInt(ozoom.style.zoom)-10+'%'
+ ozoom.style.zoom =newZoom;
+ } 
+ </script>
+ </span><span class="STYLE21"><a onClick="zoomIn();" href="javascript:">放大<img height="16" src="../../../tplimg/zoomin.gif" width="16" align="absMiddle" border="0"></a>&nbsp;<a onClick="zoomOut();" href="javascript:">縮小<img height="16" src="../../../tplimg/zoomout.gif" width="16" align="absMiddle" border="0"></a>&nbsp;<a onClick="ozoom.style.zoom='100%';" href="javascript:">默认<img height="16" src="../../../tplimg/zoomact.gif" width="16" align="absMiddle" border="0"></a></span><span class="px12">&nbsp;</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+ </tr>
+ <tr>
+ <td height="2"></td>
+ </tr>
+ </table>
+				 <table width="101%" cellpadding="0" cellspacing="0">
+ <tr>
+ <td> <table cellspacing=0 cellpadding=5 width=572 border=0> <tbody> <tr valign=top> <td style="padding-left: 6px;padding-top:10px;padding-bottom:10px;" align=center width=572> <span style="font-size:14px;line-height:23px;"></span><br> <strong style="font-size:23px;font-family:黑体;line-height:30px;"> 僑總賀三慶續發揮優勢 </strong><br> <span style="font-size:14px;line-height:30px;"></span><br> <span style="font-size:12px;"></span></td></tr> </tbody></table> </td>
+ </tr>
+ <tr>
+ <td><table align=center><tr><td><table bgcolor=#efefef><tr><td><TABLE><TBODY><TR><TD align="center"><A HREF="../../../res/1/20261015/61121792000705742.jpg" title="澳門日報版權所有" class="thickbox"><IMG src="../../../res/1/20261015/13771792000705742.jpg" style="border:0"></A><BR><BR></TD></TR>
+ <TR><TD width="460"><font size=2> 僑總負責人祝酒
+</font></TD></TR></TBODY></TABLE></td></tr></table>
+</td></tr><tr><td><table bgcolor=#efefef><tr><td><TABLE><TBODY><TR><TD align="center"><A HREF="../../../res/1/20261015/88291792000705742.jpg" title="澳門日報版權所有" class="thickbox"><IMG src="../../../res/1/20261015/59181792000705742.jpg" style="border:0"></A><BR><BR></TD></TR>
+ <TR><TD width="460"><font size=2> 僑總領導與嘉賓合影
+</font></TD></TR></TBODY></TABLE></td></tr></table>
+</td></tr></table>
+ </td>
+ </tr>
+ <tr>
+ <td> <table cellspacing=0 cellpadding=0 width="572" border=0> <tbody> <tr> <td style="PADDING:0px 30px 0px 10px; FONT-SIZE: 14px; LINE-HEIGHT: 21px" align=left> <div id=ozoom style="ZOOM: 100%"> <founder-content><P>&nbsp;&nbsp;&nbsp;&nbsp;僑總賀三慶續發揮優勢</P><P></P><P>&nbsp;&nbsp;&nbsp;&nbsp;【本報消息】澳門歸僑總會昨舉行“慶祝中華人民共和國成立七十七周年、澳門回歸祖國廿七周年、澳門歸僑總會成立五十八周年聯歡晚宴”，近五百位政府代表及社會各界人士出席。</P><P></P><P>&nbsp;&nbsp;&nbsp;&nbsp;全國政協常委、歸僑總會會長劉雅煌表示，將一如既往積極配合特區政府科學施政，協助澳門及內地企業“抱團出海”及“雙向奔赴”，助力澳門融入和服務國家發展大局。</P><P>&nbsp;&nbsp;&nbsp;&nbsp;晚宴昨晚上七時在萬豪軒酒家舉行，行政長官代表、經濟財政司司長吳惠嫻，中聯辦協調部長仇昱，外交公署領事部副主任譚翔彬，全國人大常委高開賢，全國政協常委何潤生，中華全國婦女聯合會常委賀定一，體育局副局長鄭繼明，多位全國人大、全國政協、澳門行政會、立法會成員，僑總永遠會長劉藝良，理事長畢志健及多位名譽榮譽、會領導等出席。</P><P>&nbsp;&nbsp;&nbsp;&nbsp;吳惠嫻代表特區政府向僑總致以祝賀與問候，肯定其五十八年來堅守愛國愛澳核心價值，在團結僑胞、維護社會和諧及支持依法施政等方面發揮重要橋樑作用。她指出，今年是國家“十五五”規劃開局之年及澳門“三五”規劃落實啟動之年，特區政府正加速推進經濟適度多元發展，並全力落實行政長官出訪東南亞成果，為企業拓展海外商機。期望僑總繼續發揮“融通中外”優勢，凝聚僑心僑力，引導海外資金、技術與人才匯聚澳門，為高質量發展注入新動能。</P><P>&nbsp;&nbsp;&nbsp;&nbsp;劉雅煌表示，當前全球六千多萬海外華僑華人與四千多萬歸僑僑眷，已彙聚成服務國家發展的重要生力軍。展望未來，僑總將立足聯通中外優勢，以共情話語闡釋中國發展的全球意義，助力澳門打造成為與中國香港錯位發展的另一國際大通道，推動澳門從“中西交匯點”躍升為“全球創新合作點”的“精準聯絡人”，並構建四大賦能體系：以出海服務“加速器”，為澳門與內地企業“借船出海”搭建平台；以國際傳播“聯通門”的敘事乘數效應，讓世界更多民眾讀懂中國澳門故事；以歐亞、葡語系僑界跨域協同新質人才“蓄水池”等機制廣納各國英才；以兩岸青年融合“連心橋”推動心靈契合助推祖國統一。</P><P>&nbsp;&nbsp;&nbsp;&nbsp;晚宴上，該會領導層向來賓祝酒，畢志健致祝酒詞。席間設有長拳開場表演、僑總貢獻獎頒獎儀式、“僑心·傳承”義工培訓頒獎禮、歌舞表演及抽獎助興。</P><P></P><P></P></founder-content></div></td></tr> <INPUT type=checkbox value=0 name=titlecheckbox sourceid="" style="display:none"> </tbody> </table> 
+ </td>
+ </tr>
+ <tr>
+ <td>
+ </td>
+ </tr>
+ </table>
+		<table width="559" border="0" cellpadding="6" cellspacing="0" bgcolor="#CCCCCC">
+ <tr bgcolor="#e8e8e8">
+ <td align="left" width="559"><a class=preart href="content_1940021.htm">下一篇<FONT face=Webdings>4</FONT></a>&nbsp;&nbsp;</td>
+ </tr>
+ </table>
+	 </table>
+</td>
+	</tr>
+	<tr>
+		<td width="440" height="19" valign="top">
+		　	 <td valign="top" width="591">
+
+			 </td>
+	</tr>
+ </table>
+		<table width="1005" border="0" cellpadding="0" cellspacing="0" id="table6" style="border-collapse: collapse">
+ <tr>
+ <td width="1008" align="center" valign="middle" bgcolor="#E8E8D7">
+			<!-- 广告位：內容頁底部通欄adv_22 999*63 -->
+
+ 
+ </tr>
+ <tr>
+ <td height="96" align=center valign="middle" bgcolor="#FF6600"><iframe src="../../../other-adv/foot.htm" frameborder=0 width="990" scrolling=no height="86"></iframe></td>
+ </tr>
+ </table>
+		</table>
+<p>&nbsp;</tr></td><td>　</td>
+	</tr>
+</table>
+
+</div>
+</p>
+
+</body>
+
+</html><!--enpproperty <founder-date>2026-10-15</founder-date><founder-author></founder-author><founder-title>僑總賀三慶續發揮優勢</founder-title><founder-nodename></founder-nodename><founder-keyword></founder-keyword><founder-ip></founder-ip><founder-ChannelID>1</founder-ChannelID><founder-imp>0</founder-imp><founder-subtitle></founder-subtitle><founder-type>1</founder-type><founder-introtitle></founder-introtitle><founder-pagepicurl>macaodaily/page/1/2026-10-15/A12/46311792000705648.jpg</founder-pagepicurl><founder-pagenum>A12</founder-pagenum><founder-papername>澳门日报欢迎你－澳门日报</founder-papername><founder-nodeid>30</founder-nodeid><founder-paperhead>macaodaily/logo/</founder-paperhead> /enpproperty-->

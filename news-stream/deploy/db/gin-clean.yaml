@@ -1,0 +1,47 @@
+# Flushes the GIN indexes' pending lists of posts (posts_grams, posts_words) and of post_subs (post_subs_subs) every 5 minutes, so no writer
+# ever has to.
+# A GIN index with fastupdate (the default) queues new entries in a pending list; whichever INSERT/UPDATE pushes the
+# list past gin_pending_list_limit merges all of it into the index inside its own transaction. posts_grams holds every
+# character pair of every post (corpus.grams): on 2026-10-27 its list had reached 120 MB, one news-stream UPDATE spent
+# 19 minutes merging it while holding its row lock, and every search read the 120 MB list in full. corpus.SCHEMA sets
+# their gin_pending_list_limit to 256 MB, a safety stop if this Deployment is down; PostgreSQL's docs name a
+# background gin_clean_pending_list() caller as the way to keep writers' response times steady ("GIN Tips and Tricks").
+# 5 minutes, not 1 (2026-10-27): each flush reads the parts of the 1.8 GB posts_grams that its entries land in, which is
+# much of it whatever the batch (a 10 MB list read 800 MB), so fewer, larger flushes read less. A cycle (the flushes,
+# minutes each, then 5 minutes) leaves posts_grams a list of tens of MB at most (4,200 pages, 33 MB, on 27 Oct), which
+# searches read in full
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gin-clean
+  namespace: db
+spec:
+  replicas: 0   # T5: runs on yyc-talos (clusters/talos/pg/gin-clean.yaml)
+  selector: {matchLabels: {app: gin-clean}}
+  template:
+    metadata:
+      labels: {app: gin-clean}
+    spec:
+      securityContext: {runAsUser: 26, runAsGroup: 26}
+      nodeSelector: {pool: apps}
+      containers:
+        - name: clean
+          image: ghcr.io/cloudnative-pg/postgresql:17.11-standard-trixie
+          command:
+            - bash
+            - -c
+            - |
+              # one statement (one transaction) per index: a flush can take many minutes, and the snapshot it holds
+              # keeps vacuum from removing dead rows and index builds (CONCURRENTLY) waiting until it ends
+              while :; do
+                for ix in posts_grams posts_words post_subs_subs; do
+                  PGPASSWORD="$PW_APP" psql -XAtq "host=pg-rw.db.svc.cluster.local dbname=app user=app sslmode=require" \
+                    -c "SELECT now()::time(0), '$ix', gin_clean_pending_list('$ix')" || true
+                done
+                sleep 300
+              done
+          env:
+            - {name: PW_APP, valueFrom: {secretKeyRef: {name: pg-role-app, key: password}}}
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {memory: 128Mi}

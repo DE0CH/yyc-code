@@ -1,0 +1,186 @@
+/* Deyao's house style for the whole site (claude-env deyao-web-design, from DE0CH/china-train): the tokens,
+   the reset (square edges, flat, no shadows), the type faces and the shared parts every page builds on. Square edges
+   everywhere, flat white sheets on a grey ground with 1px rules, colour only where it carries a meaning (on the public
+   pages: an article's sentiment), ink-filled states, Archivo for figures with the system's CJK face, inline SVG icons,
+   no motion, controls >= 44px. Nothing here is a route, so there is no line diagram: lists of timestamped things are
+   ruled rows with the time small and muted. Dark mode is designed, not inverted. Pages restyle these parts in their own files
+   (layer components); nothing here is page-specific. */
+
+:root {
+  --ground:#eef0f2; --panel:#ffffff; --ink:#14171a; --muted:#59626b; --rule:#d3d8dd;
+  --c-1:#c8102e; --c-2:#005eb8; --c-3:#00774a; --c-4:#8a5800;          /* crimson, blue, green, ochre */
+  /* status, as on a flight deck (Airbus ECAM / Boeing EICAS, FAA AC 25.1322): red = a fault that needs action now,
+     amber = a caution that needs attention, green = normal, blue = information worth seeing that is neither good nor
+     bad (an advisory: e.g. Stage 2 overruling Stage 1). These mean only that, on every page that shows a state; no category
+     or decoration may use them. --st-warn is a fill or a mark (ink text on it); amber
+     words on the sheet use --st-warn-ink */
+  --st-bad:#c8102e; --st-on-bad:#ffffff; --st-warn:#f2a900; --st-warn-ink:#7a5000; --st-on-warn:#14171a; --st-ok:#00774a; --st-info:#005eb8;
+  /* the monitor's providers (one hue each, named by a legend): never red, amber or green, which are status */
+  --p-1:#005eb8; --p-2:#6a3fb5; --p-3:#9b3d8c; --p-4:#00727e; --p-5:#4a6274; --p-6:#24325f;  /* blue, violet, plum, teal, slate, navy */
+  /* sentiment, the one hue category of the public pages */
+  --sent-neg:var(--c-1); --sent-pos:var(--c-3); --sent-mixed:var(--c-4); --sent-irony:var(--c-2); --sent-neu:var(--ink);
+  --hit:#ffe08a; --hit-ink:#14171a;                                    /* a search hit */
+  --num:"Archivo","PingFang HK","Noto Sans HK","Microsoft JhengHei",sans-serif;
+  --cjk:"PingFang HK","PingFang TC","Noto Sans HK","Noto Sans TC","Microsoft JhengHei","Hiragino Sans CNS",
+        "PingFang SC","Noto Sans SC",system-ui,sans-serif;
+  --latin:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,var(--cjk);
+  --edge-w:6px; --mark-w:4px; --ctl:44px;                                /* a heavy left rule; a row's sentiment edge */
+  --bar-h:57px; --tabbar-h:0px;                     /* the whole bar's height (Shell.tsx measures it); the phone tab bar */
+  --gutter:16px;                                    /* the one left (and right) edge of every bar and sheet */
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --ground:#111315; --panel:#1a1d20; --ink:#e8eaec; --muted:#9ea6ae; --rule:#33393f;
+  --c-1:#ff6b78; --c-2:#5aa9ff; --c-3:#3cc48a; --c-4:#e0a54a;
+  --st-bad:#ff4d5a; --st-on-bad:#111315; --st-warn:#ffb81c; --st-warn-ink:#ffb81c; --st-on-warn:#111315; --st-ok:#3cc48a; --st-info:#5aa9ff;
+  --p-1:#5aa9ff; --p-2:#b08cff; --p-3:#e58ad6; --p-4:#3cc6d4; --p-5:#a3b8c8; --p-6:#8a9bd6;
+  --hit:#6b5410; --hit-ink:#fff3c4;
+  color-scheme:dark;
+}}
+:root[data-theme="dark"] {
+  --ground:#111315; --panel:#1a1d20; --ink:#e8eaec; --muted:#9ea6ae; --rule:#33393f;
+  --c-1:#ff6b78; --c-2:#5aa9ff; --c-3:#3cc48a; --c-4:#e0a54a;
+  --st-bad:#ff4d5a; --st-on-bad:#111315; --st-warn:#ffb81c; --st-warn-ink:#ffb81c; --st-on-warn:#111315; --st-ok:#3cc48a; --st-info:#5aa9ff;
+  --p-1:#5aa9ff; --p-2:#b08cff; --p-3:#e58ad6; --p-4:#3cc6d4; --p-5:#a3b8c8; --p-6:#8a9bd6;
+  --hit:#6b5410; --hit-ink:#fff3c4;
+  color-scheme:dark;
+}
+
+@media (min-width:720px) { :root { --gutter:20px; } }
+
+/* ---- reset: square, flat ---- */
+*, *::before, *::after { box-sizing:border-box; border-radius:0; }
+html, body { margin:0; background:var(--ground); color:var(--ink); }
+body { font:16px/1.5 var(--cjk); font-variant-numeric:tabular-nums; -webkit-font-smoothing:antialiased; padding-bottom:var(--tabbar-h); }
+button, input, select, textarea { font:inherit; color:inherit; }
+a { color:inherit; }
+img, video { max-width:100%; }
+:focus-visible { outline:3px solid var(--ink); outline-offset:2px; }
+input[type=checkbox], input[type=radio], progress, input[type=range] { accent-color:var(--ink); }
+[hidden] { display:none !important; }
+
+/* Latin-script post text (lib/lang.tsx Txt / langOf: lang="en"): a Latin system face, so ‘ ’ “ ” – … are narrow (the CJK
+   face draws them full-width: "Netflix’ s"); every other character falls back to the CJK face. Not on the live
+   dashboard (live.css: its own pixel font throughout) */
+:lang(en):not(.live, .live *) { font-family:var(--latin); }
+
+/* emoji drawn in the text colour, never in their own colours (Deyao, 2026-10-30), on the pages where colour means a
+   state (the monitor; the live dashboard does it in live.css): Noto Emoji, after the text faces and system-ui (it also
+   holds digits and # * for keycaps, which must come from a text face) and before the system's colour emoji. The face tokens are restated here because a custom
+   property's var() is resolved where it is declared (:root) */
+.mono-emoji {
+  --cjk:"PingFang HK","PingFang TC","Noto Sans HK","Noto Sans TC","Microsoft JhengHei","Hiragino Sans CNS",
+        "PingFang SC","Noto Sans SC",system-ui,"Noto Emoji",sans-serif;
+  --latin:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,var(--cjk);
+  --num:"Archivo","PingFang HK","Noto Sans HK","Microsoft JhengHei","Noto Emoji",sans-serif;
+  font-family:var(--cjk); }
+
+/* figures: Archivo (bundled, styles/index.css), tabular */
+.num { font-family:var(--num); font-variant-numeric:tabular-nums; }
+
+/* the icon set (lib/icons.tsx): viewBox 24, stroke 2, square caps, no fill */
+svg.i { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:square; stroke-linejoin:miter; flex:none; }
+/* a sentiment mark is drawn in its sentiment's hue; the word beside it stays ink. On an ink-filled (pressed or current)
+   control it takes the control's text colour */
+svg.i[data-i="positive"] { color:var(--sent-pos); }
+svg.i[data-i="negative"] { color:var(--sent-neg); }
+svg.i[data-i="mixed"] { color:var(--sent-mixed); }
+svg.i[data-i="irony"] { color:var(--sent-irony); }
+svg.i[data-i="neutral"] { color:var(--sent-neu); }
+:is([aria-pressed="true"], [aria-current="page"], [aria-current="true"], .on) > svg.i[data-i] { color:inherit; }
+
+/* ---- shared parts (pages may restyle them in their own files) ---- */
+
+/* a sheet: white on the grey ground, no border; inner divisions are 1px rules */
+.sheet { background:var(--panel); }
+
+/* an article's sentiment on a row of a list: .sm is a --mark-w rule down the row's left edge in the sentiment hue (a
+   dashed muted one while the article has none). .sw is its legend swatch: the same rule, a few px tall. The row
+   positions it (position:relative on the row) */
+:is(.sm, .sw).positive { --sent:var(--sent-pos); }
+:is(.sm, .sw).negative { --sent:var(--sent-neg); }
+:is(.sm, .sw).mixed { --sent:var(--sent-mixed); }
+:is(.sm, .sw).irony { --sent:var(--sent-irony); }
+:is(.sm, .sw).neutral { --sent:var(--sent-neu); }
+:is(.sm, .sw).none { --sent:var(--muted); }
+.sm { position:absolute; top:0; bottom:0; left:0; width:0; border-left:var(--mark-w) solid var(--sent, var(--ink)); }
+.sw { display:inline-block; width:0; height:16px; flex:none; vertical-align:middle; border-left:var(--mark-w) solid var(--sent, var(--ink)); }
+:is(.sm, .sw).none { border-left-style:dashed; }
+/* 16 px is a single dash, so the swatch draws its own: two 5 px blocks with a gap, as the rows show it */
+.sw.none { position:relative; width:var(--mark-w); border-left:0; }
+.sw.none::before, .sw.none::after { content:""; position:absolute; left:0; width:100%; height:5px; background:var(--sent); }
+.sw.none::before { top:0; }
+.sw.none::after { bottom:0; }
+
+/* a verdict or status pip: filled = good / on, hollow = not, dashed = waiting */
+.pip { display:inline-block; width:12px; height:12px; flex:none; border:2px solid var(--muted); vertical-align:-1px; }
+.pip.on { background:var(--ink); border-color:var(--ink); }
+.pip.wait { border-style:dashed; }
+
+/* ---- clean lines (Swiss; deyao-web-design "Clean lines", Deyao 2026-10-30) ----
+   One system for every bar and sheet:
+   - one rule: every divider is 1px solid var(--rule); the only heavier line is a 3px ink state marker (a level-2 tab's
+     bar on its row's baseline, the phone tab bar's current item, a picker frame). No second grey, no 2px or 6px rules.
+   - one ground for all bars: every bar row is --panel with --ink text, --muted idle items, --ground on hover, and draws
+     one --rule under itself (its baseline), so stacked rows show exactly one line between them. No tinted bands.
+   - one grid: bar rows are 56px (level 1: brand, sections, streams) or 44px (level 2 tabs, a .yyc-tier such as a period
+     bar), each plus its 1px baseline; cells fill their row's full height, so fills and rules meet the row's edges.
+     --gutter (16px, 20px from 720px) is the single left edge: a bar's first cell edge, a sheet's edge, a page main's
+     inline padding. Flush left, ragged right, nothing centred in bars or rows.
+   - shared edges: a group of cells (a segmented control, a date range, a row of buttons) is one outlined block whose
+     members are split by single shared rules; a grid of cells is .cellgrid (1px gaps over --rule). A filled (pressed /
+     current) cell keeps its row's rules: the fill changes, the border never does. Groups are separated by plain ground.
+   - hierarchy from type: level 1 nav 16px/600 (700 current, ink-filled), level 2 14px/400 (700 current, 3px ink bar). */
+
+/* cells: chips, segmented controls and buttons are bordered blocks, >= 44px; pressed / current = ink-filled, rules kept.
+   A plain .btn has the one --rule outline like every other cell; only .btn.primary and .go are ink */
+.chip, .seg button, .btn, .go {
+  display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:var(--ctl); padding:0 12px;
+  border:1px solid var(--rule); background:var(--panel); color:var(--ink); font-size:15px; line-height:1.2;
+  text-decoration:none; cursor:pointer; white-space:nowrap; }
+.chip:hover, .seg button:hover, .btn:hover { background:var(--ground); }
+.chip[aria-pressed="true"], .chip.on, .seg button[aria-pressed="true"], .seg button.on, .seg button[aria-current] {
+  background:var(--ink); color:var(--panel); font-weight:700; }
+.btn.primary, .go { background:var(--ink); border-color:var(--ink); color:var(--panel); font-weight:700; }
+.btn.primary:hover, .go:hover { background:var(--muted); border-color:var(--muted); }
+.chip:disabled, .seg button:disabled, .btn:disabled, .go:disabled { color:var(--muted); border-color:var(--rule); background:var(--panel); cursor:default; }
+/* a segmented control: one outlined block, its cells split by shared rules (never overlapped or doubled) */
+.seg { display:inline-flex; align-items:stretch; max-width:100%; overflow-x:auto; scrollbar-width:none; border:1px solid var(--rule); }
+.seg button { border:0; }
+.seg button + button { border-left:1px solid var(--rule); }
+
+/* a row of cells sharing edges (buttons, chips, a pager): one block, each member after the first draws only a left
+   rule. Buttons in it take the --rule outline, so the block has one rule colour */
+.cellrow { display:inline-flex; align-items:stretch; max-width:100%; border:1px solid var(--rule); }
+.cellrow > * { border:0; }
+.cellrow > * + * { border-left:1px solid var(--rule); }
+.cellrow > :is(span, b, output) { display:inline-flex; align-items:center; padding:0 12px; }
+/* a grid of cells (filter chips, figures, tiles, file links): 1px gaps over --rule, so every edge is one shared rule.
+   --cell-min sets the column width */
+.cellgrid { display:grid; grid-template-columns:repeat(auto-fill, minmax(var(--cell-min, 96px), 1fr)); gap:1px;
+  background:var(--rule); border:1px solid var(--rule); }
+.cellgrid > * { border:0; background:var(--panel); min-width:0; }
+/* a ragged grid (.cellgrid.ragged: chips whose last row may be short): each cell draws its own four rules as a 1px ring
+   into the 1px gaps (neighbours' rings coincide, so every edge stays one shared rule), so the block ends at its last
+   cell, on plain ground, with no grey filler cells and no top rule running on past them */
+.cellgrid.ragged { gap:1px; padding:1px; background:none; border:0; }
+.cellgrid.ragged > * { box-shadow:0 0 0 1px var(--rule); }
+/* a date range: one block, from | 至 | to, split by shared rules */
+.range { display:inline-flex; align-items:stretch; max-width:100%; border:1px solid var(--rule); }
+.range input { border:0; min-width:0; font-family:var(--num); font-weight:600; }
+.range > span { display:flex; align-items:center; padding:0 10px; border-inline:1px solid var(--rule); color:var(--muted); font-size:14px; }
+
+/* a badge: a square ruled tag, never a hue background */
+.badge { display:inline-flex; align-items:center; gap:4px; padding:1px 6px; border:1px solid var(--rule); font-size:13px; line-height:1.4; white-space:nowrap; }
+
+/* fields */
+input[type=text], input[type=search], input[type=date], input[type=number], input:not([type]), select, textarea {
+  border:1px solid var(--rule); background:var(--panel); color:var(--ink); }
+input[type=text], input[type=search], input[type=date], input[type=number], input:not([type]), select { min-height:var(--ctl); padding:0 10px; }
+input:focus, select:focus, textarea:focus { border-color:var(--ink); }
+
+/* a hover tip: a ruled panel, no shadow */
+.tip { background:var(--panel); color:var(--ink); border:1px solid var(--ink); box-shadow:none; }
+
+/* a search hit */
+mark { background:var(--hit); color:var(--hit-ink); }

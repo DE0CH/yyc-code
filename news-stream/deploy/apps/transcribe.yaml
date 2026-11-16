@@ -1,0 +1,70 @@
+# The transcriber (python media.py run, README "Video and audio"): finds the clips in article pages no full-text reader
+# read, and transcribes every clip, newest first. Every copy transcribes, each clip claimed in the database
+# (media.claim: a lease renewed while in hand, so no two copies take one clip and a killed copy's clip goes back to
+# the queue): a deploy starts the new pod first (maxSurge 1, maxUnavailable 0), which works at once, while the old pod,
+# on SIGTERM, finishes its clips in hand (their model calls and the transcripts' writes) and exits. Clips run up to
+# hours (media.MAX_SECONDS), so the old pod may take long; nothing waits on it. The page scan runs in one copy at a
+# time (Postgres lock 'yyc transcribe', podlock.py). tests/test_worker_locks.py.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: transcribe
+  namespace: yyc
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels: {app: transcribe}
+  strategy: {type: RollingUpdate, rollingUpdate: {maxSurge: 1, maxUnavailable: 0}}
+  template:
+    metadata:
+      labels: {app: transcribe}
+    spec:
+      securityContext: {runAsUser: 10001, runAsGroup: 10001, fsGroup: 10001}
+      imagePullSecrets: [{name: ghcr-pull}]
+      # the longest clip in hand: a 100-minute clip took more than 30 minutes (2026-10-16, SIGKILLed at the old 1800 s)
+      terminationGracePeriodSeconds: 7200
+      containers:
+        - name: transcribe
+          image: yyc-news-stream
+          command: [python, /app/media.py, run]
+          # app-env: OPENROUTER_API (key yyc-stream),
+          # DISCORD_WEBHOOK (notify.py: OpenRouter's limit or credit refusal)
+          envFrom: [{secretRef: {name: app-env}}]
+          env:
+            - {name: DATABASE_URL, valueFrom: {secretKeyRef: {name: db-app, key: uri}}}
+            - {name: DB_POOL_MAX, value: "6"}
+            - {name: FLAGD_HOST, value: flagd.yyc.svc.cluster.local}  # flag transcription: subtitles only while off (media.on)
+            - {name: TMPDIR, value: /tmp}
+            # YouTube through YYC's IPRoyal ISP IP (media.py MEDIA_ROUTES; one client at a time: media.youtube_lock)
+            - {name: MEDIA_ROUTES, value: '{"youtube": "ISP_PROXY"}'}
+            - {name: ISP_PROXY, valueFrom: {secretKeyRef: {name: isp-proxy, key: ISP_PROXY}}}
+          readinessProbe: {exec: {command: [test, -f, /tmp/transcribe-started]}, periodSeconds: 2}
+          livenessProbe:
+            exec: {command: [sh, -c, "test -n \"$(find /tmp/transcribe-alive -mmin -3)\""]}
+            initialDelaySeconds: 60
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 100m
+              memory: 384Mi
+              ephemeral-storage: 50Mi
+            limits:
+              cpu: '2'
+              memory: 640Mi
+              ephemeral-storage: 5Gi
+          volumeMounts: [{name: tmp, mountPath: /tmp}]
+      volumes: [{name: tmp, emptyDir: {sizeLimit: 4Gi}}]
+      priorityClassName: serving
+---
+# a singleton is never evicted: a node move goes through cluster/drain.sh (its own rolling update, new pod first,
+# lock handover), so a bare `kubectl drain` waits here instead of cutting it (tests/test_rollouts.py Disruptions)
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: transcribe
+  namespace: yyc
+spec:
+  maxUnavailable: 0
+  selector:
+    matchLabels: {app: transcribe}

@@ -1,0 +1,55 @@
+# The list, a search, a guest's page with the tag preview, and a print that goes queued → printing → done.
+appId: dev.de0ch.yycnametags
+name: search, detail and print
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+    arguments:
+      apiBase: "http://127.0.0.1:8787"
+      testToken: "test-token"
+- extendedWaitUntil:
+    visible: "共 6 位嘉賓"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: "打印機在線"
+    timeout: 15000
+- assertVisible: ".*Jing HUANG.*"
+- assertVisible: ".*Mei Ling WONG.*"
+- takeScreenshot: 02-list
+- tapOn: { id: "searchField" }
+# RomanSearch: 黃 → Huang (pinyin) and Wong (HK romanisation)
+- inputText: "黃"
+- assertVisible: "找到 2 位（共 6 位）"
+- assertVisible: ".*Jing HUANG.*"
+- assertVisible: ".*Mei Ling WONG.*"
+- takeScreenshot: 02-search-wong-huang
+- tapOn: { id: "clearSearch" }
+- tapOn: { id: "searchField" }
+# Romanisations are equivalent: huang finds Huang and Wong too
+- inputText: "huang"
+- assertVisible: "找到 2 位（共 6 位）"
+- tapOn: { id: "clearSearch" }
+- tapOn: { id: "searchField" }
+- inputText: "ministry"
+- assertVisible: "找到 1 位（共 6 位）"
+- assertVisible: ".*Jing HUANG.*"
+- assertNotVisible: ".*Mei Ling WONG.*"
+- takeScreenshot: 02-search-ministry
+- tapOn: ".*Jing HUANG.*Ministry of Service and Technology.*"
+- extendedWaitUntil:
+    visible: { id: "tagPreview" }
+    timeout: 10000
+- assertVisible: "Ministry of Service and Technology"
+- assertVisible: "jing.huang@example.org"
+- takeScreenshot: 02-detail
+- tapOn: { id: "printButton" }
+- extendedWaitUntil:
+    visible: { id: "printStatus", text: "已排隊.*|打印中|已打印" }
+    timeout: 10000
+- takeScreenshot: 02-print-in-progress
+- extendedWaitUntil:
+    visible: { id: "printStatus", text: "已打印" }
+    timeout: 30000
+- assertVisible: "再印一張"
+- takeScreenshot: 02-printed

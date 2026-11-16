@@ -1,0 +1,1370 @@
+# One CronJob per former systemd timer of infra/provision.sh: same script, schedule, TimeoutStartSec (as
+# activeDeadlineSeconds) and MemoryMax. CPU requests at about half the measured peak (kubectl top, 21 Oct 2026: sites 856m,
+# facebook 706m, browser 653m, forums 581m, sites-browser 574m, fulltext 523m), so the scheduler spreads them over nodes.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: browser
+  namespace: yyc
+  annotations:
+    yyc/what: 成報, 亞洲週刊, 明報月刊 through a real browser (Cloudflare challenge); was yyc-browser.timer, every 30 min
+spec:
+  schedule: 14,44 * * * *
+  timeZone: Etc/UTC
+  suspend: false
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 600
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 300
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app: browser
+        spec:
+          securityContext:
+            runAsUser: 10001
+            runAsGroup: 10001
+            fsGroup: 10001
+            fsGroupChangePolicy: OnRootMismatch
+          imagePullSecrets:
+          - name: ghcr-pull
+          restartPolicy: Never
+          containers:
+          - name: browser
+            image: yyc-news-stream
+            # a shell is PID 1, not xvfb-run: as PID 1 xvfb-run never gets Xvfb's ready signal and hangs until the
+            # deadline (every browser job failed from the move to the cluster, 2026-10-13, to 2026-10-14). "; exit $?"
+            # stops dash from exec-ing the command in place of itself.
+            command:
+            - sh
+            - -c
+            - 'xvfb-run -a -s "-screen 0 1280x900x24" python /app/browser_fetch.py; exit $?'
+            envFrom:
+            - secretRef:
+                name: app-env
+            env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: db-app
+                  key: uri
+            resources:
+              requests:
+                cpu: 300m
+                memory: 960Mi
+                ephemeral-storage: 50Mi
+              limits:
+                cpu: '2'
+                memory: 1536Mi
+                ephemeral-storage: 3Gi
+            volumeMounts:
+            - name: data
+              mountPath: /var/lib/yyc/data
+            - name: dshm
+              mountPath: /dev/shm
+          volumes:
+          - name: data
+            emptyDir:
+              sizeLimit: 512Mi
+          - name: dshm
+            emptyDir:
+              medium: Memory
+              sizeLimit: 1Gi
+          priorityClassName: batch
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: sites-browser
+  namespace: yyc
+  annotations:
+    yyc/what: "the catalogue sites marked browser in sites.json (Cloudflare / JS challenges), read by a real browser with sites_fetch's parsers; every 30 min, deadline 30 min"
+spec:
+  schedule: 24,54 * * * *
+  timeZone: Etc/UTC
+  suspend: false
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 600
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 1800  # the run stops starting sites after BROWSER_SITES_SECONDS (1500)
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app: sites-browser
+        spec:
+          securityContext:
+            runAsUser: 10001
+            runAsGroup: 10001
+            fsGroup: 10001
+            fsGroupChangePolicy: OnRootMismatch
+          imagePullSecrets:
+          - name: ghcr-pull
+          restartPolicy: Never
+          containers:
+          - name: sites-browser
+            image: yyc-news-stream
+            # a shell is PID 1, not xvfb-run: as PID 1 xvfb-run never gets Xvfb's ready signal and hangs until the
+            # deadline (every browser job failed from the move to the cluster, 2026-10-13, to 2026-10-14). "; exit $?"
+            # stops dash from exec-ing the command in place of itself.
+            command:
+            - sh
+            - -c
+            - 'xvfb-run -a -s "-screen 0 1280x900x24" python /app/browser_fetch.py catalogue; exit $?'
+            envFrom:
+            - secretRef:
+                name: app-env
+            env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: db-app
+                  key: uri
+            resources:
+              requests:
+                cpu: 300m
+                memory: 1024Mi
+                ephemeral-storage: 50Mi
+              limits:
+                cpu: '2'
+                memory: 1536Mi
+                ephemeral-storage: 3Gi
+            volumeMounts:
+            - name: data
+              mountPath: /var/lib/yyc/data
+            - name: dshm
+              mountPath: /dev/shm
+          volumes:
+          - name: data
+            emptyDir:
+              sizeLimit: 512Mi
+          - name: dshm
+            emptyDir:
+              medium: Memory
+              sizeLimit: 1Gi
+          priorityClassName: batch
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: facebook
+  namespace: yyc
+  annotations:
+    yyc/what: Facebook pages over the yycstream proxy, every 15 min (pages that posted within 24 h every 30 min, the rest every 3 h)
+spec:
+  schedule: 0,15,30,45 * * * *
+  timeZone: Etc/UTC
+  suspend: false
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 600
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 400
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app: facebook
+        spec:
+          securityContext:
+            runAsUser: 10001
+            runAsGroup: 10001
+            fsGroup: 10001
+            fsGroupChangePolicy: OnRootMismatch
+          imagePullSecrets:
+          - name: ghcr-pull
+          restartPolicy: Never
+          containers:
+          - name: facebook
+            image: yyc-news-stream
+            # a shell is PID 1, not xvfb-run: as PID 1 xvfb-run never gets Xvfb's ready signal and hangs until the
+            # deadline (every browser job failed from the move to the cluster, 2026-10-13, to 2026-10-14). "; exit $?"
+            # stops dash from exec-ing the command in place of itself.
+            command:
+            - sh
+            - -c
+            - 'xvfb-run -a -s "-screen 0 1280x900x24" python /app/fb_fetch.py poll; exit $?'
+            envFrom:
+            - secretRef:
+                name: app-env
+            env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: db-app
+                  key: uri
+            resources:
+              requests:
+                cpu: 300m
+                memory: 128Mi
+                ephemeral-storage: 50Mi
+              limits:
+                cpu: '2'
+                memory: 1024Mi
+                ephemeral-storage: 3Gi
+            volumeMounts:
+            - name: data
+              mountPath: /var/lib/yyc/data
+            - name: dshm
+              mountPath: /dev/shm
+          volumes:
+          - name: data
+            emptyDir:
+              sizeLimit: 512Mi
+          - name: dshm
+            emptyDir:
+              medium: Memory
+              sizeLimit: 1Gi
+          priorityClassName: batch
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: instagram
+  namespace: yyc
+  annotations:
+    yyc/what: Instagram + Threads accounts on the ISP IP (yycstream when it can't), every 15 min (accounts that posted within 24 h hourly, the rest every 6 h)
+spec:
+  schedule: 4,19,34,49 * * * *
+  timeZone: Etc/UTC
+  suspend: false
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 600
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 840
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app: instagram
+        spec:
+          securityContext:
+            runAsUser: 10001
+            runAsGroup: 10001
+            fsGroup: 10001
+            fsGroupChangePolicy: OnRootMismatch
+          imagePullSecrets:
+          - name: ghcr-pull
+          restartPolicy: Never
+          containers:
+          - name: instagram
+            image: yyc-news-stream
+            command:
+            - python
+            - /app/ig_fetch.py
+            envFrom:
+            - secretRef:
+                name: app-env
+            env:
+            - name: ISP_PROXY  # YYC's IPRoyal ISP IP first, one client at a time (lock 'yyc youtube'; ig_fetch.py)
+              valueFrom:
+                secretKeyRef:
+                  name: isp-proxy
+                  key: ISP_PROXY
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: db-app
+                  key: uri
+            resources:
+              requests:
+                cpu: 50m
+                memory: 128Mi
+                ephemeral-storage: 50Mi
+              limits:
+                cpu: 500m
+                memory: 256Mi
+                ephemeral-storage: 512Mi
+            volumeMounts:
+            - name: data
+              mountPath: /var/lib/yyc/data
+          volumes:
+          - name: data
+            emptyDir:
+              sizeLimit: 512Mi
+          priorityClassName: batch
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: comments
+  namespace: yyc
+  annotations:
+    yyc/what: off (Deyao, 2026-10-20) - its scheduled comment re-checks are gone; comments are read only for the two-pass scoring, by the poller (social_twopass.py)
+spec:
+  schedule: 15,45 * * * *
+  timeZone: Etc/UTC
+  suspend: true  # off (Deyao, 2026-10-20: IPRoyal traffic); comments_fetch.py has no `run` any more
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 600
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 1700
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app: comments
+        spec:
+          securityContext:
+            runAsUser: 10001
+            runAsGroup: 10001
+            fsGroup: 10001
+            fsGroupChangePolicy: OnRootMismatch
+          imagePullSecrets:
+          - name: ghcr-pull
+          restartPolicy: Never
+          containers:
+          - name: comments
+            image: yyc-news-stream
+            # a shell is PID 1, not xvfb-run: as PID 1 xvfb-run never gets Xvfb's ready signal and hangs until the
+            # deadline (every browser job failed from the move to the cluster, 2026-10-13, to 2026-10-14). "; exit $?"
+            # stops dash from exec-ing the command in place of itself.
+            command:
+            - sh
+            - -c
+            - 'xvfb-run -a -s "-screen 0 1280x900x24" python /app/comments_fetch.py run; exit $?'
+            envFrom:
+            - secretRef:
+                name: app-env
+            env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: db-app
+                  key: uri
+            resources:
+              requests:
+                cpu: 100m
+                memory: 1024Mi
+                ephemeral-storage: 50Mi
+              limits:
+                cpu: '1'
+                memory: 1024Mi
+                ephemeral-storage: 3Gi
+            volumeMounts:
+            - name: data
+              mountPath: /var/lib/yyc/data
+            - name: dshm
+              mountPath: /dev/shm
+          volumes:
+          - name: data
+            emptyDir:
+              sizeLimit: 512Mi
+          - name: dshm
+            emptyDir:
+              medium: Memory
+              sizeLimit: 1Gi
+          priorityClassName: batch
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: replies
+  namespace: yyc
+  annotations:
+    yyc/what: "the whole 香港討論區 site: every board, every thread and its replies (replies_fetch.py discuss), every 5 min"
+spec:
+  schedule: '2-59/5 * * * *'
+  timeZone: Etc/UTC
+  suspend: false
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 600
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 600
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app: replies
+        spec:
+          securityContext:
+            runAsUser: 10001
+            runAsGroup: 10001
+            fsGroup: 10001
+            fsGroupChangePolicy: OnRootMismatch
+          imagePullSecrets:
+          - name: ghcr-pull
+          restartPolicy: Never
+          containers:
+          - name: replies
+            image: yyc-news-stream
+            command:
+            - python
+            - /app/replies_fetch.py
+            - discuss
+            envFrom:
+            - secretRef:
+                name: app-env
+            env:
+            - name: RUN_SECONDS
+              value: "240"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: db-app
+                  key: uri
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+                ephemeral-storage: 50Mi
+              limits:
+                cpu: '1'
+                memory: 256Mi
+                ephemeral-storage: 512Mi
+            volumeMounts:
+            - name: data
+              mountPath: /var/lib/yyc/data
+          volumes:
+          - name: data
+            emptyDir:
+              sizeLimit: 512Mi
+          priorityClassName: batch
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: forums
+  namespace: yyc
+  annotations:
+    yyc/what: "the catalogue forums' threads: each thread's opening post and replies (forum_fetch.py, forum_threads.json), every 5 min"
+spec:
+  schedule: '4-59/5 * * * *'
+  timeZone: Etc/UTC
+  suspend: false
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 600
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 600
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app: forums
+        spec:
+          securityContext:
+            runAsUser: 10001
+            runAsGroup: 10001
+            fsGroup: 10001
+            fsGroupChangePolicy: OnRootMismatch
+          imagePullSecrets:
+          - name: ghcr-pull
+          restartPolicy: Never
+          containers:
+          - name: forums
+            image: yyc-news-stream
+            command:
+            - python
+            - /app/forum_fetch.py
+            - run
+            envFrom:
+            - secretRef:
+                name: app-env
+            env:
+            - {name: YYC_JOB, value: forums}  # resi.py: the proxied bytes' job
+            - {name: FORUM_RUN_SECONDS, value: "240"}
+            - name: ISP_PROXY  # route "isp" (教育王國, 夜玥, YK Forum): YYC's IPRoyal ISP IP, one client at a time (lock 'yyc youtube')
+              valueFrom:
+                secretKeyRef:
+                  name: isp-proxy
+                  key: ISP_PROXY
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: db-app
+                  key: uri
+            resources:
+              requests:
+                cpu: 200m
+                memory: 192Mi
+                ephemeral-storage: 50Mi
+              limits:
+                cpu: '1'
+                memory: 384Mi
+                ephemeral-storage: 512Mi
+          priorityClassName: batch
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: forums-browser
+  namespace: yyc
+  annotations:
+    yyc/what: "the catalogue forums on the browser route (AV100fun: Cloudflare's challenge on every other route): their threads and replies in one real Chrome (forum_fetch.py run --browser), every 15 min"
+spec:
+  schedule: '9-59/15 * * * *'
+  timeZone: Etc/UTC
+  suspend: false
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 600
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 840
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app: forums-browser
+        spec:
+          securityContext:
+            runAsUser: 10001
+            runAsGroup: 10001
+            fsGroup: 10001
+            fsGroupChangePolicy: OnRootMismatch
+          imagePullSecrets:
+          - name: ghcr-pull
+          restartPolicy: Never
+          containers:
+          - name: forums-browser
+            image: yyc-news-stream
+            # a shell is PID 1, not xvfb-run (as PID 1 xvfb-run never gets Xvfb's ready signal: sites-browser's note)
+            command:
+            - sh
+            - -c
+            - 'xvfb-run -a -s "-screen 0 1280x900x24" python /app/forum_fetch.py run --browser; exit $?'
+            envFrom:
+            - secretRef:
+                name: app-env
+            env:
+            - {name: YYC_JOB, value: forums-browser}
+            - {name: FORUM_RUN_SECONDS, value: "600"}
+            - {name: DATA_DIR, value: /tmp}
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: db-app
+                  key: uri
+            resources:
+              requests:
+                cpu: 300m
+                memory: 128Mi
+                ephemeral-storage: 50Mi
+              limits:
+                cpu: '2'
+                memory: 1536Mi
+                ephemeral-storage: 2Gi
+            volumeMounts:
+            - name: dshm
+              mountPath: /dev/shm
+          volumes:
+          - name: dshm
+            emptyDir:
+              medium: Memory
+              sizeLimit: 1Gi
+          priorityClassName: batch
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: lihkg
+  namespace: yyc
+  annotations:
+    yyc/what: "the whole LIHKG site: every thread and its replies (replies_fetch.py lihkg), every 5 min"
+spec:
+  schedule: '*/5 * * * *'
+  timeZone: Etc/UTC
+  suspend: false
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 600
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 600
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app: lihkg
+        spec:
+          securityContext:
+            runAsUser: 10001
+            runAsGroup: 10001
+            fsGroup: 10001
+            fsGroupChangePolicy: OnRootMismatch
+          imagePullSecrets:
+          - name: ghcr-pull
+          restartPolicy: Never
+          containers:
+          - name: lihkg
+            image: yyc-news-stream
+            command:
+            - python
+            - /app/replies_fetch.py
+            - lihkg
+            envFrom:
+            - secretRef:
+                name: app-env
+            env:
+            - name: RUN_SECONDS
+              value: "240"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: db-app
+                  key: uri
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+                ephemeral-storage: 50Mi
+              limits:
+                cpu: '1'
+                memory: 256Mi
+                ephemeral-storage: 512Mi
+            volumeMounts:
+            - name: data
+              mountPath: /var/lib/yyc/data
+          volumes:
+          - name: data
+            emptyDir:
+              sizeLimit: 512Mi
+          priorityClassName: batch
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: tikhub
+  namespace: yyc
+  annotations:
+    yyc/what: social keyword search through TikHub + AnyAPI; was yyc-tikhub.timer, hourly
+spec:
+  schedule: 6 * * * *
+  timeZone: Etc/UTC
+  suspend: false
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 600
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 3300  # every (platform, query) each hour: a full run, inside the hour
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app: tikhub
+        spec:
+          securityContext:
+            runAsUser: 10001
+            runAsGroup: 10001
+            fsGroup: 10001
+            fsGroupChangePolicy: OnRootMismatch
+          imagePullSecrets:
+          - name: ghcr-pull
+          restartPolicy: Never
+          containers:
+          - name: tikhub
+            image: yyc-news-stream
+            command:
+            - python
+            - /app/tikhub_fetch.py
+            - --run
+            envFrom:
+            - secretRef:
+                name: app-env
+            - secretRef:  # ANYAPI_API_KEY (Facebook search), EXA_API_KEY: YYC-only accounts
+                name: ai-tools
+                optional: true
+            env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: db-app
+                  key: uri
+            resources:
+              requests:
+                cpu: 50m
+                memory: 128Mi
+                ephemeral-storage: 50Mi
+              limits:
+                cpu: '1'
+                memory: 512Mi
+                ephemeral-storage: 512Mi
+            volumeMounts:
+            - name: data
+              mountPath: /var/lib/yyc/data
+          volumes:
+          - name: data
+            emptyDir:
+              sizeLimit: 512Mi
+          priorityClassName: batch
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: watch
+  namespace: yyc
+  annotations:
+    yyc/what: the watched accounts (watchlist.json) on YouTube, X and TikTok; every 10 min, USD 20/day safety stop (watchlist.py)
+spec:
+  schedule: '*/10 * * * *'
+  timeZone: Etc/UTC
+  suspend: false
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 600
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 900  # the run stops starting checks after WATCH_RUN_SECONDS (480)
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app: watch
+        spec:
+          securityContext:
+            runAsUser: 10001
+            runAsGroup: 10001
+            fsGroup: 10001
+            fsGroupChangePolicy: OnRootMismatch
+          imagePullSecrets:
+          - name: ghcr-pull
+          restartPolicy: Never
+          containers:
+          - name: watch
+            image: yyc-news-stream
+            command:
+            - python
+            - /app/watch_fetch.py
+            - run
+            envFrom:
+            - secretRef:
+                name: app-env
+            env:
+            - {name: WATCH_CAP_USD, value: "100"}  # the daily safety stop (watchlist.py; Deyao, 2026-10-15)
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: db-app
+                  key: uri
+            resources:
+              requests:
+                cpu: 50m
+                memory: 128Mi
+                ephemeral-storage: 50Mi
+              limits:
+                cpu: '1'
+                memory: 192Mi
+                ephemeral-storage: 512Mi
+            volumeMounts:
+            - name: data
+              mountPath: /var/lib/yyc/data
+          volumes:
+          - name: data
+            emptyDir:
+              sizeLimit: 512Mi
+          priorityClassName: batch
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: sites
+  namespace: yyc
+  annotations:
+    yyc/what: "the catalogue sites (sites.json; Macau's papers and websites, Hong Kong's magazines, forums, websites and blogs), each by its cadence; every 10 min (sites_fetch.py)"
+spec:
+  schedule: 3-59/10 * * * *
+  timeZone: Etc/UTC
+  suspend: false
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 600
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 900  # the run stops starting reads after SITES_RUN_SECONDS (480)
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app: sites
+        spec:
+          securityContext:
+            runAsUser: 10001
+            runAsGroup: 10001
+            fsGroup: 10001
+            fsGroupChangePolicy: OnRootMismatch
+          imagePullSecrets:
+          - name: ghcr-pull
+          restartPolicy: Never
+          containers:
+          - name: sites
+            image: yyc-news-stream
+            command:
+            - python
+            - /app/sites_fetch.py
+            - run
+            envFrom:
+            - secretRef:
+                name: app-env
+            env:
+            - {name: YYC_JOB, value: sites}  # resi.py: the proxied bytes' job
+            - name: ISP_PROXY  # route "isp": YYC's IPRoyal ISP IP (sites_fetch.get; one client at a time, lock 'yyc youtube')
+              valueFrom:
+                secretKeyRef:
+                  name: isp-proxy
+                  key: ISP_PROXY
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: db-app
+                  key: uri
+            resources:
+              requests:
+                cpu: 300m
+                memory: 384Mi  # 384 Mi was OOM-killed with ~1,600 sites (2026-10-20): the limit is 1 Gi
+                ephemeral-storage: 50Mi
+              limits:
+                cpu: '1'
+                memory: 1Gi
+                ephemeral-storage: 512Mi
+            volumeMounts:
+            - name: data
+              mountPath: /var/lib/yyc/data
+          volumes:
+          - name: data
+            emptyDir:
+              sizeLimit: 512Mi
+          priorityClassName: batch
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cache
+  namespace: yyc
+  annotations:
+    yyc/what: cached article text of matched posts; was yyc-cache.timer, every 30 min
+spec:
+  schedule: 7,37 * * * *
+  timeZone: Etc/UTC
+  suspend: false
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 600
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 1500
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app: cache
+        spec:
+          securityContext:
+            runAsUser: 10001
+            runAsGroup: 10001
+            fsGroup: 10001
+            fsGroupChangePolicy: OnRootMismatch
+          imagePullSecrets:
+          - name: ghcr-pull
+          restartPolicy: Never
+          containers:
+          - name: cache
+            image: yyc-news-stream
+            # a shell is PID 1, not xvfb-run: as PID 1 xvfb-run never gets Xvfb's ready signal and hangs until the
+            # deadline (every browser job failed from the move to the cluster, 2026-10-13, to 2026-10-14). "; exit $?"
+            # stops dash from exec-ing the command in place of itself.
+            command:
+            - sh
+            - -c
+            - 'xvfb-run -a -s "-screen 0 1280x900x24" python /app/cache_fetch.py; exit $?'
+            envFrom:
+            - secretRef:
+                name: app-env
+            env:
+            - name: ISP_PROXY  # cache_fetch.ISP_HOSTS: YYC's IPRoyal ISP IP (one client at a time, lock 'yyc youtube')
+              valueFrom:
+                secretKeyRef:
+                  name: isp-proxy
+                  key: ISP_PROXY
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: db-app
+                  key: uri
+            resources:
+              requests:
+                cpu: 200m
+                memory: 192Mi
+                ephemeral-storage: 50Mi
+              limits:
+                cpu: '2'
+                memory: 1024Mi
+                ephemeral-storage: 3Gi
+            volumeMounts:
+            - name: data
+              mountPath: /var/lib/yyc/data
+            - name: dshm
+              mountPath: /dev/shm
+          volumes:
+          - name: data
+            emptyDir:
+              sizeLimit: 512Mi
+          - name: dshm
+            emptyDir:
+              medium: Memory
+              sizeLimit: 1Gi
+          priorityClassName: batch
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: fulltext
+  namespace: yyc
+  annotations:
+    yyc/what: "article text of every news post without one (search: 搜尋), newest first, then the backfilled archive; every 30 min"
+spec:
+  schedule: 22,52 * * * *
+  timeZone: Etc/UTC
+  suspend: false
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 600
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 1740
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app: fulltext
+        spec:
+          securityContext:
+            runAsUser: 10001
+            runAsGroup: 10001
+            fsGroup: 10001
+            fsGroupChangePolicy: OnRootMismatch
+          imagePullSecrets:
+          - name: ghcr-pull
+          restartPolicy: Never
+          # memory 2 Gi: its peak 1212 Mi (cgroup memory.peak, kv jobpeak:fulltext, 21 Oct) in 1536
+          containers:
+          - name: fulltext
+            image: yyc-news-stream
+            # a shell is PID 1, not xvfb-run: as PID 1 xvfb-run never gets Xvfb's ready signal and hangs until the
+            # deadline (every browser job failed from the move to the cluster, 2026-10-13, to 2026-10-14). "; exit $?"
+            # stops dash from exec-ing the command in place of itself.
+            command:
+            - sh
+            - -c
+            - 'xvfb-run -a -s "-screen 0 1280x900x24" python /app/fulltext_fetch.py; exit $?'
+            envFrom:
+            - secretRef:
+                name: app-env
+            env:
+            - name: ISP_PROXY  # cache_fetch.ISP_HOSTS: YYC's IPRoyal ISP IP (one client at a time, lock 'yyc youtube')
+              valueFrom:
+                secretKeyRef:
+                  name: isp-proxy
+                  key: ISP_PROXY
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: db-app
+                  key: uri
+            # memory, measured 2026-10-14 (run 15:22 UTC, one tab over each 25-page browser batch): 1.12 GiB peak, one
+            # renderer 494 MB; two runs OOMKilled at 1500Mi. Each page now has its own tab (closed after); the
+            # limit leaves room for a heavy page all the same (never throttle work to fit)
+            resources:
+              requests:
+                cpu: 300m
+                memory: 1280Mi
+                ephemeral-storage: 50Mi
+              limits:
+                cpu: '2'
+                memory: 2Gi
+                ephemeral-storage: 3Gi
+            volumeMounts:
+            - name: data
+              mountPath: /var/lib/yyc/data
+            - name: dshm
+              mountPath: /dev/shm
+          volumes:
+          - name: data
+            emptyDir:
+              sizeLimit: 512Mi
+          - name: dshm
+            emptyDir:
+              medium: Memory
+              sizeLimit: 1Gi
+          priorityClassName: batch
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: paywall
+  namespace: yyc
+  annotations:
+    yyc/what: "paywalled posts' full text from archive.today (paywall.py archive: newest snapshot, else submit once; 2Captcha for its captcha); every 30 min"
+spec:
+  schedule: 17,47 * * * *
+  timeZone: Etc/UTC
+  suspend: false
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 600
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 1740
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app: paywall
+        spec:
+          securityContext:
+            runAsUser: 10001
+            runAsGroup: 10001
+            fsGroup: 10001
+            fsGroupChangePolicy: OnRootMismatch
+          imagePullSecrets:
+          - name: ghcr-pull
+          restartPolicy: Never
+          containers:
+          - name: paywall
+            image: yyc-news-stream
+            # a shell is PID 1, not xvfb-run (see fulltext): Chrome only for archive.today's captcha
+            command:
+            - sh
+            - -c
+            - 'xvfb-run -a -s "-screen 0 1280x900x24" python /app/paywall.py archive; exit $?'
+            envFrom:
+            - secretRef:
+                name: app-env
+            env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: db-app
+                  key: uri
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+                ephemeral-storage: 50Mi
+              limits:
+                cpu: '1'
+                memory: 1024Mi
+                ephemeral-storage: 3Gi
+            volumeMounts:
+            - name: dshm
+              mountPath: /dev/shm
+          volumes:
+          - name: dshm
+            emptyDir:
+              medium: Memory
+              sizeLimit: 512Mi
+          priorityClassName: batch
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: reports
+  namespace: yyc
+  annotations:
+    yyc/what: daily reports (報告, not emailed) at the admin's report hour; was yyc-reports.timer, hourly at :05
+spec:
+  schedule: 5 * * * *
+  timeZone: Etc/UTC
+  suspend: false
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 3000
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 3600
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app: reports
+        spec:
+          securityContext:
+            runAsUser: 10001
+            runAsGroup: 10001
+            fsGroup: 10001
+            fsGroupChangePolicy: OnRootMismatch
+          imagePullSecrets:
+          - name: ghcr-pull
+          restartPolicy: Never
+          containers:
+          - name: reports
+            image: yyc-news-stream
+            command:
+            - python
+            - /app/reports.py
+            - daily
+            - --if-due
+            envFrom:
+            - secretRef:
+                name: app-env
+            env:
+            - name: TZ
+              value: Asia/Hong_Kong
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: db-app
+                  key: uri
+            resources:
+              requests:
+                cpu: 100m
+                memory: 1024Mi
+                ephemeral-storage: 50Mi
+              limits:
+                cpu: '1'
+                memory: 1024Mi
+                ephemeral-storage: 2Gi
+            volumeMounts:
+            - name: data
+              mountPath: /var/lib/yyc/data
+            - name: dshm
+              mountPath: /dev/shm
+          volumes:
+          - name: data
+            emptyDir:
+              sizeLimit: 512Mi
+          - name: dshm
+            emptyDir:
+              medium: Memory
+              sizeLimit: 1Gi
+          priorityClassName: batch
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: uptime
+  namespace: yyc
+  annotations:
+    yyc/what: probe the site (the edge app and the AI server) through Cloudflare into Postgres (uptime_log.py); every minute
+spec:
+  schedule: '* * * * *'
+  timeZone: Etc/UTC
+  suspend: false
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 600
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 150
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app: uptime
+        spec:
+          securityContext:
+            runAsUser: 10001
+            runAsGroup: 10001
+          imagePullSecrets:
+          - name: ghcr-pull
+          restartPolicy: Never
+          containers:
+          - name: uptime
+            image: yyc-news-stream
+            command:
+            - /app/infra/uptime-probe.sh
+            envFrom:
+            - secretRef:
+                name: app-env
+            env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: db-app
+                  key: uri
+            resources:
+              requests:
+                cpu: 10m
+                memory: 64Mi
+                ephemeral-storage: 50Mi
+              limits:
+                cpu: 200m
+                memory: 64Mi
+                ephemeral-storage: 128Mi
+          priorityClassName: batch
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: backfill
+  namespace: yyc
+  annotations:
+    yyc/what: older articles from the outlets' own archives into the corpus (backfill.py all), hourly, each run bounded to 50 min and 3000 requests per outlet; resumes from kv backfill:<outlet>
+spec:
+  schedule: 25 * * * *
+  timeZone: Etc/UTC
+  suspend: true
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 600
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 3300
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app: backfill
+        spec:
+          securityContext:
+            runAsUser: 10001
+            runAsGroup: 10001
+          imagePullSecrets:
+          - name: ghcr-pull
+          restartPolicy: Never
+          containers:
+          - name: backfill
+            image: yyc-news-stream
+            command:
+            - python
+            - /app/backfill.py
+            - all
+            - --max
+            - "3000"
+            - --minutes
+            - "50"
+            envFrom:
+            - secretRef:
+                name: app-env
+            env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: db-app
+                  key: uri
+            resources:
+              requests:
+                cpu: 50m
+                memory: 512Mi
+                ephemeral-storage: 50Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+                ephemeral-storage: 512Mi
+          priorityClassName: batch
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: broadcast
+  namespace: yyc
+  annotations:
+    yyc/what: TV/radio news programmes transcribed to text (broadcast_fetch.py with media.py's model; YouTube bulletins through the ISP IP; README "TV and radio"); hourly at :20
+spec:
+  schedule: 20 * * * *
+  timeZone: Etc/UTC
+  suspend: true  # off (Deyao, 2026-10-20: cost; flag `transcription` off too: broadcast_fetch.run files nothing)
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 1800
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 3300
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app: broadcast
+        spec:
+          securityContext:
+            runAsUser: 10001
+            runAsGroup: 10001
+          imagePullSecrets:
+          - name: ghcr-pull
+          restartPolicy: Never
+          containers:
+          - name: broadcast
+            image: yyc-news-stream
+            command:
+            - python
+            - /app/broadcast_fetch.py
+            envFrom:
+            - secretRef:
+                name: app-env
+            env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: db-app
+                  key: uri
+            - name: BC_RUN_SECONDS
+              value: "2700"
+            - name: FLAGD_HOST  # flag transcription: files nothing while off (broadcast_fetch.run)
+              value: flagd.yyc.svc.cluster.local
+            # YouTube through YYC's IPRoyal ISP IP (media.py MEDIA_ROUTES; one client at a time: media.youtube_lock)
+            - name: MEDIA_ROUTES
+              value: '{"youtube": "ISP_PROXY"}'
+            - name: ISP_PROXY
+              valueFrom:
+                secretKeyRef:
+                  name: isp-proxy
+                  key: ISP_PROXY
+            resources:
+              requests:
+                cpu: 100m
+                memory: 1024Mi
+                ephemeral-storage: 50Mi
+              limits:
+                cpu: '2'
+                memory: 1024Mi
+                ephemeral-storage: 5Gi
+            volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          volumes:
+          - name: tmp
+            emptyDir:
+              sizeLimit: 2Gi
+          priorityClassName: batch

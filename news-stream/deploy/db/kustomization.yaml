@@ -1,0 +1,9 @@
+# YYC's Postgres (postgres.yaml). Its own Flux Kustomization yyc-db (clusters/hetzner/flux-sync.yaml): applied after
+# yyc-apps has installed the operators and their CRDs (clusters/hetzner/postgres-operator.yaml).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - postgres.yaml
+  - pg-dump-daily.yaml
+  - gin-clean.yaml
+  - pg-shared.yaml   # T4b: the name both clusters give this Postgres (Hyperdrive's tunnel route names it)

@@ -1,0 +1,17 @@
+# SealedSecret made by infra/seal.py from the store `yyc` (map: infra/secrets.txt). Don't edit: re-seal.
+---
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: telegram
+  namespace: yyc
+spec:
+  encryptedData:
+    TELEGRAM_BOT_TOKEN: AgB4OS4ZObR9rzwqMgIubqyJnmkeRcPTgy0Kf9OxcGTi74+a7p7pp+Tlsj0lcZoS5bG/0QuFHbCSWfW7mKxxocP4ZrNhNC9pnCItna/+aQ91Kdn6HglLObGMMh8w2zGzpgZB6fAIhKs98+tY72mS3bwJIrUjS4y90T/mwZJK3Orjljje+IIuWuP0sQk+c2M9ujGmqosgZNpQ/WKJBYBfzQMRngLMP2DTWdoCeTq7eZOm1IUKE6cGzi27dkKxNwOGZQrYFPIc8j5CE1CxUKE7lW6yBaKAwtpLTL5ywSoyyXPCUl720yeHkEbFqp8WiW6YHRBZzXS7anVvcwIplDEV/hNcoFLILBORQC8Dv83R2TwcuTzXPPz0Ic7zju9+bUkoq/ax/YTfluc3l6KNjLuKdOkhud2r3wLdYHeP1r4fe8qUKJgdJ3sls+FKsq1621FciiXOqHSLGMK5lE7Y0fqAzEEalsmkdLcYv3rKlnWDhi8gRc0WQQoRETvkrkH2sgLn7dEoW+sgOTaVZLiDDSKSEI9jUKTKPyiX123ouF/OZemoqCCmPPrLGqEmGTAOqbJmDthMZCBRolIC2brxYB9r7DxwOtr+0rXQF8cK3fXGmk/0cad23ZwM6VeXquBtN4xPs4jjy5yHYqJ7SuwtVEd6OBJQNJQlfoDVxYD32ErutrGWtpGnnuH6pDvHNC0VEbYIfKt7A4iIOMoW+4lOA/Pd3wyfLgLvciY/+sxNB6pLaRGOKNERRdbXL1if/jIyXtZI
+  template:
+    metadata:
+      annotations:
+        kustomize.toolkit.fluxcd.io/prune: disabled
+      name: telegram
+      namespace: yyc
+    type: Opaque

@@ -1,0 +1,86 @@
+# The AI server: gunicorn app:application (web.py's AI routes; the site's pages are the edge app's, web-app/), 2 replicas.
+# A rollout never takes it down: one pod at a time (maxSurge 0 / maxUnavailable 1: the other pod keeps serving, and no
+# extra memory is needed; Deyao, 2026-10-20), preStop sleep so the endpoint is out of the Service before gunicorn gets
+# SIGTERM, then gunicorn finishes the requests in flight (--graceful-timeout 300, as yyc-web@ did). --keep-alive 0: every
+# response closes its connection. Gunicorn stops reading idle keep-alive connections at SIGTERM but closes them only
+# when the worker exits (after its slowest request, up to 300 s), and the tunnel's connections reach a pod through
+# cloudflared's socat, pinned to it: a request sent on one of those hung, then was reset (tests/test_rollouts.py).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: yyc
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels: {app: web}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxUnavailable: 1, maxSurge: 0}  # one pod at a time; the other keeps serving (no extra memory; Deyao, 2026-10-20)
+  template:
+    metadata:
+      labels: {app: web}
+    spec:
+      topologySpreadConstraints:  # one pod per node where it can (a node's loss leaves the other)
+        - {maxSkew: 1, topologyKey: kubernetes.io/hostname, whenUnsatisfiable: ScheduleAnyway, labelSelector: {matchLabels: {app: web}}}
+      securityContext: {runAsUser: 10001, runAsGroup: 10001, fsGroup: 10001, fsGroupChangePolicy: OnRootMismatch}
+      imagePullSecrets: [{name: ghcr-pull}]
+      terminationGracePeriodSeconds: 330
+      enableServiceLinks: false  # Kubernetes would set FLAGD_PORT=tcp://… for Service flagd, which flagd's client reads
+      containers:
+        - name: web
+          image: yyc-news-stream
+          command: [gunicorn, --chdir, /app, --bind, "0.0.0.0:8080", --workers, "2", --threads, "8", --timeout, "300", --graceful-timeout, "300", --keep-alive, "0", app:application]
+          ports: [{name: http, containerPort: 8080}]
+          envFrom: [{secretRef: {name: app-env}}, {secretRef: {name: ai-tools, optional: true}}]  # ai-tools: the paid AI tools' keys
+          env:
+            - {name: DATABASE_URL, valueFrom: {secretKeyRef: {name: db-app, key: uri}}}
+            # the beta site's Access app (yyc-beta.deyaochen.com, deploy/cloudflare/tofu/access.tf): signed in there = approved
+            - {name: BETA_ACCESS_AUD, value: 20d2253da8891160d5933c4036edf043d94e69bfc65c0839b86bba060bae9609}
+            - {name: FLAGD_HOST, value: flagd.yyc.svc.cluster.local}  # feature flags (flags.py, flagd.yaml)
+          readinessProbe:
+            httpGet: {path: /healthz, port: http}
+            periodSeconds: 3
+            timeoutSeconds: 3
+            failureThreshold: 2
+          livenessProbe:
+            httpGet: {path: /healthz, port: http}
+            initialDelaySeconds: 20
+            periodSeconds: 20
+            timeoutSeconds: 10
+            failureThreshold: 6
+          lifecycle:
+            preStop:
+              exec: {command: [sleep, "10"]}
+          resources:
+            requests:
+              cpu: 100m
+              memory: 192Mi
+              ephemeral-storage: 50Mi
+            limits:
+              cpu: '1'
+              memory: 384Mi
+              ephemeral-storage: 1Gi
+          volumeMounts: [{name: data, mountPath: /var/lib/yyc/data}]
+      volumes: [{name: data, emptyDir: {sizeLimit: 512Mi}}]
+      priorityClassName: serving
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+  namespace: yyc
+spec:
+  selector: {app: web}
+  ports: [{name: http, port: 80, targetPort: http}]
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: web
+  namespace: yyc
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels: {app: web}

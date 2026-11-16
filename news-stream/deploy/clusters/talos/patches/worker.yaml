@@ -1,0 +1,10 @@
+# Workers of yyc-talos in network `yyc` (yyc-ai/refactor DESIGN 15.2.1 I5, 15.2 N5): the node labels YYC AI's
+# placement selects on (DESIGN 15.7: every YYC AI pod requires yyc.hetzner/network=yyc; the apps' pool=apps). Talos
+# sets them through the API (not kubelet flags), so the NodeRestriction prefixes do not apply. The gateway's label
+# hermit.yyc/gateway=true is set later by fabric/host/gateway-net.sh, never here (I7). talos.sh gen NODE worker adds
+# this patch; a worker outside network `yyc` (another network zone) would need its own patch without these labels.
+apiVersion: v1alpha1
+kind: KubeNodeConfig
+labels:
+  yyc.hetzner/network: "yyc"
+  pool: apps

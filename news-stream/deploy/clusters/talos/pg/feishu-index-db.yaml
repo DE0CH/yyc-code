@@ -1,0 +1,17 @@
+# feishu-index's database in Cluster pg (feishu-index/README.md): owned by the role feishu_index (pg.yaml
+# managed.roles, password Secret pg-role-feishu-index), with pgvector created by the operator (the role can't create
+# an extension). Its tables come from the service's own migrations (feishu-index/migrations/). Backups, the daily dump
+# and the restore tests cover it with the rest of pg.
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: feishu-index
+  namespace: db
+spec:
+  cluster: {name: pg}
+  name: feishu_index
+  owner: feishu_index
+  ensure: present
+  databaseReclaimPolicy: retain
+  extensions:
+    - {name: vector, ensure: present}

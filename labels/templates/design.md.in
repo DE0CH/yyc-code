@@ -1,0 +1,120 @@
+# @@NAME@@
+
+@@ABOUT@@
+
+## Drawing the labels
+
+The template's files: `design.json` (the layout, below), `files/render.py` (draws labels from it)@@LIST_FILE@@. It needs
+the fonts `design.json` names (here @@FONTS@@) and Noto Sans HK, which fills in characters a font lacks:
+
+```sh
+mkdir -p /tmp/fonts && L "$B/fonts" | jq -r '.fonts[] | select(.family == "Noto Sans HK" or .family == "Noto Sans TC") | .files[]' |
+  while read -r f; do L --compressed "$B/fonts/$f" -o "/tmp/fonts/$f"; done
+python3 $T/files/render.py --design $T/design.json --list guests.csv --fonts /tmp/fonts --out /tmp/out
+```
+
+`--list` is the guest list (CSV, or TSV pasted from Excel; the staff member's file in `/workspace/uploads/`, or one you
+write from what they send). `--only reg-4,reg-19` draws only those guests; `--samples` draws the four sample guests
+(the template's examples). It writes, in list order, `/tmp/out/001-<_id>.bin` (one label in the printer's format),
+`/tmp/out/001-<_id>.png` (to look at), `/tmp/out/all.bin` (every label, ready to send in one request) and
+`/tmp/out/report.json`, and prints each label's warnings ("text does not fit its box …": look at that label).
+Look at the PNGs, above all the longest names and institutions, before sending `all.bin`.
+
+To change how labels look for one event, change the template (with its lock, as the labels skill says) or keep a
+copy of `design.json` for that event in `/workspace` with its own overrides. Draw the four examples again after
+changing the template: `--samples --out $T/examples-new`, then use its `001`–`004` `.bin` files as
+`examples/1.bin` … `examples/4.bin`.
+
+## design.json
+
+```json
+{
+  "name": "論壇名牌",
+  "printer": "M3",
+  "density": 1,
+  "threshold": 128,
+  "templates": {
+    "zh": { "elements": [ … ] },
+    "en": { "elements": [ … ] }
+  },
+  "overrides": { "g12": { … } }
+}
+```
+
+- `density`: print darkness 1–5 (send it with the labels: `density=` on `POST $B/prints`); 1 suits the M3's ribbon.
+  `threshold`: 1–255, where grey turns black (default 128).
+- `templates`: one per language. A guest whose name has Chinese characters prints with `zh`, everyone else with `en`
+  (a `language`/`語言` column of zh/en, or the override's `lang`, decides otherwise). With only one template, everyone
+  prints with it.
+
+### Elements
+
+Positions and sizes are **millimetres from the top-left of the 72 × 50 mm printable area**, y downwards. Elements
+are drawn in order (later ones on top). Every element has a unique `id` within its template and a `type`;
+`"hidden": true` leaves it out.
+
+**text**: `{"id", "type": "text", "x", "y", "w", "h", "text"}` and:
+
+| Field | Default | Meaning |
+|---|---|---|
+| `text` | | the text; `{field}` is replaced by the guest's value (below); `\n` starts a new line. A line made only of fields that are all empty is dropped, and an element whose text is empty isn't drawn |
+| `font` | `Noto Sans HK` | a family from `$B/fonts` (download its files into the fonts folder). Characters the font lacks come from Noto Sans HK |
+| `weight` | 400 | 100–900, or `regular` / `bold` (700) …; a variable font takes any value in its range |
+| `size` | 12 | the font size in **points** (1 pt = 0.353 mm): the size it has when it fits |
+| `minScale` | 0.5 | text that doesn't fit the box shrinks, down to this share of `size`. A text that still doesn't fit is drawn at that size and reported as a warning |
+| `fit` | `shrink` | `none`: never shrink |
+| `wrap` | false | true: break lines to fit the width (between words, and between Chinese characters), balanced so a long name breaks evenly; false: one line per `\n` |
+| `maxLines` | | with `wrap`: at most this many lines (it shrinks instead of taking more) |
+| `lineHeight` | 1.2 | line spacing as a multiple of the size. Lines must fit the box's height: n × size × lineHeight ≤ h |
+| `align` | `center` | `left`, `center`, `right` within the box |
+| `valign` | `middle` | `top`, `middle`, `bottom` within the box |
+| `letterSpacing` | 0 | extra space after each character, as a share of the size (0.1 = a tenth of an em) |
+| `color` | black | `white` for text on a black shape |
+
+**image**: `{"type": "image", "src": "files/<name>.png", "x", "y", "w", "h"}` (a PNG or JPEG among the template's
+files), `fit` (`contain` default, `cover`, `fill`), `align` / `valign` (where it sits in its box when it doesn't fill
+it). Colours become black or white at `threshold`: look at the label, and change `threshold`, or ask for a
+black-and-white version, if a logo turns into a block.
+
+**line**: `x1`, `y1`, `x2`, `y2`, `width` (mm, default 0.3).
+**rect** / **ellipse**: `x`, `y`, `w`, `h`, `stroke` (mm, 0 = none, default 0.3), `fill` (true = solid black),
+`radius` (rect corners, mm), `color` (`white` to draw white on black).
+
+Anything else (a dashed line, a QR code, a pattern): draw it in `render.py` with Pillow, on the same 848 × 590 image
+(11.81 dots per mm).
+
+### Fields
+
+| Field | What it shows |
+|---|---|
+| `{name}` | the name in one row. English guests: the title goes first ("Prof Benedict Cumberbatch") |
+| `{name_1}`, `{name_2}` | the name in two rows, two elements you place independently |
+| `{title}` | Chinese guests only: the title, for its own element (English puts it in the name) |
+| `{institution}`, `{institution_1}`, `{institution_2}` | the institution in one row, or in two rows |
+| `{table}` | the table number as printed: `12 號枱` / `Table 7` |
+| `{<column>}` | any other column of the guest list, as it is (e.g. `{職位}`, `{position}`) |
+
+**One row or two:** for the name and for the institution separately. A guest gets one row unless their `{name}` (or
+`{institution}`) element doesn't fit even at its `minScale`; then the `{name}` element is left empty and `{name_1}` /
+`{name_2}` get the text split as evenly as it goes (between words, or between Chinese characters). A template without
+`_1`/`_2` elements always uses one row. So a one-row element's `minScale` is the switch: 0.7 means "shrink to 70%
+before going to two rows". An override can force either (`nameRows`, `institutionRows`) and set each row's text.
+
+Guest-list columns are found by heading: `name`/`姓名`/`名字`, `title`/`職銜`/`稱謂`, `institution`/`機構`/`公司`,
+`table`/`枱號`/`桌號`, `language`/`語言`. Column `_id` names each guest (`g1`, `g2` … in list order when missing;
+keep it when you rewrite a list, or overrides lose their guests).
+
+### Overrides: one guest's label
+
+`overrides: {"<_id>": {…}}` in `design.json`:
+
+| Field | |
+|---|---|
+| `name`, `title`, `institution`, `table` | their text instead of the list's |
+| `lang` | `zh` / `en`: which template |
+| `nameRows`, `institutionRows` | 1 or 2, instead of choosing by fit |
+| `name_1`, `name_2`, `institution_1`, `institution_2` | each row's own text (with 2 rows) |
+| `hide` | `["logo", …]`: elements not drawn on theirs |
+| `elements` | `{"name": {"size": 30}}`: fields changed on their label only (`null` removes a field) |
+
+Prefer an override to changing the template for one person, and a new list column to many overrides.

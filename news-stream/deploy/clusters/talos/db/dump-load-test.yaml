@@ -1,0 +1,121 @@
+# The daily load test of the logical dumps (Deyao, 2026-11-09: test the backup path, the industry standard): the newest
+# day of yyc-pg-backups/dumps/ (pg_dump of every database of pg and magpie-pg, ./pg-dump-magpie.yaml and
+# ../pg/pg-dump-daily.yaml) is loaded with pg_restore into a scratch Postgres inside this pod, every table's rows are
+# counted, and the run fails when a dump does not load or a database's rows fell below half of the last good run's
+# (a dump cut short or a table emptied). Results: ConfigMap db/dump-load-test (last.json; history.jsonl: the last 20
+# runs); the monitor Discords Deyao when a run failed or none passed for 2 days.
+# Daily at 10:30 HKT (Deyao's working hours). The scratch Postgres runs without fsync on a scratch volume (StorageClass
+# yyc-scratch: deleted with the pod). Bash around pg_restore, psql and kubectl, as ./restore-test.yaml.
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: dump-load-test-script, namespace: db}
+data:
+  run.sh: |
+    #!/bin/bash
+    set -uo pipefail
+    k() { /tools/kubectl -n db "$@"; }
+    day=$(cat /work/day); ok=true; why=""; started=$(date -u +%s)
+    fail() { ok=false; why="${why:+$why; }$1"; echo "FAIL: $1"; }
+    cm=dump-load-test
+    old=$(k get configmap "$cm" -o jsonpath='{.data.history\.jsonl}' 2>/dev/null || true)
+    prev=$(printf '%s\n' "$old" | grep '"ok":true' | tail -n 1)   # the last good run's rows per database
+    initdb -D /work/pgdata -U postgres --no-sync >/dev/null || { echo "initdb failed"; exit 1; }
+    pg_ctl -D /work/pgdata -l /work/pg.log -w -o "-c listen_addresses='' -k /tmp -c fsync=off -c full_page_writes=off \
+      -c synchronous_commit=off -c shared_buffers=256MB -c maintenance_work_mem=256MB -c max_wal_size=8GB" start >/dev/null \
+      || { tail -20 /work/pg.log; exit 1; }
+    psql() { command psql -h /tmp -U postgres -qAtX -v ON_ERROR_STOP=1 "$@"; }
+    rows_json=""
+    for f in /work/dumps/*.dump; do
+      d=$(basename "$f" .dump)
+      psql -d postgres -c "CREATE DATABASE \"$d\"" || { fail "$d: CREATE DATABASE"; continue; }
+      if ! out=$(pg_restore -h /tmp -U postgres -d "$d" --no-owner --no-privileges --exit-on-error -j 2 "$f" 2>&1); then
+        fail "$d: pg_restore: $(echo "$out" | tail -c 300)"; continue
+      fi
+      # exact rows in every user table
+      n=$(psql -d "$d" -c "SELECT format('SELECT count(*) FROM %I.%I', schemaname, relname) FROM pg_stat_user_tables" \
+          | while read -r q; do psql -d "$d" -c "$q"; done | awk '{s += $1} END {print s + 0}')
+      t=$(psql -d "$d" -c "SELECT count(*) FROM pg_stat_user_tables")
+      echo "$d: $t tables, $n rows"
+      rows_json="${rows_json:+$rows_json,}\"$d\":$n"
+      p=$(printf '%s' "$prev" | grep -o "\"$d\":[0-9]*" | head -1 | cut -d: -f2)
+      if [ -n "$p" ] && [ "$p" -gt 0 ] && [ $(( n * 2 )) -lt "$p" ]; then fail "$d: $n rows, under half of the last good run's $p"; fi
+    done
+    [ -n "$rows_json" ] || fail "no dump loaded from dumps/$day"
+    pg_ctl -D /work/pgdata -m fast stop >/dev/null
+    why=$(printf '%s' "$why" | tr '\n\t"\\' "   '")
+    result=$(printf '{"at":"%s","day":"%s","ok":%s,"seconds":%s,"rows":{%s},"why":"%s"}' \
+      "$(date -u +%FT%TZ)" "$day" "$ok" $(( $(date -u +%s) - started )) "$rows_json" "$why")
+    echo "result: $result"
+    hist=$(printf '%s\n%s\n' "$old" "$result" | sed '/^$/d' | tail -n 20)
+    k create configmap "$cm" --from-literal=last.json="$result" --from-literal=history.jsonl="$hist" \
+      --dry-run=client -o yaml | k apply -f - >/dev/null
+    $ok
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata: {name: dump-load-test, namespace: db}
+spec:
+  schedule: "30 2 * * *"         # 10:30 HKT, after the 03:30 HKT dumps
+  timeZone: Etc/UTC
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 10800
+      ttlSecondsAfterFinished: 3600   # the finished pod holds its 80 Gi scratch volume: gone an hour after (result in the ConfigMap)
+      template:
+        metadata: {labels: {app: dump-load-test}}
+        spec:
+          serviceAccountName: restore-test   # ./restore-test.yaml: configmaps in db
+          restartPolicy: Never
+          securityContext: {runAsUser: 26, runAsGroup: 26, fsGroup: 26, runAsNonRoot: true, seccompProfile: {type: RuntimeDefault}}
+          nodeSelector: {pool: apps}
+          enableServiceLinks: false
+          volumes:
+            - {name: script, configMap: {name: dump-load-test-script, defaultMode: 0555}}
+            - {name: tools, emptyDir: {sizeLimit: 128Mi}}
+            - name: work
+              ephemeral:
+                volumeClaimTemplate:
+                  spec: {accessModes: [ReadWriteOnce], storageClassName: yyc-scratch, resources: {requests: {storage: 80Gi}}}
+          initContainers:
+            - name: kubectl   # as in ./restore-test.yaml
+              securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+              image: curlimages/curl:8.11.1
+              command: [sh, -c, 'curl -fsSL -o /tools/kubectl https://dl.k8s.io/release/v1.37.1/bin/linux/arm64/kubectl && echo "$KUBECTL_SHA256  /tools/kubectl" | sha256sum -c - && chmod 0555 /tools/kubectl']
+              env: [{name: KUBECTL_SHA256, value: ff749f4b78d9c4f1ec87307df9b50119ed819e2094aa9810cb9acffc3286c8c7}]
+              volumeMounts: [{name: tools, mountPath: /tools}]
+              resources: {requests: {cpu: 20m, memory: 32Mi}, limits: {memory: 128Mi}}
+            - name: fetch     # the newest day of dumps/
+              securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+              image: rclone/rclone:1.71.2
+              command:
+                - sh
+                - -c
+                - |
+                  set -eu
+                  day=$(rclone lsf hz:yyc-pg-backups/dumps --dirs-only | sort | tail -n 1 | tr -d /)
+                  echo "$day" > /work/day
+                  rclone copy "hz:yyc-pg-backups/dumps/$day" /work/dumps --include '*.dump' --transfers 4 -v
+              env:
+                - {name: RCLONE_CONFIG_HZ_TYPE, value: s3}
+                - {name: RCLONE_CONFIG_HZ_PROVIDER, value: Other}
+                - {name: RCLONE_CONFIG_HZ_ENDPOINT, value: "https://fsn1.your-objectstorage.com"}
+                - {name: RCLONE_CONFIG_HZ_REGION, value: fsn1}
+                - {name: RCLONE_CONFIG_HZ_ACCESS_KEY_ID, valueFrom: {secretKeyRef: {name: pg-backup-s3, key: ACCESS_KEY_ID}}}
+                - {name: RCLONE_CONFIG_HZ_SECRET_ACCESS_KEY, valueFrom: {secretKeyRef: {name: pg-backup-s3, key: ACCESS_SECRET_KEY}}}
+                - {name: HOME, value: /tmp}
+              volumeMounts: [{name: work, mountPath: /work}]
+              resources: {requests: {cpu: 100m, memory: 128Mi}, limits: {memory: 512Mi}}
+          containers:
+            - name: load
+              securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+              image: ghcr.io/cloudnative-pg/postgresql:17.11-standard-trixie
+              command: [bash, /script/run.sh]
+              env: [{name: PATH, value: "/usr/lib/postgresql/17/bin:/usr/local/bin:/usr/bin:/bin"}]
+              volumeMounts: [{name: script, mountPath: /script}, {name: tools, mountPath: /tools}, {name: work, mountPath: /work}]
+              resources:
+                requests: {cpu: 500m, memory: 1Gi}
+                limits: {memory: 1536Mi}

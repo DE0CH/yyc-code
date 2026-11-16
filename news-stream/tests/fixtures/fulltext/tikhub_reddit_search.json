@@ -1,0 +1,218 @@
+{
+ "code": 200,
+ "message": "Request successful. This request will incur a charge.",
+ "data": {
+  "children": [
+   {
+    "post": {
+     "authorInfo": {
+      "accountType": "USER",
+      "iconSmall": {
+       "dimensions": {
+        "height": 256,
+        "width": 256
+       },
+       "url": "https://www.redditstatic.com/avatars/defaults/v2/avatar_default_2.png"
+      },
+      "id": "t2_2mhv1cyw56",
+      "name": "jaroarmi",
+      "newIcon": {
+       "dimensions": {
+        "height": 256,
+        "width": 256
+       },
+       "url": "https://www.redditstatic.com/avatars/defaults/v2/avatar_default_2.png"
+      },
+      "profile": {
+       "isNsfw": false
+      }
+     },
+     "commentCount": 6,
+     "content": {
+      "markdown": "Most discussions about FIRE end with one number: how much do I need. In Poland, that's half the answer, because money in IKE is only available from 60, and in IKZE from 65. If you retire earlier, for those years you live solely off what you have outside of them - and you pay Belka on each withdrawal from your profits.\n\n\n\nAn example from the Inwestomat survey median: 36 years old, 725,000 PLN (I assumed 200,000 PLN in IKE/IKZE), saving 3,900 PLN/month, living expenses 6,000 PLN/month, 6% annual return:\n\n\n\n\\- retirement age: 49,\n\n\\- the bridge to IKZE: 15 years and 6 months of living solely off the available part,\n\n\\- total tax over the entire plan: 1,489,499 PLN (nominally).\n\n\n\nConclusion: the question isn't 'IKE or IKZE,' but 'how much do I need outside of them to make it to 60.' The weakest point of the plan isn't the retirement date, but the bridge - if the available funds run out a year before unlocking, you have nothing to cover that year.\n\n\n\nIf you want to check this against your own numbers: I made a free calculator that computes both dates and taxes year by year. No account needed, amounts remain in the browser: [ https://planmajatku.pl/kalkulator?z=reddit ](https://planmajatku.pl/kalkulator?z=reddit) (the tool is mine).\n\n\n\nHow do you plan the years between retiring and 60/65 — a separate pot, bonds, side jobs? And do you even consider tax on withdrawals?"
+     },
+     "createdAt": "2026-10-20T09:04:42.549000+0000",
+     "domain": "self.inwestowanie",
+     "id": "t3_1xan5f6",
+     "isArchived": false,
+     "isCommercialCommunication": false,
+     "isContestMode": false,
+     "isLocked": false,
+     "isNsfw": false,
+     "isPollIncluded": false,
+     "isScoreHidden": false,
+     "isSelfPost": true,
+     "isSpoiler": false,
+     "isStickied": false,
+     "isTranslatable": true,
+     "isTranslated": true,
+     "languageCode": "pl",
+     "permalink": "/r/inwestowanie/comments/1xan5f6/fire_w_polsce_najtrudniejsze_nie_jest_ile_tylko_z/",
+     "postHint": "SELF",
+     "postTitle": "FIRE in Poland: the hardest part isn't 'how much,' but 'what to live on until 60.'",
+     "score": 0,
+     "subreddit": {
+      "id": "t5_2pekio",
+      "isNsfw": false,
+      "isQuarantined": false,
+      "name": "inwestowanie",
+      "prefixedName": "r/inwestowanie",
+      "styles": {
+       "bannerBackgroundImage": "https://styles.redditmedia.com/t5_2pekio/styles/bannerBackgroundImage_h908qoj7ije61.png?frame=1&auto=webp&s=05bc668bb72eece12bdcf770f244de971bea0a91",
+       "icon": "https://styles.redditmedia.com/t5_2pekio/styles/communityIcon_ouchnlaw4ie61.png?width=64&frame=1&auto=webp&s=27ffdab3e683c400947e09c12bd25c6809d0d9c4",
+       "primaryColor": "#192A56"
+      },
+      "subscribersCount": 44874,
+      "title": "Książęca Street Bets",
+      "type": "PUBLIC"
+     },
+     "translatedLanguage": "en-US",
+     "upvoteRatio": 0.5,
+     "url": "https://www.reddit.com/r/inwestowanie/comments/1xan5f6/fire_w_polsce_najtrudniejsze_nie_jest_ile_tylko_z/"
+    }
+   },
+   {
+    "post": {
+     "authorInfo": {
+      "accountType": "USER",
+      "iconSmall": {
+       "dimensions": {
+        "height": 50,
+        "width": 50
+       },
+       "url": "https://styles.redditmedia.com/t5_5u76uy/styles/profileIcon_snoo03c7394c-b8ef-4fac-9a40-8f902155c8fc-headshot.png?width=50&height=50&frame=1&auto=webp&crop=50%3A50%2Csmart&s=71020ea08ca1ea22384c3f0d8364a056a8755833"
+      },
+      "id": "t2_dtmdlxlp",
+      "name": "Ultra-Novva",
+      "newIcon": {
+       "dimensions": {
+        "height": 256,
+        "width": 256
+       },
+       "url": "https://styles.redditmedia.com/t5_5u76uy/styles/profileIcon_snoo03c7394c-b8ef-4fac-9a40-8f902155c8fc-headshot.png?frame=1&auto=webp&crop=256%3A256%2Csmart&s=d993f46cef53223252f0c565c6441b2c3ba0937b"
+      },
+      "profile": {
+       "isNsfw": false
+      },
+      "snoovatarIcon": {
+       "dimensions": {
+        "height": 600,
+        "width": 380
+       },
+       "url": "https://i.redd.it/snoovatar/avatars/03c7394c-b8ef-4fac-9a40-8f902155c8fc.png"
+      }
+     },
+     "commentCount": 1,
+     "content": {
+      "markdown": "Welcome! to my request for help on a project based on the combined nonsense of Wuxia {Jin Yong & Murim}, Xianxia {RJMI, RTOC, & ITAF\\*}, Shenmo, Star/Pathfinder, Eurasian mythology, Avatar/Korra, Naruto, Fate & Lord of the Mysteries :) \n\n{\\* : Records of a mortals journey to immortality, regressors tale of cultivation, Immortality through array formations} …\n\n| » Introduction: The major idea came from expanding out a Wuxia world to all of Eurasia inspired by Martial Wild West & various alternate history posts around here. In the case of this timeline, major history events of our world had very similar end political results but through often through slightly to very differing means - why? Well that'd be due to a. An alternate geography with additional landmasses, craters, and lakes, & B. Qi\\* based martial, elemental, theurgy, and other arts exist. Secondly, a large portion of irl myths/legends happened and exist - occurring the ages of myth, and heroes before the iron age starting resulted in heavy restrictions on supernatural arts. \\[Qi is also called Prana/Pneuma\\]\n\nHowever!: every 500 years an event known as the sky shuddering happens loosening the restrictions and limits of the various arts in different ways each time: 500 bce was an even boost to all arts, 1 AD was a larger boost to theurgy, 500 AD was a strong boost to martial arts, 1000 AD a change to elemental arts combing the Greek/Indian & Wuxing 5 element models, and 1500 CE was boost to all arts once again. \n\n**| »** **Geography/Politics**: These circumstances seemingly strung along by a strange fate both leading towards and away from our own timeline lead to the Major powers being:\n\nThe Atlantian Empire, The Great Mali Empire (orange), the Albion alliance of Ireland & Scotland, the Kingdom of Avalon (chartreuse) , the 2nd Kalmar Union (red), The Grand Commonwealth of the Kievan Rus, the Venetian thalassocratic Republic, the Coptic Abyssinian Empire, the Lemurian trade confederation (red), Peria (working on name), The Kazakh Khanate (chartreuse), the Mughal Empire, Tibet, The Toungoo Empire, Đại Việt, the Joseon & Ming Dynasties, the ? Dynasty of Japan, and the Majahapit Empire. Smaller states include: Khmer, Champa, Sri Lanka, the Yuan remnants around meteoric crater lake Baikal, various Germanic tribes, a saharan state near the ahaggar mountains, and the small Balkan states in the Carpathian basin.\n\nLastly to address the 2 elephants: The West & East Roman empires survived in wildly new directions: both are theocratic empires, the former being polytheistic, run by a council of 12 with a high\n\nend of the post."
+     },
+     "createdAt": "2026-10-20T08:32:58.061000+0000",
+     "domain": "reddit.com",
+     "id": "t3_1xamnov",
+     "isArchived": false,
+     "isCommercialCommunication": false,
+     "isContestMode": false,
+     "isLocked": false,
+     "isNsfw": false,
+     "isPollIncluded": false,
+     "isScoreHidden": false,
+     "isSelfPost": false,
+     "isSpoiler": false,
+     "isStickied": false,
+     "isTranslatable": false,
+     "isTranslated": false,
+     "languageCode": "en",
+     "permalink": "/r/worldbuilding/comments/1xamnov/the_16ith_century_post4th_sky_shuddering/",
+     "postTitle": "The 16i-th Century: post-4th Sky Shuddering",
+     "score": 10,
+     "subreddit": {
+      "id": "t5_2rd6n",
+      "isNsfw": false,
+      "isQuarantined": false,
+      "name": "worldbuilding",
+      "prefixedName": "r/worldbuilding",
+      "styles": {
+       "bannerBackgroundImage": "https://styles.redditmedia.com/t5_2rd6n/styles/bannerBackgroundImage_13dv9ukrksma1.png?frame=1&auto=webp&s=7c68a6450f99133804d538583d3d3b64b77e8e55",
+       "icon": "https://styles.redditmedia.com/t5_2rd6n/styles/communityIcon_s4dno75pn3u71.png?width=64&frame=1&auto=webp&s=7568eb6625e68989e6bf5d2c6a94df4c8a23a76b",
+       "legacyPrimaryColor": "#FF4500",
+       "primaryColor": "#45BB98"
+      },
+      "subscribersCount": 1930509.0,
+      "title": "Worldbuilding - Explore Every Impossibility",
+      "type": "PUBLIC"
+     },
+     "upvoteRatio": 1,
+     "url": "https://www.reddit.com/gallery/1xamnov"
+    }
+   },
+   {
+    "post": {
+     "authorInfo": {
+      "accountType": "USER",
+      "iconSmall": {
+       "dimensions": {
+        "height": 256,
+        "width": 256
+       },
+       "url": "https://www.redditstatic.com/avatars/defaults/v2/avatar_default_7.png"
+      },
+      "id": "t2_12gbdz",
+      "name": "AutoNewspaperAdmin",
+      "newIcon": {
+       "dimensions": {
+        "height": 256,
+        "width": 256
+       },
+       "url": "https://www.redditstatic.com/avatars/defaults/v2/avatar_default_7.png"
+      },
+      "profile": {
+       "isNsfw": false
+      }
+     },
+     "commentCount": 0,
+     "createdAt": "2026-10-20T07:53:11.130000+0000",
+     "domain": "scmp.com",
+     "id": "t3_1xam1vb",
+     "isArchived": false,
+     "isCommercialCommunication": false,
+     "isContestMode": false,
+     "isLocked": false,
+     "isNsfw": false,
+     "isPollIncluded": false,
+     "isScoreHidden": false,
+     "isSelfPost": false,
+     "isSpoiler": false,
+     "isStickied": false,
+     "isTranslatable": false,
+     "isTranslated": false,
+     "languageCode": "und",
+     "permalink": "/r/AutoNewspaper/comments/1xam1vb/oped_tai_po_fire_public_accountability_needed_to/",
+     "postHint": "LINK",
+     "postTitle": "[Op-Ed] - Tai Po fire: public accountability needed to honour those who died | South China Morning Post",
+     "score": 1,
+     "subreddit": {
+      "id": "t5_3h9d4",
+      "isNsfw": false,
+      "isQuarantined": false,
+      "name": "AutoNewspaper",
+      "prefixedName": "r/AutoNewspaper",
+      "styles": {
+       "bannerBackgroundImage": "https://styles.redditmedia.com/t5_3h9d4/styles/bannerBackgroundImage_kudic76yn3q01.png?frame=1&auto=webp&s=1dd8a794ddbebfc588d3acf99c0578af10a6df8b",
+       "icon": "https://b.thumbs.redditmedia.com/IeB1l__MsycCHrOk9KKX4sJuCWUzeb6xFlKb5zN7a9E.png",
+       "legacyIcon": {
+        "url": "https://b.thumbs.redditmedia.com/IeB1l__MsycCHrOk9KKX4sJuCWUzeb6xFlKb5zN7a9E.png"
+       },
+       "legacyPrimaryColor": "#A5A4A4"
+      },
+      "subscribersCount": 61819,
+      "title": "AutoNewspaper: Constantly Updated Automated News",
+      "type": "RESTRICTED"
+     },
+     "suggestedCommentSort": "CONFIDENCE",
+     "upvoteRatio": 1,
+     "url": "https://www.scmp.com/opinion/hong-kong-opinion/article/3371144/tai-po-fire-public-accountability-needed-honour-those-who-died"
+    }
+   }
+  ]
+ }
+}

@@ -1,0 +1,134 @@
+# YYC's k3s cluster in Hetzner project "yyc", built and changed with hetzner-k3s (MIT, github.com/vitobotta/hetzner-k3s,
+# v2.6.0) by cluster.sh, which fills in the two @…@ values (never commit a token: hetzner-k3s reads HCLOUD_TOKEN).
+# cluster/README.md explains every choice; the short version:
+# - 1 control-plane node (cx23, embedded etcd, tainted CriticalAddonsOnly=true:NoExecute by hetzner-k3s, so apps never
+#   land there) + pool `small` (4 x cx23, label pool=apps) + pool `large` (1 x cpx32) + the cx33 apps node
+#   yyc-pool-apps-worker2 from the first build (its pool is no longer here; hetzner-k3s leaves it alone). No autoscaler
+#   and no sandbox pool here (YYC AI's sandboxes run on AWS).
+# - Every server IPv6-only (no public IPv4), on the private network `yyc` (10.0.0.0/16), which carries k3s, etcd and
+#   flannel. Outgoing IPv4 per node through its own Cloudflare WARP account (node-setup.sh, before k3s installs).
+# - hetzner-k3s never connects over IPv6: with no public IPv4 it SSHes to the PRIVATE address, so cluster.sh runs it on
+#   a bastion inside the private network (a control-plane node, or the old yyc-cluster node while it exists).
+# - Firewall `yyc` (hetzner-k3s's): SSH in from anywhere, everything from the private network, ICMP; the k8s API only
+#   from the private network; no NodePorts. Sites go out through Cloudflare tunnels (outbound only).
+cluster_name: yyc
+kubeconfig_path: "./kubeconfig"
+k3s_version: v1.36.5+k3s1
+config_format_version: 1
+image: ubuntu-24.04
+schedule_workloads_on_masters: false
+protect_against_deletion: true
+create_load_balancer_for_the_kubernetes_api: false
+include_instance_type_in_instance_name: false
+k3s_upgrade_concurrency: 1
+
+networking:
+  ssh:
+    port: 22
+    use_agent: false
+    use_private_ip: true
+    public_key_path: "./admin.pub"
+    private_key_path: "./admin"
+    existing_ssh_key_name: yyc-cluster-admin   # Hetzner SSH key of YYC_CLUSTER_SSH_KEY (the store yyc)
+  allowed_networks:
+    ssh: [0.0.0.0/0, "::/0"]     # key-only SSH; the firewall is the only inbound path
+    api: [10.0.0.0/16]           # the k8s API only from the private network (kubectl over ssh to a control-plane node)
+  node_port_firewall_enabled: false
+  public_network:
+    ipv4: false
+    ipv6: true
+  private_network:
+    enabled: true
+    subnet: 10.0.0.0/16
+    existing_network_name: yyc   # made by cluster.sh before hetzner-k3s runs (the bastion must join it first)
+  cni:
+    enabled: true
+    mode: flannel
+    encryption: true             # flannel wireguard-native between nodes
+  cluster_cidr: 10.244.0.0/16
+  service_cidr: 10.45.0.0/16     # not 10.43/16: the old node (the bastion during the build) uses that one
+  cluster_dns: 10.45.0.10
+
+datastore:
+  mode: etcd
+
+masters_pool:
+  instance_type: cx23
+  instance_count: 1               # Deyao, 2026-10-20: one control-plane node ("reasonable" uptime); etcd snapshots to a Volume
+  locations: [fsn1]
+
+worker_node_pools:
+  # pool `small` (nodes yyc-pool-small-worker1..4), label pool=apps: the apps nodes, the cheapest per GB in stock
+  # (Deyao, 2026-10-20: cx33/cx43 were unavailable everywhere). Every pod's limit fits one cx23 (2770 Mi allocatable;
+  # the biggest: fulltext 2048 Mi). Same location as the Volumes. More capacity = another pool, any eu-central location
+  # with stock (cluster/README.md "Adding capacity").
+  # 5th node (Deyao, 2026-10-27): the poller's rollout needs a 2 Gi slot off the browser-data node, and YYC AI's UI
+  # (768 Mi + its JuiceFS mount, only on the 8 GB nodes) took the room the cpx32 kept for it.
+  # Back to 4 (2026-11-05, the move to yyc-talos): worker5 was rebuilt into the Talos gateway node yyc-talos-gw1, which
+  # keeps its public IPv6 (the account's primary IP limit is full and stays)
+  # 2026-11-05 P2 of the move (yyc-ai/refactor/talos-apps-move.md): small-worker1-3 rebuilt into yyc-talos-news1-3;
+  # only small-worker4 is left. hetzner-k3s names nodes by index, so a `create` now would make worker1-3 again:
+  # don't run it (the old cluster is being retired). The cloud controller carries a required "not the control
+  # plane" node affinity (kubectl patch, 2026-11-05): on yyc-master1 its host-network calls to the API's service
+  # address (10.45.0.1) left through WARP and timed out (the endpoint is local, so kube-proxy's masquerade never runs).
+  - name: small
+    instance_type: cx23
+    instance_count: 1
+    location: fsn1
+    labels:
+      - {key: pool, value: apps}
+  # pool `large` (node yyc-pool-large-worker1, label pool=apps; Deyao, 2026-10-21): cpx32 (4 vCPU, 8 GB, EUR 35.49/month
+  # net), the 8 GB x86 type in stock in fsn1 (cx33 was out of stock everywhere): room for the poller's 2 Gi rollout surge
+  # beside the jobs, in the Volumes' location, on the same WARP exit (colo PRG) as the other nodes.
+  - name: large
+    instance_type: cpx32
+    instance_count: 2             # worker2 (Deyao, 2026-10-29): room for the in-cluster site and yyc-mcp and their rollouts
+    # worker1 was resized in place to cpx42 on 2026-11-05 (Deyao, temporary until yyc-talos; disk unchanged, so it can
+    # go back): hetzner-k3s leaves an existing server's type alone; its node keeps the label instance-type=cpx32
+    location: fsn1
+    labels:
+      - {key: pool, value: apps}
+  # pool `db` (node yyc-pool-db-worker1; Deyao, 2026-10-27: self-host the database, a cx33 if the cluster has no room):
+  # cx33 (4 vCPU, 8 GB, EUR 8.49/month net) for Postgres alone (../apps/postgres.yaml). Neon's counters showed the
+  # database averaging about 1.5 CU (16-26 Oct, the stream running), while the apps nodes' CPU limits are overcommitted
+  # 127-236%; the taint keeps the jobs off it.
+  - name: db
+    instance_type: cx33
+    instance_count: 1
+    location: fsn1
+    labels:
+      - {key: pool, value: db}
+    taints:
+      - {key: dedicated, value: "db:NoSchedule"}
+
+# every node, before k3s: node-setup.sh (WARP for IPv4), embedded by cluster.sh
+additional_pre_k3s_commands:
+  - "echo @NODE_SETUP_B64@ | base64 -d > /usr/local/sbin/yyc-node-setup.sh && bash /usr/local/sbin/yyc-node-setup.sh"
+# after hetzner-k3s's own `nameserver 8.8.8.8` in /etc/k8s-resolv.conf (its cloud-init runs these after it, before
+# k3s installs): node-dns.sh points pods' upstream DNS at the node's systemd-resolved (IPv6, not WARP)
+additional_post_k3s_commands:
+  - "echo @NODE_DNS_B64@ | base64 -d > /usr/local/sbin/yyc-node-dns.sh && bash /usr/local/sbin/yyc-node-dns.sh"
+  # warp-watchdog.sh: restarts the WARP tunnel when IPv4 outside Cloudflare fails (claude-env lessons/93)
+  - "echo @WARP_WATCHDOG_B64@ | base64 -d > /usr/local/sbin/yyc-warp-watchdog.sh && bash /usr/local/sbin/yyc-warp-watchdog.sh"
+additional_packages: []
+
+# kubelet on every node (sizes: cluster/README.md "Node budget")
+kubelet_args:
+  - pod-max-pids=4096
+  - kube-reserved=cpu=200m,memory=400Mi,ephemeral-storage=2Gi
+  - system-reserved=cpu=150m,memory=350Mi,ephemeral-storage=2Gi
+  - eviction-hard=memory.available<300Mi,nodefs.available<10%,nodefs.inodesFree<5%,imagefs.available<10%
+  - eviction-minimum-reclaim=memory.available=100Mi,nodefs.available=1Gi,imagefs.available=1Gi
+  - container-log-max-size=20Mi
+  - container-log-max-files=3
+
+addons:
+  csi_driver: {enabled: true}                  # StorageClass hcloud-volumes; the apps use yyc-block (clusters/hetzner)
+  cloud_controller_manager: {enabled: true}
+  system_upgrade_controller: {enabled: false}  # k3s upgrades = re-run cluster.sh with a new k3s_version
+  cluster_autoscaler: {enabled: false}
+  metrics_server: {enabled: true}
+  traefik: {enabled: false}
+  servicelb: {enabled: false}
+  local_path_storage_class: {enabled: false}
+  embedded_registry_mirror: {enabled: false}

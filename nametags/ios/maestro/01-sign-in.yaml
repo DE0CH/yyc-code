@@ -1,0 +1,23 @@
+# Signed out → 登入 → the web sign-in (the stub's /api/app-signin redirects straight back with a token) → the list.
+appId: dev.de0ch.yycnametags
+name: sign-in
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+    arguments:
+      apiBase: "http://127.0.0.1:8787"
+- extendedWaitUntil:
+    visible: { id: "signInButton" }
+    timeout: 30000
+- assertVisible: "用 YYC 帳戶登入後，便可搜尋嘉賓及打印名牌。"
+- takeScreenshot: 01-signed-out
+- tapOn: { id: "signInButton" }
+# iOS asks "“名牌” Wants to Use “127.0.0.1” to Sign In"
+- tapOn:
+    text: "Continue|繼續"
+    optional: true
+- extendedWaitUntil:
+    visible: "共 6 位嘉賓"
+    timeout: 30000
+- takeScreenshot: 01-signed-in

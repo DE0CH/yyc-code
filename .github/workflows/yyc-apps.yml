@@ -1,0 +1,146 @@
+name: yyc-apps
+# Deploys YYC's apps on the Talos cluster yyc-talos (yyc-ai/refactor/talos-apps-move.md P3, T4; claude-env CLAUDE.md
+# "GitOps runs in GitHub workflows"), as yyc-ai.yml does for YYC AI, with tools/yyc-apply:
+#   news-stream/deploy/clusters/talos/apps     the news stream and the mail merge (namespaces yyc, mailmerge),
+#                                              inventory yyc-deploy/inventory-yyc-apps
+#   news-stream/deploy/clusters/talos/aiwatch  YYC AI watch (namespace aiwatch), inventory yyc-deploy/inventory-yyc-aiwatch
+#   news-stream/deploy/clusters/talos/feishu-index  feishu-index (namespace feishu-index),
+#                                              inventory yyc-deploy/inventory-yyc-feishu-index
+# each with its sealed/ folder (SealedSecrets only, applied as the fence yyc-deploy/sealed-secrets-applier). One
+# inventory per folder: a run prunes what its folder no longer renders, named by a Deploy-Prune trailer
+# (tools/yyc-apply/README.md). What runs where during the move is each overlay's MIGRATION STATE block.
+#
+# - The runner reaches the Kubernetes API through tunnel yyc-deploy (Access service token in environment yyc-apps,
+#   deployment branches main only) and authenticates with its own GitHub OIDC token as gha:yyc-apps (the control
+#   nodes' authenticator, news-stream/deploy/clusters/talos/patches/controlplane.yaml; rights
+#   news-stream/deploy/clusters/talos/apps-access.yaml, applied by talos-cluster.yml). No cluster credential is stored
+#   in GitHub.
+# - check (every PR and push touching these paths): render, kubeconform, yyc-apply check (items 9-12 against
+#   gha:yyc-apps's rights), the sealed folders. deploy (push to main, every 3 h to revert drift, dispatch): plan, then
+#   apply (server-side apply, rollout waits, prune). The applier's own tests run in yyc-ai.yml whenever it changes.
+# - The old cluster keeps Flux for its copies (news-stream/deploy/clusters/hetzner, ai-watch/deploy); nothing here
+#   reaches it.
+on:
+  push:
+    branches: [main]
+    paths: &paths
+      - news-stream/deploy/apps/**
+      - '!news-stream/deploy/apps/sealed/**'
+      - ai-watch/deploy/**
+      - '!ai-watch/deploy/sealed/**'
+      - news-stream/deploy/clusters/talos/apps/**
+      - news-stream/deploy/clusters/talos/aiwatch/**
+      - news-stream/deploy/clusters/talos/feishu-index/**
+      - news-stream/deploy/clusters/talos/apps-access.yaml
+      - infra/secrets.txt
+      - tools/yyc-apply/**
+      - .github/actions/k8s-tools/**
+      - .github/actions/yyc-apply/**
+      - .github/workflows/yyc-apps.yml
+  pull_request:
+    paths: *paths
+  schedule:
+    - cron: "37 */3 * * *"
+  workflow_dispatch:
+    inputs:
+      mode: {type: choice, options: [apply, plan], default: apply}
+permissions: {contents: read}
+env:
+  T: news-stream/deploy/clusters/talos
+  SEALED_AS: system:serviceaccount:yyc-deploy:sealed-secrets-applier
+  DEPLOYER: gha:yyc-apps
+  CRDS: https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: ./.github/actions/k8s-tools
+      - uses: ./.github/actions/yyc-apply
+      - name: commits of this event
+        id: range
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          BEFORE: ${{ github.event.before }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          case "$EVENT" in
+            pull_request) range="$BASE..$SHA" ;;
+            push) if [ -n "$BEFORE" ] && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then range="$BEFORE..$SHA"; else range="$SHA~1..$SHA"; fi ;;
+            *) range="" ;;
+          esac
+          echo "range=$range" >> "$GITHUB_OUTPUT"
+      - name: render and validate
+        run: |
+          set -euo pipefail
+          for d in apps apps/sealed aiwatch aiwatch/sealed feishu-index feishu-index/sealed; do
+            kustomize build "$T/$d" | kubeconform -strict -summary -kubernetes-version 1.36.5 -schema-location default -schema-location "$CRDS"
+          done
+          kubeconform -strict -summary -kubernetes-version 1.36.5 -schema-location default -schema-location "$CRDS" "$T/apps-access.yaml"
+      - name: deployer rights, sealed folders, trailers (yyc-apply check)
+        env:
+          RANGE: ${{ steps.range.outputs.range }}
+        run: |
+          set -euo pipefail
+          for x in "apps yyc,mailmerge" "aiwatch aiwatch" "feishu-index feishu-index"; do
+            set -- $x
+            yyc-apply check --folder "$T/$1" --sealed "$T/$1/sealed" --namespaces "$2" --deployer "$DEPLOYER" \
+              --sealed-as "$SEALED_AS" --access "$T/apps-access.yaml" --access "$T/sealed-secrets.yaml" \
+              --secrets infra/secrets.txt ${RANGE:+--commits "$RANGE"}
+          done
+      - name: sealed folders
+        run: python3 infra/seal.py --check --names-only --allow-unsealed
+
+  deploy:
+    needs: check
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    concurrency:
+      group: ${{ (github.event_name == 'workflow_dispatch' && inputs.mode == 'plan') && 'yyc-apps-plan' || 'yyc-apps-deploy' }}
+      cancel-in-progress: false
+    environment: yyc-apps                           # deployment branches: main only; holds the Access secrets
+    permissions: {contents: read, id-token: write}
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}                      # trailers since the last applied commit
+      - uses: ./.github/actions/k8s-tools
+      - uses: ./.github/actions/yyc-apply
+      - name: connect
+        env:
+          TUNNEL_SERVICE_TOKEN_ID: ${{ secrets.YYC_DEPLOY_ACCESS_CLIENT_ID }}
+          TUNNEL_SERVICE_TOKEN_SECRET: ${{ secrets.YYC_DEPLOY_ACCESS_CLIENT_SECRET }}
+        run: tools/yyc-apply/connect.sh
+      - name: rights
+        run: for ns in yyc mailmerge aiwatch feishu-index yyc-deploy; do echo "== $ns"; kubectl auth can-i --list -n "$ns"; done
+      # each folder: plan, then apply; the first folder's failure stops the run before the second
+      - name: plan and apply
+        env:
+          FORCE: ${{ (github.event_name == 'workflow_dispatch' && inputs.mode == 'plan') && '--force' || '' }}
+          APPLY: ${{ (github.event_name != 'workflow_dispatch' || inputs.mode == 'apply') && 'yes' || 'no' }}
+        run: |
+          set -euo pipefail
+          for x in "apps yyc,mailmerge inventory-yyc-apps" "aiwatch aiwatch inventory-yyc-aiwatch" "feishu-index feishu-index inventory-yyc-feishu-index"; do
+            set -- $x
+            echo "## $T/$1" | tee -a "$GITHUB_STEP_SUMMARY"
+            set +e
+            # shellcheck disable=SC2086
+            yyc-apply plan --folder "$T/$1" --sealed "$T/$1/sealed" --namespaces "$2" --inventory "yyc-deploy/$3" \
+              --sealed-as "$SEALED_AS" --run "${{ github.run_id }}" $FORCE --out "plan-$1.md" > /dev/null; code=$?
+            set -e
+            cat "plan-$1.md" >> "$GITHUB_STEP_SUMMARY"; cat "plan-$1.md"
+            [ $code = 0 ] || exit $code
+            if [ "$APPLY" = yes ]; then yyc-apply apply --plan "plan-$1.md" --run "${{ github.run_id }}"; fi
+          done
+      - name: tell Discord
+        if: failure()
+        env:
+          WEBHOOK: ${{ secrets.YYC_DISCORD_WEBHOOK }}
+        run: |
+          url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          msg="YYC apps deploy (yyc-talos): the run failed; the cluster may not match main (old Pods keep serving). $url"
+          [ -n "$WEBHOOK" ] && curl -s -X POST -H "Content-Type: application/json" -d "$(jq -n --arg c "$msg" '{content:$c}')" "$WEBHOOK" >/dev/null || true

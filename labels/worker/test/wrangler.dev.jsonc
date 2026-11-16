@@ -1,0 +1,10 @@
+// `npm run dev`: wrangler.jsonc with test/dev-entry.js in front (a stand-in for Access). Local only.
+{
+  "name": "yyc-labels-dev",
+  "main": "dev-entry.js",
+  "compatibility_date": "2026-10-01",
+  "assets": { "directory": "../public", "binding": "ASSETS", "run_worker_first": true },
+  "rules": [{ "type": "Text", "globs": ["**/*.html"], "fallthrough": true }],
+  "durable_objects": { "bindings": [{ "name": "STORE", "class_name": "Store" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Store"] }]
+}

@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>WhatsApp Delivery Options</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+HK:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Layout: the YYC news-stream report frame (dark bar, tinted ground, white panels); sticky section nav on desktop, cards stack on phones. */
+:root{
+  --bg:#EEF1F4; --surface:#fff; --ink:#1B2430; --text:#1B2430; --muted:#5F6B7A; --line:#D7DDE4; --border:#D7DDE4;
+  --bar:#1F2A44; --bar-ink:#E9EEF6; --bar-muted:#9FB0C8; --accent:#2F6FDB; --code:#F2F4F7;
+  --good:#1E7A4F; --good-bg:#E3F3EA; --warn:#8A5A00; --warn-bg:#FBF0D9; --bad:#A23A2E; --bad-bg:#F8E3E0; --hl:#FFF3B8;
+  --sans:"Noto Sans HK",system-ui,-apple-system,"Segoe UI",sans-serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#121722; --surface:#1A2130; --ink:#E6EAF0; --text:#E6EAF0; --muted:#93A0B2; --line:#2A3344; --border:#2A3344;
+  --bar:#0E1424; --bar-ink:#E6EAF0; --bar-muted:#8796AE; --accent:#6E9BEA; --code:#141A27;
+  --good:#7FD3A5; --good-bg:#16302A; --warn:#E9C46A; --warn-bg:#33291A; --bad:#F09A8E; --bad-bg:#3A1F1E; --hl:#4A4220; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121722; --surface:#1A2130; --ink:#E6EAF0; --text:#E6EAF0; --muted:#93A0B2; --line:#2A3344; --border:#2A3344;
+  --bar:#0E1424; --bar-ink:#E6EAF0; --bar-muted:#8796AE; --accent:#6E9BEA; --code:#141A27;
+  --good:#7FD3A5; --good-bg:#16302A; --warn:#E9C46A; --warn-bg:#33291A; --bad:#F09A8E; --bad-bg:#3A1F1E; --hl:#4A4220; color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink)}
+body{font:16px/1.65 var(--sans)}
+a{color:var(--accent)}
+header.top{background:var(--bar);color:var(--bar-ink);padding-block:20px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header.top .in{max-width:1180px;margin:0 auto}
+header.top .kick{font:500 12px/1.4 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--bar-muted);margin:0 0 6px}
+header.top h1{margin:0;font-size:clamp(22px,4vw,30px);line-height:1.25;text-wrap:balance}
+header.top p.sub{margin:8px 0 0;color:var(--bar-muted);font-size:15px;max-width:70ch}
+.wrap{max-width:1180px;margin:0 auto;padding-block:16px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+nav.toc{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+nav.toc a{font-size:14px;padding:4px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink);text-decoration:none}
+main{min-width:0;display:flex;flex-direction:column;gap:18px}
+section{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:6px 18px 18px;overflow-wrap:anywhere;min-width:0}
+section h2{font-size:21px;margin:16px 0 10px;scroll-margin-top:12px;text-wrap:balance;display:flex;gap:10px;align-items:baseline}
+section h2 .n{font:500 14px var(--mono);color:var(--accent)}
+section h3{font-size:16px;margin:18px 0 6px}
+section p,section li{max-width:78ch}
+ul,ol{padding-left:22px;margin:6px 0} li{margin:5px 0}
+code{font:13px var(--mono);background:var(--code);padding:1px 4px;border-radius:4px}
+sup a.cite{text-decoration:none;font:500 11px var(--mono);padding:0 1px}
+sup+.sep{font-size:11px;vertical-align:super}
+.cap{font-size:14px;color:var(--muted)}
+.facts li{margin:8px 0}
+.decide{margin:16px 0 4px;padding:12px 16px 14px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+.decide h3{margin:4px 0 6px}
+.vol{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:6px 18px;margin:8px 0}
+.vol .v{display:flex;justify-content:space-between;gap:10px;border-bottom:1px dashed var(--line);padding:4px 0;font-variant-numeric:tabular-nums}
+.vol .k{font-weight:500} .vol .d{font:14px var(--mono);color:var(--muted)} .vol .d b{color:var(--ink)}
+.vol .total{border-bottom:2px solid var(--ink)}
+.cards{display:grid;grid-template-columns:1fr;gap:14px;margin:10px 0}
+@media (min-width:900px){.cards{grid-template-columns:1fr 1fr}}
+.card{border:1px solid var(--line);border-radius:10px;padding:12px 14px;min-width:0;background:var(--surface)}
+.card header{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:6px}
+.card h3{margin:0;font-size:16px}
+.card dl{margin:0} .card dt{font:500 12px var(--mono);letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-top:10px}
+.card dd{margin:2px 0 0;font-size:15px}
+.cost .card dd{font-variant-numeric:tabular-nums}
+.tag{font:500 12px var(--mono);padding:2px 8px;border-radius:999px;background:var(--bg);color:var(--muted);white-space:nowrap}
+.tag.good{background:var(--good-bg);color:var(--good)} .tag.warn{background:var(--warn-bg);color:var(--warn)} .tag.bad{background:var(--bad-bg);color:var(--bad)}
+pre.msg{font:14px/1.6 var(--mono);background:var(--code);border:1px solid var(--line);border-radius:8px;padding:10px 12px;overflow-x:auto;white-space:pre-wrap}
+.refs ol{font-size:14px;padding-left:28px} .refs li{margin:8px 0}
+.refs .meta{display:block;color:var(--muted);font-size:13px}
+.badge{font:500 11px var(--mono);padding:1px 6px;border-radius:4px;background:var(--bg);color:var(--muted);border:1px solid var(--line)}
+.badge.b-firstparty{color:var(--good)} .badge.b-gov{color:var(--accent)} .badge.b-vendor{color:var(--warn)}
+footer{color:var(--muted);font-size:13px;margin-top:6px}
+#backbtn{position:fixed;bottom:calc(22px + env(safe-area-inset-bottom,0px));right:calc(22px + env(safe-area-inset-right,0px));z-index:50;display:none;align-items:center;gap:7px;background:var(--accent);color:var(--surface);border:none;border-radius:999px;padding:10px 18px;font:600 .9rem/1 var(--sans);cursor:pointer}
+#backbtn.show{display:inline-flex}
+.flash{animation:flashbg 1.6s ease-out}
+@keyframes flashbg{0%{background:var(--hl)}100%{background:transparent}}
+@media (prefers-reduced-motion:reduce){.flash{animation:none}}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (min-width:1000px){.wrap{display:grid;grid-template-columns:220px minmax(0,1fr);gap:22px}
+  nav.toc{flex-direction:column;position:sticky;top:16px;align-self:start;margin:0} nav.toc a{border-radius:8px}}
+</style>
+</head>
+<body>
+<header class="top"><div class="in">
+<p class="kick">YYC news stream · research · 16 Oct 2026</p>
+<h1>WhatsApp delivery for YYC's streams: every route, with costs</h1>
+<p class="sub">Telegram carries every filed item today. This compares the ways to send the same alerts on WhatsApp, at YYC's measured volume. Prepared by Claude for Deyao; investigation only, nothing built or bought.</p>
+</div></header>
+<div class="wrap">
+<nav class="toc" aria-label="Sections">
+<a href="#summary">Summary &amp; decisions</a><a href="#today">Today's volume</a><a href="#routes">Routes</a><a href="#meta">Meta's rules</a><a href="#cost">Monthly cost</a><a href="#shape">Shape &amp; ban risk</a><a href="#isolation">Expense evidence</a><a href="#refs">Sources</a>
+</nav>
+<main>
+{{BODY}}
+<section id="refs" class="refs">
+<h2><span class="n">8</span>Sources</h2>
+<p class="cap">Hover a number (tap on a phone) for the source card. Meta's developer pages were read on 16 October 2026 and show their own "Updated" dates. "Claude's inference" and "Claude's calculation" mark statements no source makes. First-party YYC data comes from the stream's own database on the yyc cluster.</p>
+<ol>
+{{REFS}}
+</ol>
+</section>
+<footer>Prices are list prices on the date read; Meta changes its rate card on the first day of a quarter.</footer>
+</main>
+</div>
+<button id="backbtn" type="button" aria-label="Back to where you were reading">↩ Back to text</button>
+<script>
+(function () {
+  var btn = document.getElementById('backbtn'), origin = null;
+  function flash(el) { el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
+  // Remember the exact reading position when a citation is used (the number itself, or the card's Reference link).
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('a[href^="#ref-"]');
+    if (!a) return;
+    if (a.classList.contains('cite') || !origin) origin = { x: window.scrollX, y: window.scrollY, el: a.classList.contains('cite') ? a : (origin && origin.el) };
+  }, true);
+  window.addEventListener('hashchange', function () {
+    if (!/^#ref-/.test(location.hash) || !origin) return;
+    btn.classList.add('show');
+    var t = document.getElementById(location.hash.slice(1)); if (t) flash(t);
+  });
+  btn.addEventListener('click', function () {
+    if (!origin) return;
+    btn.classList.remove('show');
+    window.scrollTo({ left: origin.x, top: origin.y, behavior: 'smooth' });
+    if (origin.el) flash(origin.el.closest('li, p, dd') || origin.el);
+    if (history.replaceState) history.replaceState(null, '', location.pathname + location.search);
+    origin = null;
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+# T4b-prep (plan yyc-ai/refactor/talos-apps-move.md): `db/pg-shared` on the old cluster as well, the same name the new
+# cluster gives its bridge to this Postgres (../../talos/db/pg-shared.yaml). Tunnel yyc-stream's route
+# db.yyc-internal.com (Hyperdrive yyc-pg; news-stream/deploy/cloudflare/tofu/tunnels.tf) then names
+# tcp://pg-shared.db.svc.cluster.local:5432, which answers on both clusters while the tunnel has connectors on both
+# (T4b-connectors). Applied by Flux yyc-db. The old pg-ingress admits every pod (10.244.0.0/16).
+apiVersion: v1
+kind: Service
+metadata:
+  name: pg-shared
+  namespace: db
+spec:
+  selector: {cnpg.io/cluster: pg, cnpg.io/instanceRole: primary}
+  ports: [{name: postgres, port: 5432, targetPort: 5432, protocol: TCP}]

@@ -1,0 +1,43 @@
+# YYC AI watch on yyc-talos (step T4a of the Talos move; plan: yyc-ai/refactor/talos-apps-move.md): the old cluster's
+# ../../../../../ai-watch/deploy with what Talos changes. NOT APPLIED YET (the plan's yyc-apps.yml applies it from P3).
+# Secrets: ./sealed/ (sealed for this cluster; app-env's DATABASE_URL names db/pg-shared, never pg-rw).
+# - amd64 only, on the pool=news nodes (../apps/kustomization.yaml): the image carries Chrome for Testing linux64 (no
+#   arm64 build); yyc-talos-w1..3 are arm64.
+# - the Namespace is cluster-level here (../apps-access.yaml), and the Flux applier's RoleBinding does not exist.
+# - Postgres through db/pg-shared until T5: after the Service's translation the destination is 10.0.0.2:30432 (the
+#   old cluster's pg-hosts), matched by an ipBlock; the selector rule serves from T5.
+# - the socks pool: on the old cluster host-network copies on the nodes' private addresses (ipBlock 10.0.0.0/16:1080).
+#   Under Cilium a node address of this cluster is an entity, never an ipBlock (DESIGN 15.2 N3), so
+#   socks-cilium.yaml admits port 1080 to the nodes and to pods in namespace egress, whichever the Talos pool is.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../../../../ai-watch/deploy
+  - socks-cilium.yaml
+  # - sealed             # P3
+patches:
+  - patch: |-
+      $patch: delete
+      apiVersion: v1
+      kind: Namespace
+      metadata: {name: aiwatch}
+  - patch: |-
+      $patch: delete
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: RoleBinding
+      metadata: {name: sealed-secrets-applier, namespace: aiwatch}
+  - target: {kind: Deployment}
+    patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata: {name: any}
+      spec: {template: {spec: {nodeSelector: {kubernetes.io/arch: amd64, pool: news}}}}
+  - target: {kind: NetworkPolicy, name: egress-dns-internet-postgres}
+    patch: |-
+      - op: add
+        path: /spec/egress/-
+        value: {to: [{ipBlock: {cidr: 10.0.0.2/32}}], ports: [{port: 30432, protocol: TCP}]}
+  # the base is at 0 for the old cluster (its MIGRATION STATE patch, T4a): every Deployment runs 2 here
+  - target: {kind: Deployment, namespace: aiwatch}
+    patch: |-
+      - {op: replace, path: /spec/replicas, value: 2}

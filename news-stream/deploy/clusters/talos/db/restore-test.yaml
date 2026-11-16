@@ -1,0 +1,226 @@
+# Weekly restore tests of YYC's two Postgres clusters (Deyao, 2026-11-09: test the backup path, the industry standard).
+# Each run restores the cluster's backups (base backup + WAL archive: bucket yyc-pg-pitr in odd ISO weeks, its off-site
+# copy in R2 in even weeks, ./offsite-copy.yaml) into a throwaway one-instance
+# Cluster at 10 minutes ago (point-in-time), then checks it and deletes it:
+# - it reaches "Cluster in healthy state" (recovery replayed every WAL file up to the target);
+# - every expected database is there;
+# - ops.heartbeat (./heartbeat.yaml, written every 60 s) shows a time within 180 s before the target, so the WAL
+#   archive held the changes up to that point;
+# - pg_amcheck over every database finds no corruption in tables or btree indexes.
+# It records how long the restore took (from creating the Cluster to healthy, the RTO a real restore would need) and
+# the heartbeat's gap to the target, in ConfigMap restore-test-<cluster> (last.json; history.jsonl: the last 20 runs); the
+# monitor shows the last run and Discords Deyao when one failed or none succeeded for 8 days.
+# Times: Tuesdays in Deyao's working hours (Deyao, 2026-11-09: anything that can go wrong runs while he is around).
+# The restored instance never archives (no plugins), on StorageClass yyc-scratch (reclaim Delete: its Hetzner volume
+# goes with the Cluster). pg's copy is x86 like pg (a physical copy needs the same architecture), on the news pool
+# (packing 2026-11-09: room at that hour); magpie-pg's is ARM like magpie-pg, on the YYC AI pool.
+# The runner is bash around kubectl (the checks run inside the restored instance with its local superuser), not a
+# program: it only drives Kubernetes objects and psql.
+apiVersion: v1
+kind: ServiceAccount
+metadata: {name: restore-test, namespace: db}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata: {name: restore-test, namespace: db}
+rules:
+  - apiGroups: [postgresql.cnpg.io]
+    resources: [clusters]
+    verbs: [get, list, create, delete]
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [get, list]
+  - apiGroups: [""]
+    resources: [pods/exec]
+    verbs: [create]
+  - apiGroups: [""]
+    resources: [configmaps]
+    verbs: [get, create, update, patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: {name: restore-test, namespace: db}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: restore-test}
+subjects: [{kind: ServiceAccount, name: restore-test, namespace: db}]
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: restore-test-script, namespace: db}
+data:
+  run.sh: |
+    #!/bin/bash
+    # run.sh SOURCE: restore Cluster SOURCE's backups into Cluster SOURCE-restore-test, check it, record, delete it.
+    # Env: OBJECTSTORE, OFFSITE_OBJECTSTORE, SERVER (the archive's server name), DATABASES (space-separated),
+    # HEARTBEAT_DB, ARCH, POOL, SIZE, MEMORY, PARAMS (postgresql parameters, at least the source's where recovery needs it).
+    set -uo pipefail
+    src=$1 name=$1-restore-test
+    k() { /tools/kubectl -n db "$@"; }   # fetched and checked by the init container
+    k delete cluster "$name" --ignore-not-found --wait=true >/dev/null   # a leftover of an interrupted run
+    # every other week from the off-site copy in R2 (./offsite-copy.yaml), so that copy is proven too: odd ISO weeks
+    # Hetzner, even weeks R2; SOURCE_STORE=hetzner|r2 forces one (a manual run)
+    store=$OBJECTSTORE source=hetzner
+    if [ "${SOURCE_STORE:-}" = r2 ] || { [ -z "${SOURCE_STORE:-}" ] && [ $(( 10#$(date -u +%V) % 2 )) -eq 0 ]; }; then
+      store=$OFFSITE_OBJECTSTORE source=r2
+    fi
+    echo "restoring $src from $source (ObjectStore $store, server $SERVER)"
+    target=$(date -u -d '-10 min' '+%Y-%m-%d %H:%M:%S+00')
+    started=$(date -u +%s)
+    ok=true; why=""; rto=""; gap=""
+    fail() { ok=false; why="${why:+$why; }$1"; echo "FAIL: $1"; }   # every failed check, in order
+    k create -f - <<EOF || fail "creating the Cluster"
+    apiVersion: postgresql.cnpg.io/v1
+    kind: Cluster
+    metadata: {name: $name, namespace: db, labels: {app: restore-test}}
+    spec:
+      instances: 1
+      imageName: ghcr.io/cloudnative-pg/postgresql:17.11-standard-trixie
+      enableSuperuserAccess: true
+      enablePDB: false
+      priorityClassName: batch
+      storage: {storageClass: yyc-scratch, size: $SIZE}
+      resources: {requests: {cpu: 500m, memory: $MEMORY}, limits: {memory: $MEMORY}}
+      affinity:
+        nodeSelector: {pool: $POOL, kubernetes.io/arch: $ARCH}   # any location: the scratch volume is made where it lands
+      postgresql: {parameters: $PARAMS}
+      bootstrap:
+        recovery:
+          source: origin
+          recoveryTarget: {targetTime: "$target"}
+      externalClusters:
+        - name: origin
+          plugin:
+            name: barman-cloud.cloudnative-pg.io
+            parameters: {barmanObjectName: $store, serverName: $SERVER}
+    EOF
+    if $ok; then
+      until [ "$(k get cluster "$name" -o jsonpath='{.status.phase}/{.status.readyInstances}' 2>/dev/null)" = "Cluster in healthy state/1" ]; do
+        [ $(( $(date -u +%s) - started )) -gt 14400 ] && { fail "not healthy after 4 h ($(k get cluster "$name" -o jsonpath='{.status.phase}'))"; break; }
+        sleep 20
+      done
+    fi
+    if $ok; then
+      rto=$(( $(date -u +%s) - started ))
+      pod=$(k get pod -l cnpg.io/cluster="$name",role=primary -o jsonpath='{.items[0].metadata.name}')
+      q() { k exec "$pod" -c postgres -- psql -qAtX -v ON_ERROR_STOP=1 -d "$1" -c "$2"; }
+      have=$(q postgres "select string_agg(datname, ' ' order by datname) from pg_database where not datistemplate")
+      for d in $DATABASES; do case " $have " in *" $d "*) ;; *) fail "database $d missing (have: $have)";; esac; done
+      gap=$(q "$HEARTBEAT_DB" "select round(extract(epoch from (timestamptz '$target' - at))) from ops.heartbeat where src = 'pg-heartbeat'") \
+        || fail "no ops.heartbeat in $HEARTBEAT_DB"
+      if [ -n "$gap" ] && { [ "$gap" -lt 0 ] || [ "$gap" -gt 180 ]; }; then fail "heartbeat ${gap} s before the target (want 0-180)"; fi
+      amc=$(k exec "$pod" -c postgres -- pg_amcheck --all --install-missing 2>&1) || fail "pg_amcheck: $(echo "$amc" | head -c 400)"
+    fi
+    k delete cluster "$name" --wait=true >/dev/null || echo "could not delete Cluster $name"
+    why=$(printf '%s' "$why" | tr '\n\t"\\' "   '")   # plain text inside a JSON string
+    result=$(printf '{"at":"%s","source":"%s","target":"%s","ok":%s,"restore_seconds":%s,"heartbeat_gap_seconds":%s,"why":"%s"}' \
+      "$(date -u +%FT%TZ)" "$source" "$target" "$ok" "${rto:-null}" "${gap:-null}" "$why")
+    echo "result: $result"
+    cm=restore-test-$src   # last.json: this run; history.jsonl: the last 20 runs, one per line
+    old=$(k get configmap "$cm" -o jsonpath='{.data.history\.jsonl}' 2>/dev/null || true)
+    hist=$(printf '%s\n%s\n' "$old" "$result" | sed '/^$/d' | tail -n 20)
+    k create configmap "$cm" --from-literal=last.json="$result" --from-literal=history.jsonl="$hist" \
+      --dry-run=client -o yaml | k apply -f - >/dev/null
+    $ok
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata: {name: restore-test-pg, namespace: db}
+spec:
+  schedule: "0 3 * * 2"          # Tuesday 11:00 HKT
+  timeZone: Etc/UTC
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 18000
+      ttlSecondsAfterFinished: 604800
+      template:
+        metadata: {labels: {app: restore-test}}
+        spec:
+          serviceAccountName: restore-test
+          restartPolicy: Never
+          securityContext: {runAsUser: 26, runAsGroup: 26, runAsNonRoot: true, seccompProfile: {type: RuntimeDefault}}
+          nodeSelector: {pool: apps}
+          enableServiceLinks: false
+          volumes: [{name: script, configMap: {name: restore-test-script, defaultMode: 0555}}, {name: tools, emptyDir: {sizeLimit: 128Mi}}]
+          initContainers:
+            - name: kubectl   # the Postgres image has no curl: fetch kubectl here, checked against its published sha256
+              securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+              image: curlimages/curl:8.11.1
+              command: [sh, -c, 'curl -fsSL -o /tools/kubectl https://dl.k8s.io/release/v1.37.1/bin/linux/arm64/kubectl && echo "$KUBECTL_SHA256  /tools/kubectl" | sha256sum -c - && chmod 0555 /tools/kubectl']
+              env: [{name: KUBECTL_SHA256, value: ff749f4b78d9c4f1ec87307df9b50119ed819e2094aa9810cb9acffc3286c8c7}]   # arm64: the runner is on the YYC AI pool
+              volumeMounts: [{name: tools, mountPath: /tools}]
+              resources: {requests: {cpu: 20m, memory: 32Mi}, limits: {memory: 128Mi}}
+          containers:
+            - name: run
+              securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+              image: ghcr.io/cloudnative-pg/postgresql:17.11-standard-trixie
+              command: [bash, /script/run.sh, pg]
+              volumeMounts: [{name: script, mountPath: /script}, {name: tools, mountPath: /tools}]
+              env:
+                - {name: OBJECTSTORE, value: pg-archive}
+                - {name: OFFSITE_OBJECTSTORE, value: pg-offsite}
+                - {name: SERVER, value: pg-talos}
+                - {name: DATABASES, value: "app aiwatch mcp jfs_yyc_ai hermit egress tools feishu_index"}
+                - {name: HEARTBEAT_DB, value: app}
+                - {name: ARCH, value: amd64}
+                - {name: POOL, value: news}
+                - {name: SIZE, value: 60Gi}
+                - {name: MEMORY, value: 1536Mi}
+                - {name: PARAMS, value: '{max_connections: "300", max_worker_processes: "20", shared_buffers: 256MB}'}
+              resources:
+                requests: {cpu: 20m, memory: 64Mi}
+                limits: {memory: 256Mi}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata: {name: restore-test-magpie-pg, namespace: db}
+spec:
+  schedule: "0 6 * * 2"          # Tuesday 14:00 HKT
+  timeZone: Etc/UTC
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 18000
+      ttlSecondsAfterFinished: 604800
+      template:
+        metadata: {labels: {app: restore-test}}
+        spec:
+          serviceAccountName: restore-test
+          restartPolicy: Never
+          securityContext: {runAsUser: 26, runAsGroup: 26, runAsNonRoot: true, seccompProfile: {type: RuntimeDefault}}
+          nodeSelector: {pool: apps}
+          enableServiceLinks: false
+          volumes: [{name: script, configMap: {name: restore-test-script, defaultMode: 0555}}, {name: tools, emptyDir: {sizeLimit: 128Mi}}]
+          initContainers:
+            - name: kubectl   # the Postgres image has no curl: fetch kubectl here, checked against its published sha256
+              securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+              image: curlimages/curl:8.11.1
+              command: [sh, -c, 'curl -fsSL -o /tools/kubectl https://dl.k8s.io/release/v1.37.1/bin/linux/arm64/kubectl && echo "$KUBECTL_SHA256  /tools/kubectl" | sha256sum -c - && chmod 0555 /tools/kubectl']
+              env: [{name: KUBECTL_SHA256, value: ff749f4b78d9c4f1ec87307df9b50119ed819e2094aa9810cb9acffc3286c8c7}]   # arm64: the runner is on the YYC AI pool
+              volumeMounts: [{name: tools, mountPath: /tools}]
+              resources: {requests: {cpu: 20m, memory: 32Mi}, limits: {memory: 128Mi}}
+          containers:
+            - name: run
+              securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+              image: ghcr.io/cloudnative-pg/postgresql:17.11-standard-trixie
+              command: [bash, /script/run.sh, magpie-pg]
+              volumeMounts: [{name: script, mountPath: /script}, {name: tools, mountPath: /tools}]
+              env:
+                - {name: OBJECTSTORE, value: pg-pitr}
+                - {name: OFFSITE_OBJECTSTORE, value: pg-offsite}
+                - {name: SERVER, value: magpie-pg}
+                - {name: DATABASES, value: "magpie"}
+                - {name: HEARTBEAT_DB, value: magpie}
+                - {name: ARCH, value: arm64}
+                - {name: POOL, value: apps}
+                - {name: SIZE, value: 10Gi}
+                - {name: MEMORY, value: 1Gi}
+                - {name: PARAMS, value: '{max_connections: "150", shared_buffers: 256MB}'}
+              resources:
+                requests: {cpu: 20m, memory: 64Mi}
+                limits: {memory: 256Mi}

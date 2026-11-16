@@ -1,0 +1,56 @@
+# Codes that don't print: a registration still pending (409), an unknown code (404), a QR that isn't ours. Each shows
+# the error line and 再掃描; no tag, no print.
+appId: dev.de0ch.yycnametags
+name: scan errors
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+    arguments:
+      apiBase: "http://127.0.0.1:8787"
+      testToken: "test-token"
+      scanCode: "Pn8dR2hY6tGk0wQz5cXa3f"
+- extendedWaitUntil:
+    visible: "共 6 位嘉賓"
+    timeout: 30000
+- tapOn: { id: "scanButton" }
+- extendedWaitUntil:
+    visible: { id: "scanError", text: "此報名未確認" }
+    timeout: 15000
+- assertVisible: { id: "scanAgain" }
+- assertNotVisible: { id: "printButton" }
+- takeScreenshot: 09-scan-pending
+# 再掃描 reads the (same) code again: the same answer
+- tapOn: { id: "scanAgain" }
+- extendedWaitUntil:
+    visible: { id: "scanError", text: "此報名未確認" }
+    timeout: 15000
+
+- launchApp:
+    arguments:
+      apiBase: "http://127.0.0.1:8787"
+      testToken: "test-token"
+      scanCode: "https://register.yyc-internal.com/r/Zz0000000000000000000a"
+- extendedWaitUntil:
+    visible: "共 6 位嘉賓"
+    timeout: 30000
+- tapOn: { id: "scanButton" }
+- extendedWaitUntil:
+    visible: { id: "scanError", text: "找不到此二維碼" }
+    timeout: 15000
+- assertNotVisible: { id: "printButton" }
+- takeScreenshot: 09-scan-unknown
+
+- launchApp:
+    arguments:
+      apiBase: "http://127.0.0.1:8787"
+      testToken: "test-token"
+      scanCode: "https://example.com/r/Vq3xT9bL2mPa7sKd4nWc1e"
+- extendedWaitUntil:
+    visible: "共 6 位嘉賓"
+    timeout: 30000
+- tapOn: { id: "scanButton" }
+- extendedWaitUntil:
+    visible: { id: "scanError", text: "這不是報名二維碼" }
+    timeout: 15000
+- takeScreenshot: 09-scan-not-ours

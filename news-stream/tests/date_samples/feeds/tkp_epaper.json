@@ -1,0 +1,18 @@
+{
+"source": "tkp_epaper",
+"fetched": "2026-10-14",
+"pages": [
+[
+"https://www.tkww.hk/epaper/sitemap/tkp/sitemapIndex.xml",
+"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<sitemapindex xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\r\n\t\t  <sitemap>\r\n\t\t    <loc>https://www.tkww.hk/epaper/sitemap/tkp/20261013/news.xml</loc>\r\n\t\t  </sitemap><sitemap>\r\n\t\t    <loc>https://www.tkww.hk/epaper/sitemap/tkp/20261014/news.xml</loc>\r\n\t\t  </sitemap></sitemapindex>"
+],
+[
+"https://www.tkww.hk/epaper/sitemap/tkp/20261013/news.xml",
+"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\" xmlns:news=\"http://www.google.com/schemas/sitemap-news/0.9\">\r\n\t\t    <url>\r\n\t\t        <loc>https://www.tkww.hk/epaper/view/newsDetail/2109710904554819584.html</loc>\r\n\t\t        <news:news>\r\n\t\t            <news:publication>\r\n\t\t                <news:name>大公報</news:name>\r\n\t\t                <news:language>zh-HK</news:language>\r\n\t\t            </news:publication>\r\n\t\t            <news:publication_date>2026-10-13T00:00:00Z</news:publication_date>\r\n\t\t            <news:title>前三季中國新能源汽車出口超400萬輛</news:title>\r\n\t\t        </news:news>\r\n\t\t    </url><url>\r\n\t\t        <loc>https://www.tkww.hk/epaper/view/newsDetail/2109710904995221504.html</loc>\r\n\t\t        <news:news>\r\n\t\t            <news:publication>\r\n\t\t                <news:name>大公報</news:name>\r\n\t\t                <news:language>zh-HK</news:language>\r\n\t\t            </news:publication>\r\n\t\t            <news:publication_date>2026-10-13T00:00:00Z</news:publication_date>\r\n\t\t            <news:title>新皇崗口岸啟用/新皇崗口岸帶來商機 首日逾50旅行團出入境　團友：24小時通關 夜返不用趕過關</news:title>\r\n\t\t        </news:news>\r\n\t\t    </url></urlset>"
+],
+[
+"https://www.tkww.hk/epaper/sitemap/tkp/20261014/news.xml",
+"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\" xmlns:news=\"http://www.google.com/schemas/sitemap-news/0.9\">\r\n\t\t    <url>\r\n\t\t        <loc>https://www.tkww.hk/epaper/view/newsDetail/2110071747754725376.html</loc>\r\n\t\t        <news:news>\r\n\t\t            <news:publication>\r\n\t\t                <news:name>大公報</news:name>\r\n\t\t                <news:language>zh-HK</news:language>\r\n\t\t            </news:publication>\r\n\t\t            <news:publication_date>2026-10-14T00:00:00Z</news:publication_date>\r\n\t\t            <news:title>特區政府嘉許「向國旗敬禮」訪京團成員 李家超勉勵學生　重溫紅軍長征歷史 厚植愛國情懷</news:title>\r\n\t\t        </news:news>\r\n\t\t    </url><url>\r\n\t\t        <loc>https://www.tkww.hk/epaper/view/newsDetail/2110071748228681728.html</loc>\r\n\t\t        <news:news>\r\n\t\t            <news:publication>\r\n\t\t                <news:name>大公報</news:name>\r\n\t\t                <news:language>zh-HK</news:language>\r\n\t\t            </news:publication>\r\n\t\t            <news:publication_date>2026-10-14T00:00:00Z</news:publication_date>\r\n\t\t            <news:title>孫東：構建「三大創科園區、五大研發機構」新格局</news:title>\r\n\t\t        </news:news>\r\n\t\t    </url></urlset>"
+]
+]
+}

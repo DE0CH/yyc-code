@@ -1,0 +1,37 @@
+# Deploys AI 觀察's edge (ai-watch/edge: Worker yyc-aiwatch with the pages in ai-watch/static as its assets, on YYC's own
+# Cloudflare account) on every push touching them. A Worker deploy is atomic: requests in flight finish on the old
+# version, new ones get the new one, so the site never goes down. Its route is in news-stream/deploy/cloudflare/tofu.
+# Secrets: YYC_CF_API_TOKEN (token yyc-edge: YYC's account only) and YYC_CF_ACCOUNT_ID.
+name: ai-watch-edge
+on:
+  push:
+    branches: [main]
+    paths:
+      - ai-watch/edge/**
+      - ai-watch/static/**
+      - .github/workflows/ai-watch-edge.yml
+  workflow_dispatch:
+concurrency:
+  group: ai-watch-edge
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ai-watch/edge
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node --check worker.js && node --check ../static/app.js && node --check ../static/tabs.js
+      - name: deploy
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then echo "::warning::YYC_CF_API_TOKEN is not set on the repo: not deployed"; exit 0; fi
+          npx --yes wrangler@4.151.0 deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.YYC_CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.YYC_CF_ACCOUNT_ID }}

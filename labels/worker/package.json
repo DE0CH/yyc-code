@@ -1,0 +1,9 @@
+{
+  "name": "yyc-labels",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --import ./test/register.mjs --test test/*.test.js",
+    "dev": "npx --yes wrangler@4.151.0 dev -c test/wrangler.dev.jsonc --port 8787"
+  }
+}

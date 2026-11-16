@@ -1,0 +1,114 @@
+/* The live dashboard (/app/live; -LivePage.tsx, lib/liveLayout.ts). Fixed, not fitted (Deyao, 2026-10-21: "text size
+   and layout should be fixed"): the canvas is the display's size in px, each panel an absolute px box from LAYOUTS,
+   each card a fixed height (set inline from CARD_H) with every line at a fixed px size and line height, text clamped
+   to a fixed number of lines (.l1 … .l5). No vw/vh, clamp() or fit-to-screen scaling. Dense (Deyao: "dense information
+   meaning small margins"): 1 px rules, 3 px padding. No transitions or animations anywhere (Deyao: "no highlight").
+   On the pixel (Deyao: "text is small but not aligned on the pixel"; both displays are 1x): whole-px font sizes, line
+   heights and boxes only, nothing centred into a half pixel, no transforms.
+   Pixel font (Deyao, 2026-10-21: render "at the pixel level … because that's better"; the displays are 1x on a
+   Windows PC): Fusion Pixel Font (縫合像素字體, OFL, zh_hk glyph forms, public/fonts/) at exactly its design sizes, 12 px
+   for titles and 10 px for everything else (24 px = 2x for the stale note), so every stroke fills whole pixels and
+   ClearType or grayscale smoothing has nothing to smear. Its metrics are whole px (12 px: 13 up + 3 down = 16; 10 px:
+   11 + 3 = 14), so every line height is that plus an even number and the baseline lands on a whole pixel. No synthetic
+   bold or italic (font-synthesis:none: a faked bold smears by a pixel); emphasis is colour. */
+@font-face { font-family:"Fusion Pixel 12"; src:url("/fonts/fusion-pixel-12px-zh_hk.woff2") format("woff2"); font-display:block; }
+@font-face { font-family:"Fusion Pixel 10"; src:url("/fonts/fusion-pixel-10px-zh_hk.woff2") format("woff2"); font-display:block; }
+html.live-doc, html.live-doc body { background:#111315; overflow:hidden; margin:0; }
+html.live-doc .yyc-update { display:none; }
+/* a phone (-LivePage.tsx mode phone): one column of fixed boxes, the page scrolls */
+html.live-doc.live-phone, html.live-doc.live-phone body { overflow-x:hidden; overflow-y:auto; }
+/* `.live` is this page's root (-LivePage.tsx) and its rules are global (absolute at 0,0, pixel font): no other page may
+   use the class (串流's 即時更新 did, and sat over 「YYC」, 2026-10-22; it is `.fresh`). */
+/* House style, dark only (claude-env deyao-web-design's dark tokens): flat panels on the ground with 1px rules in the
+   one rule grey (the site's dark --rule; a panel's header is set apart by its type and its rule, not a tinted band), square
+   tags, and hue only for states, in the flight-deck colours of every page (house.css --st-*): red = failed / needs action
+   now, amber = a caution (late, stale, needs a look), green = back to normal, blue = an advisory that is neither (Stage 2
+   overruled Stage 1: "now passes", "rejected"). Nothing else is red, amber or green:
+   routes, streams, event kinds and scores are ink or grey; a channel tag's word names it. */
+.live { --ink:#e8eaec; --sub:#c2c8ce; --mut:#9ea6ae; --dim:#7f8891; --rule:#33393f; --edge:var(--rule); --panel:#1a1d20; --head:var(--panel);
+  --bad:#ff4d5a; --ok:#3cc48a; --warn:#ffb81c; --info:#5aa9ff; --meter:#2a2f35; --meter-s:#59626b;
+  position:absolute; left:0; top:0; overflow:hidden; background:#111315; color:var(--ink);
+  font:12px/16px "Fusion Pixel 12","Noto Emoji",monospace; font-synthesis:none; -webkit-font-smoothing:none; }
+.live-bar, .lp > h2, .lp .m, .lp .x, .lp .tag, .lp .topic { font-family:"Fusion Pixel 10","Noto Emoji",monospace; }
+/* figures stay in the pixel face of their line (house.css .num would set Archivo) */
+.live .num { font-family:inherit; }
+.live b, .live strong, .live h2, .live em { font-weight:400; font-style:normal; }
+.live *, .live *::before, .live *::after { animation:none !important; transition:none !important; box-sizing:border-box; }
+.live-bar { position:absolute; left:0; top:0; right:0; height:16px; display:flex; align-items:center; gap:10px; padding:0 4px;
+  font-size:10px; line-height:16px; color:var(--mut); white-space:nowrap; overflow:hidden; }
+.live-bar b { color:var(--ink); font-weight:600; }
+.lp { position:absolute; display:flex; flex-direction:column; background:var(--panel); border:1px solid var(--rule); overflow:hidden; }
+.lp > h2 { flex:none; margin:0; padding:0 4px; font-size:10px; font-weight:700; line-height:20px; display:flex; justify-content:space-between;
+  gap:8px; background:none; border-bottom:1px solid var(--rule); color:var(--ink); white-space:nowrap; overflow:hidden; }
+.lp > h2 .hr { display:flex; gap:8px; font-weight:500; }
+.lp > ol { flex:1 1 0; min-height:0; margin:0; padding:0; list-style:none; overflow:hidden; }
+.lp li { padding:3px 4px; border-bottom:1px solid var(--rule); overflow:hidden; overflow-wrap:anywhere; }
+/* a bad / good card: a 4px line in its status hue down the left, inside the same box (the padding gives way, so the
+   text stays where it was) */
+.lp li.bad { border-left:4px solid var(--bad); padding-left:0; }
+.lp .m { display:flex; gap:6px; align-items:center; height:14px; font-size:10px; line-height:14px; color:var(--mut); white-space:nowrap; overflow:hidden; }
+.lp .m > * { flex:none; }
+.lp .m > span:not(.num):not(.tag) { flex:0 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; }
+.lp .t { font-size:12px; line-height:16px; color:var(--ink); display:-webkit-box; -webkit-box-orient:vertical; overflow:hidden; }
+.lp .x { font-size:10px; line-height:14px; color:var(--sub); display:-webkit-box; -webkit-box-orient:vertical; overflow:hidden; }
+.lp .l1 { -webkit-line-clamp:1; }
+.lp .l2 { -webkit-line-clamp:2; } .lp .l3 { -webkit-line-clamp:3; } .lp .l4 { -webkit-line-clamp:4; } .lp .l5 { -webkit-line-clamp:5; }
+.lp .x.l1 { max-height:14px; } .lp .x.l2 { max-height:28px; } .lp .x.l5 { max-height:70px; }
+.lp .t.l1 { max-height:16px; } .lp .t.l2 { max-height:32px; }
+.lp .why { color:var(--bad); }
+.lp .dim, .live .dim { color:var(--dim); }
+.live .bad { color:var(--bad); }
+.live .warn:not(.tag) { color:var(--warn); }
+.lp .tag { font-size:10px; line-height:12px; padding:0 3px; border:1px solid var(--rule); border-radius:0; color:var(--mut); font-weight:500; margin-left:4px; }
+.lp .m .tag { margin-left:0; }
+.lp .tag.ok { color:var(--ok); border-color:var(--ok); }
+.lp .tag.badt { color:var(--bad); border-color:var(--bad); }
+.lp .tag.warn { color:var(--warn); border-color:var(--warn); }
+.lp .tag.info { color:var(--info); border-color:var(--info); }
+.lp .tag.tg, .lp .tag.wa, .lp .tag.ink { color:var(--ink); border-color:var(--mut); }
+.lp .x b, .lp .chk b { color:var(--ink); font-weight:600; }
+/* Stage 1: every topic, highest first, in two columns: name, score, a meter, the reason */
+/* the first column in whole px: half of an odd width put the second column on a half pixel */
+.lp .topics { display:grid; grid-template-columns:round(down, calc(50% - 6px), 1px) 1fr; grid-template-rows:repeat(4, 14px); grid-auto-flow:column; column-gap:12px; margin-top:1px; }
+.lp .topic { display:grid; grid-template-columns:44px 20px 40px minmax(0, 1fr); align-items:center; column-gap:5px; font-size:10px; line-height:14px; color:var(--dim); min-width:0; }
+.lp .topic b { font-weight:600; color:var(--mut); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.lp .topic em { font-style:normal; text-align:right; color:var(--mut); }
+.lp .topic .meter { display:block; height:4px; background:var(--meter); position:relative; }
+.lp .topic .meter s { position:absolute; left:0; top:0; bottom:0; background:var(--meter-s); }
+.lp .topic span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--sub); }
+/* a score is not a state: over the threshold = ink, near it (40+) = the sub grey, below = dim */
+.lp .topic.near em, .lp .topic.near b { color:var(--sub); } .lp .topic.near .meter s { background:var(--mut); }
+.lp .topic.pass em, .lp .topic.pass b { color:var(--ink); } .lp .topic.pass .meter s { background:var(--ink); }
+.live-stale .lp, .live-stale .live-bar { filter:grayscale(1) brightness(.45); }
+.live-stale-note { position:absolute; left:0; right:0; top:432px; margin:0 auto; width:max-content; padding:10px 18px; background:var(--panel); border:3px solid var(--warn);
+  color:#fff; font-size:24px; line-height:32px; font-weight:600; white-space:nowrap; }
+/* YYC AI's state and the Systems panel (kv live:sys): fixed 14 px lines of 10 px type, one fact per line, clipped */
+.lp .st { overflow:hidden; padding:2px 4px; font-family:"Fusion Pixel 10","Noto Emoji",monospace; font-size:10px; line-height:14px; color:var(--sub); }
+.lp .st .row { display:flex; gap:6px; align-items:center; height:14px; white-space:nowrap; overflow:hidden; }
+.lp .st .row > * { flex:none; }
+.lp .st .row > span:last-child { flex:0 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; }
+.lp .st .row.why { color:var(--bad); } .lp .st .row.warnc { color:var(--warn); } .lp .st .row.infoc { color:var(--info); }  /* warming up: starting, not wrong */
+.lp .st .now { color:var(--ink); }
+.lp .st .sec { height:16px; line-height:16px; margin-top:2px; border-top:1px solid var(--rule); color:var(--mut); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.lp .st > .sec:first-child { margin-top:0; border-top:0; }  /* the header's rule is the line above it: never a second one 2px under it */
+.lp .st b { color:var(--ink); }
+.lp .st .c1 { width:150px; overflow:hidden; text-overflow:ellipsis; color:var(--ink); }
+.lp .st a.ops { color:var(--ink); text-decoration:underline; text-underline-offset:2px; }  /* a link to YYC AI's operator page */
+.lp .st .c2 { width:84px; overflow:hidden; text-overflow:ellipsis; }
+.lp .st .pn { width:120px; overflow:hidden; text-overflow:ellipsis; color:var(--ink); }
+.lp .st .src { margin-left:auto; }
+.lp .st .bk { width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }  /* Systems: two buckets a line */
+.lp .st .bk.why { color:var(--bad); }
+.lp .st .tag { margin-left:0; }
+/* Jarvis 4: one fixed cell per session, columns sharing one rule; line 1 its state and name, line 2 how long and what runs */
+.lp .js { display:grid; grid-auto-flow:column; font-family:"Fusion Pixel 10","Noto Emoji",monospace; font-size:10px; line-height:14px; }
+.lp .js .jr { padding:1px 4px 0; border-bottom:1px solid var(--rule); min-width:0; overflow:hidden; color:var(--sub); }
+.lp .js .jr.c2nd { border-left:1px solid var(--rule); }
+.lp .js .j1 { display:flex; gap:6px; align-items:center; height:14px; white-space:nowrap; overflow:hidden; }
+.lp .js .j1 .tag { margin-left:0; flex:none; }
+.lp .js .jn { color:var(--ink); overflow:hidden; text-overflow:ellipsis; min-width:0; }
+.lp .js .idle .jn { color:var(--sub); }
+.lp .js .j2 { height:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--mut); }
+.lp .tag.inkf { background:var(--ink); color:var(--panel); border-color:var(--ink); }  /* Jarvis 4 working: ink-filled, no hue (normal) */
+.lp li .x b { color:var(--ink); }
+.lp > .st { flex:1 1 0; min-height:0; }

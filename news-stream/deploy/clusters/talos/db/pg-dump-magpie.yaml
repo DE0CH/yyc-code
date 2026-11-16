@@ -1,0 +1,82 @@
+# The daily locked logical dump of database magpie (DESIGN 15.8; spec-platform 11.2), the new cluster's copy of the
+# old cluster's pg-dump-daily (news-stream/deploy/db/pg-dump-daily.yaml): at 03:30 HKT a pg_dump as role magpie from
+# magpie-pg-rw, read back with pg_restore --list, uploaded to bucket yyc-pg-backups under dumps/<UTC date>/ (Object
+# Lock COMPLIANCE, 30 days), the same prefix scheme as the old dumps (file magpie.dump). Label app=pg-dump-magpie:
+# magpie-pg-ingress admits it.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: pg-dump-magpie
+  namespace: db
+spec:
+  schedule: "30 19 * * *"       # 03:30 HKT, after the 03:15 base backup
+  timeZone: Etc/UTC
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 5400
+      ttlSecondsAfterFinished: 172800
+      template:
+        metadata:
+          labels: {app: pg-dump-magpie}
+        spec:
+          restartPolicy: Never
+          # Pod Security restricted (namespace db): non-root, RuntimeDefault seccomp, no privilege escalation, no capabilities
+          securityContext: {runAsUser: 26, runAsGroup: 26, fsGroup: 26, runAsNonRoot: true, seccompProfile: {type: RuntimeDefault}}
+          nodeSelector: {pool: apps, yyc.hetzner/network: "yyc"}
+          initContainers:
+            - name: dump
+              securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+              image: ghcr.io/cloudnative-pg/postgresql:17.11-standard-trixie
+              command:
+                - bash
+                - -c
+                - |
+                  set -euo pipefail
+                  d=/dump/$(date -u +%Y-%m-%d); mkdir -p "$d"
+                  for spec in magpie:magpie:MAGPIE; do
+                    IFS=: read -r db role var <<< "$spec"
+                    pw="PW_$var"
+                    PGPASSWORD="${!pw}" pg_dump "host=magpie-pg-rw.db.svc.cluster.local dbname=$db user=$role sslmode=require" \
+                      --format=custom --file="$d/$db.dump"
+                    pg_restore --list "$d/$db.dump" > /dev/null   # readable to the end
+                    echo "$db: $(du -h "$d/$db.dump" | cut -f1)"
+                  done
+              env:
+                - {name: PW_MAGPIE, valueFrom: {secretKeyRef: {name: pg-role-magpie, key: password}}}
+              resources:
+                requests: {cpu: 500m, memory: 256Mi}
+                limits: {memory: 1Gi}
+              volumeMounts: [{name: dump, mountPath: /dump}]
+          containers:
+            - name: upload
+              securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+              image: rclone/rclone:1.71.2
+              command:
+                - sh
+                - -c
+                - |
+                  set -eu
+                  # 2 files x 2 parts x 16 MB of upload buffers: the defaults (4 parts of 64 MB each) reach the 512 Mi limit
+                  rclone copy /dump hz:yyc-pg-backups/dumps --s3-chunk-size 16M --s3-upload-concurrency 2 --buffer-size 8M --transfers 2 -v
+                  rclone check /dump hz:yyc-pg-backups/dumps --size-only --one-way
+              env:
+                # Hetzner Object Storage; the bucket exists (no create), region = its location
+                - {name: RCLONE_CONFIG_HZ_TYPE, value: s3}
+                - {name: RCLONE_CONFIG_HZ_PROVIDER, value: Other}
+                - {name: RCLONE_CONFIG_HZ_ENDPOINT, value: "https://fsn1.your-objectstorage.com"}
+                - {name: RCLONE_CONFIG_HZ_REGION, value: fsn1}
+                - {name: RCLONE_S3_NO_CHECK_BUCKET, value: "true"}
+                - {name: RCLONE_CONFIG_HZ_ACCESS_KEY_ID, valueFrom: {secretKeyRef: {name: pg-backup-s3, key: ACCESS_KEY_ID}}}
+                - {name: RCLONE_CONFIG_HZ_SECRET_ACCESS_KEY, valueFrom: {secretKeyRef: {name: pg-backup-s3, key: ACCESS_SECRET_KEY}}}
+                - {name: HOME, value: /tmp}
+              resources:
+                requests: {cpu: 200m, memory: 128Mi}
+                limits: {memory: 512Mi}
+              volumeMounts: [{name: dump, mountPath: /dump}]
+          volumes:
+            - name: dump
+              emptyDir: {sizeLimit: 20Gi}

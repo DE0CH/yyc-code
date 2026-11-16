@@ -1,0 +1,158 @@
+# Who the deploy workflow is on yyc-talos (yyc-ai/refactor deploy-workflows 4.2 and 12.3, DESIGN 15.3): YYC AI's
+# namespaces and the rights of `gha:yyc-ai`, the user the control nodes' authenticator maps a GitHub OIDC token of
+# DE0CH/YYC main, environment yyc-ai, workflow yyc-ai.yml to (patches/controlplane.yaml). Cluster-level on purpose
+# (this folder, the cluster's own apply): a yyc-ai commit can neither widen its own rights nor relabel a namespace;
+# `yyc-apply check` (item 9) fails a render that leaves them, item 12 a Namespace or RBAC outside yyc-ai/yyc-ai-fabric.
+# The fence (`yyc-deploy/sealed-secrets-applier`) is ./sealed-secrets.yaml; the connector of tunnel yyc-deploy is
+# ./deploy-access.yaml.
+#
+# What `gha:yyc-ai` cannot do: read or write Secrets, create, relabel or delete a namespace, touch RBAC outside
+# yyc-ai and yyc-ai-fabric, write anything in the apps' namespace yyc (the access catalogue it kept there as a
+# ConfigMap is a Secret of yyc-apps.yml's since 2026-11-16), change Pod Security labels, reach the old cluster
+# (nothing there trusts it). What it can:
+# run privileged Pods in yyc-ai-fabric (the gateway pod is privileged and host-network by design), i.e. root on the
+# nodes that run it.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: yyc-ai
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: yyc-ai-fabric
+  labels:
+    pod-security.kubernetes.io/enforce: privileged
+---
+# the deploy path's own namespace: the inventory, the fence, the connector (deploy-access.yaml)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: yyc-deploy
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+---
+# the YYC apps' namespace (as news-stream/deploy/apps/namespaces.yaml on the old cluster): gha:yyc-apps' to deploy
+# into (./apps-access.yaml), nothing of gha:yyc-ai's
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: yyc
+---
+# the kinds the render contains, in each of the folder's namespaces; no `secrets` at all
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: yyc-ai-deployer-ns
+rules:
+  - apiGroups: [""]
+    resources: [configmaps, services, serviceaccounts, persistentvolumeclaims, limitranges]
+    verbs: [create, get, list, watch, patch, update, delete]
+  - apiGroups: [apps]
+    resources: [deployments, daemonsets, statefulsets]
+    verbs: [create, get, list, watch, patch, update, delete]
+  - apiGroups: [batch]
+    resources: [jobs, cronjobs]
+    verbs: [create, get, list, watch, patch, update, delete]
+  - apiGroups: [autoscaling]
+    resources: [horizontalpodautoscalers]
+    verbs: [create, get, list, watch, patch, update, delete]
+  - apiGroups: [policy]
+    resources: [poddisruptionbudgets]
+    verbs: [create, get, list, watch, patch, update, delete]
+  - apiGroups: [networking.k8s.io]
+    resources: [networkpolicies]
+    verbs: [create, get, list, watch, patch, update, delete]
+  # beyond 4.2's table: the API server is admitted by entity (`toEntities: [kube-apiserver]`), which only a Cilium
+  # policy can say (DESIGN 15.2 N3)
+  - apiGroups: [cilium.io]
+    resources: [ciliumnetworkpolicies]
+    verbs: [create, get, list, watch, patch, update, delete]
+  # the bridge Services' slices (DESIGN 15.5); Role hermit-read reads them too
+  - apiGroups: [discovery.k8s.io]
+    resources: [endpointslices]
+    verbs: [create, get, list, watch, patch, update, delete]
+  - apiGroups: [rbac.authorization.k8s.io]
+    resources: [roles, rolebindings]
+    verbs: [create, get, list, watch, patch, update, delete]
+  # read-only: rollout waits, the drain wait (a DaemonSet's current revision is a ControllerRevision), the
+  # SealedSecrets' Synced status
+  - apiGroups: [""]
+    resources: [pods, events]
+    verbs: [get, list, watch]
+  - apiGroups: [apps]
+    resources: [replicasets, controllerrevisions]
+    verbs: [get, list, watch]
+  - apiGroups: [bitnami.com]
+    resources: [sealedsecrets]
+    verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: yyc-ai-deployer
+  namespace: yyc-ai
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: yyc-ai-deployer-ns}
+subjects: [{apiGroup: rbac.authorization.k8s.io, kind: User, name: "gha:yyc-ai"}]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: yyc-ai-deployer
+  namespace: yyc-ai-fabric
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: yyc-ai-deployer-ns}
+subjects: [{apiGroup: rbac.authorization.k8s.io, kind: User, name: "gha:yyc-ai"}]
+---
+# cluster-scoped objects of the render, by name (create cannot be limited by name): the JuiceFS PVs hermit-jfs and
+# hermit-jfs-owner (A2, jobs/jfs-owner.yaml), and drive-jfs (YYC Drive, yyc-ai/deploy/drive/drive.yaml)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: yyc-ai-deployer-cluster
+rules:
+  - apiGroups: [""]
+    resources: [persistentvolumes]
+    verbs: [create]
+  - apiGroups: [""]
+    resources: [persistentvolumes]
+    resourceNames: [hermit-jfs, hermit-jfs-owner, drive-jfs]
+    verbs: [get, list, watch, patch, delete]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: yyc-ai-deployer
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: yyc-ai-deployer-cluster}
+subjects: [{apiGroup: rbac.authorization.k8s.io, kind: User, name: "gha:yyc-ai"}]
+---
+# the deploy path's own objects (deploy-workflows 6.1, 6.4 step 2): the sealed folder is applied AS the fence
+# (`kubectl --as=system:serviceaccount:yyc-deploy:sealed-secrets-applier`, ./sealed-secrets.yaml), and the inventory
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: yyc-ai-deployer
+  namespace: yyc-deploy
+rules:
+  - apiGroups: [""]
+    resources: [serviceaccounts]
+    resourceNames: [sealed-secrets-applier]
+    verbs: [impersonate]
+  - apiGroups: [""]
+    resources: [configmaps]
+    verbs: [create]
+  - apiGroups: [""]
+    resources: [configmaps]
+    resourceNames: [inventory-yyc-ai]
+    verbs: [get, patch, update]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: yyc-ai-deployer
+  namespace: yyc-deploy
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: yyc-ai-deployer}
+subjects: [{apiGroup: rbac.authorization.k8s.io, kind: User, name: "gha:yyc-ai"}]

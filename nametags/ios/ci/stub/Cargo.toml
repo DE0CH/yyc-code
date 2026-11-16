@@ -1,0 +1,12 @@
+[package]
+name = "nametags-stub"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# Stand-in for the Worker's app API in the CI replica (no Access login): events, guests, check-in, printer, print
+# jobs, app-signin.
+[dependencies]
+
+[profile.release]
+opt-level = 1

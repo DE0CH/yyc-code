@@ -1,0 +1,51 @@
+# Deploys the YYC 新聞監察 site (news-stream/web-app: TanStack Start on Cloudflare Workers, Worker yyc-web on YYC's own
+# Cloudflare account) on every push touching it. A Worker deploy is atomic: requests in flight finish on the old
+# version and new ones get the new one, so the site never goes down. The deploy keeps the hashed files of the last
+# 14 days' deploys (scripts/keep-assets.mjs reads them from the live site), so a tab on an older build keeps working;
+# every open page hears of the new build within seconds and loads it on its next page change, never reloading in place
+# (src/lib/update.ts; README "Updates reach open pages").
+# Secrets: YYC_CF_API_TOKEN (token yyc-edge: YYC's account only) and YYC_CF_ACCOUNT_ID.
+name: web-app
+on:
+  push:
+    branches: [main]
+    paths:
+      - news-stream/web-app/**
+      - .github/workflows/web-app.yml
+  workflow_dispatch:
+concurrency:
+  group: web-app
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: news-stream/web-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: news-stream/web-app/package-lock.json
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npx vite build
+      - run: node scripts/keep-assets.mjs --site https://newswatch.yyc-internal.com --client dist/client
+      - name: deploy
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then echo "::warning::YYC_CF_API_TOKEN is not set on the repo: built, not deployed"; exit 0; fi
+          npx wrangler deploy
+          # the new version's first request announces it to open pages (src/server.ts); wait until the site serves it
+          want="${GITHUB_SHA:0:12}"
+          for i in $(seq 1 60); do
+            [ "$(curl -s -A yyc-web-deploy https://newswatch.yyc-internal.com/version)" = "$want" ] && { echo "live: $want"; exit 0; }
+            sleep 5
+          done
+          echo "::warning::the site did not answer build $want within 5 minutes"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.YYC_CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.YYC_CF_ACCOUNT_ID }}

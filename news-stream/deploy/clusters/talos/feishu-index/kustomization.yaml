@@ -1,0 +1,12 @@
+# feishu-index on yyc-talos (feishu-index/README.md): the index of one Feishu folder, namespace feishu-index
+# (../apps-access.yaml makes it and the deployer's rights). yyc-apps.yml applies this folder (inventory
+# yyc-deploy/inventory-yyc-feishu-index) and ./sealed/ as the fence. State: database feishu_index in Cluster pg
+# (../pg/feishu-index-db.yaml); compute: this Deployment, nothing on disk.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - feishu-index.yaml
+images:
+  - name: yyc-feishu-index
+    newName: ghcr.io/de0ch/yyc-feishu-index
+    newTag: '7d493ca59a1f'

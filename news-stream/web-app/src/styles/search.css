@@ -1,0 +1,130 @@
+/* 搜尋's own styles (scoped to .page-search), in the house style (house.css): the query box is the page's one big field
+   (3px ink border, as WiseSearch's), every control a ruled cell >= 44px with the pressed one ink-filled, the filters and
+   the hits ruled rows on one white sheet (rules edge to edge), every group of cells one block with shared 1px rules. No hue: this page has no
+   category to tell apart. */
+.page-search main.search-main { padding:16px var(--gutter) 32px; }
+
+/* ---- the query box ---- */
+.page-search .qrow { display:flex; }
+.page-search .qbox { flex:1; min-width:0; display:flex; align-items:center; gap:10px; min-height:56px; padding:0 12px; background:var(--panel);
+  border:3px solid var(--ink); border-right-width:0; }
+.page-search .qbox:focus-within { outline:3px solid var(--ink); outline-offset:2px; }
+.page-search .qbox svg { width:20px; height:20px; color:var(--ink); flex:none; }
+.page-search .qbox input { flex:1; min-width:0; min-height:50px; border:0; outline:0; background:none; padding:0; font-size:18px; }
+.page-search .qbox input:focus { border:0; }
+.page-search .qbox input::placeholder { color:var(--muted); }
+.page-search .go { min-height:56px; padding:0 22px; border:3px solid var(--ink); font-size:16px; }
+.page-search .hint { display:flex; flex-wrap:wrap; align-items:center; gap:0 18px; margin:6px 0 0; font-size:14px; color:var(--ink); }
+.page-search .hint label { display:inline-flex; align-items:center; gap:8px; min-height:var(--ctl); cursor:pointer; }
+.page-search .hint input[type=checkbox] { width:18px; height:18px; margin:0; }
+.page-search .syntax-toggle { display:inline-flex; align-items:center; min-height:var(--ctl); cursor:pointer; color:var(--ink); background:none; border:0;
+  padding:0; font-size:14px; font-weight:600; text-decoration:underline; text-underline-offset:3px; }
+.page-search .syntax-toggle[aria-expanded="true"] { text-decoration-thickness:3px; }
+/* the syntax rows: their 1px rules are the box's only structure, run edge to edge */
+.page-search .syntax-box { margin:4px 0 0; padding:0; background:var(--panel); font-size:14px; color:var(--ink); }
+.page-search .syntax-box div { display:grid; grid-template-columns:minmax(0, 15em) 1fr; gap:4px 16px; padding:8px 14px; border-top:1px solid var(--rule); }
+.page-search .syntax-box div:first-child { border-top:0; }
+.page-search .syntax-box code { font-family:var(--num); font-weight:600; font-size:14px; overflow-wrap:anywhere; }
+@media (max-width:600px) { .page-search .syntax-box div { grid-template-columns:1fr; } }
+
+/* ---- the layout: filters beside the results from 960px ---- */
+.page-search .layout { display:grid; grid-template-columns:minmax(0, 1fr); gap:8px; margin-top:12px; }
+.page-search .layout > * { min-width:0; }
+.page-search .filters { background:var(--panel); padding:0; }
+.page-search .fsummary { display:flex; width:100%; min-height:56px; align-items:center; justify-content:space-between; gap:8px; cursor:pointer;
+  font-size:16px; font-weight:700; background:none; border:0; padding:0 14px; text-align:left; }
+.page-search .fsummary .n { font-weight:400; color:var(--muted); font-size:14px; text-align:right; }
+.page-search .fsummary[aria-expanded="true"] { border-bottom:1px solid var(--rule); }
+.page-search .filters:not(.open) .fbody { display:none; }
+.page-search .filters.open .fbody { padding-bottom:8px; }
+@media (min-width:960px) {
+  .page-search .layout { grid-template-columns:300px minmax(0, 1fr); gap:16px; align-items:start; }
+  .page-search .filters { position:sticky; top:calc(var(--bar-h) + 12px); max-height:calc(100vh - var(--bar-h) - 24px); overflow:auto; }
+  .page-search .fsummary { display:none; }
+  .page-search .filters:not(.open) .fbody { display:block; }
+}
+/* each group's rule spans the sheet; its content keeps a 14px inset */
+.page-search .fgroup { padding:12px 14px 14px; border-top:1px solid var(--rule); }
+.page-search .fgroup:first-of-type { border-top:0; }
+.page-search .fgroup h3 { margin:0 0 8px; min-height:28px; font-size:14px; color:var(--ink); font-weight:700; display:flex; justify-content:space-between; align-items:center; }
+.page-search .fgroup h3 button { min-height:var(--ctl); margin:-8px -6px -8px 0; padding:0 6px; border:0; background:none; color:var(--ink); font-size:14px;
+  font-weight:400; text-decoration:underline; text-underline-offset:3px; cursor:pointer; }
+.page-search .fgroup h3 button:hover { background:var(--ground); }
+
+/* chips: a .cellgrid.ragged block (house.css), cells split by shared rules, a short last row ending at its last cell on
+   plain ground; pressed = ink-filled */
+.page-search :is(.chips, .picked) > .chip { justify-content:flex-start; }
+.page-search .chip { gap:8px; padding:0 10px; font-size:14px; max-width:100%; }
+.page-search .picked .chip, .page-search .facets .chip { white-space:normal; overflow-wrap:anywhere; text-align:left; }
+.page-search .chip .n { font-family:var(--num); font-size:13px; font-weight:500; color:var(--muted); }
+.page-search .chip[aria-pressed="true"] .n { color:inherit; }
+
+/* the date range (.range) and the quick ranges under it: one block, the strip sharing the range's bottom rule */
+.page-search .dates { display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); width:100%; }
+.page-search .dates input { width:100%; border:0; font-size:15px; padding:0 6px; }
+.page-search .chips.quick { grid-template-columns:repeat(5, minmax(0, 1fr)); margin-top:-1px; }
+.page-search .quick .chip { padding:0 4px; }
+/* the find field and the list under it: one block sharing a rule */
+.page-search .sites-find { display:block; width:100%; margin-bottom:-1px; font-size:15px; position:relative; }
+.page-search .sites { max-height:320px; overflow:auto; border:1px solid var(--rule); }
+.page-search .sites .tg { position:sticky; top:0; z-index:1; background:var(--panel); color:var(--muted); font-size:13px; font-weight:700; padding:4px 10px;
+  border-top:1px solid var(--rule); border-bottom:1px solid var(--rule); }
+.page-search .sites .tg:first-child { border-top:0; }
+.page-search .sites label { display:flex; align-items:center; gap:10px; min-height:var(--ctl); padding:0 10px; font-size:14px; cursor:pointer;
+  border-top:1px solid var(--rule); background:var(--panel); }
+.page-search .sites .tg + label { border-top:0; }
+.page-search .sites label:hover { background:var(--ground); }
+.page-search .sites label span { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.page-search .sites label small { color:var(--muted); font-size:13px; font-family:var(--num); font-weight:500; }
+.page-search .sites input { width:18px; height:18px; margin:0; flex:none; }
+.page-search .sites .note { padding:16px 10px; }
+.page-search .picked { --cell-min:140px; margin-top:8px; }
+.page-search .picked .chip { justify-content:flex-start; }
+.page-search select.sort { display:block; width:100%; font-size:15px; }
+
+/* ---- the results ---- */
+.page-search .rhead { display:flex; flex-wrap:wrap; align-items:center; gap:4px 14px; margin:0 0 8px; min-height:var(--ctl); }
+.page-search .rhead:empty { display:none; }
+.page-search .rhead .count { font-family:var(--num); font-weight:700; font-size:22px; line-height:1.2; }
+.page-search .rhead .took { color:var(--muted); font-size:14px; font-family:var(--num); }
+.page-search .rhead .sp { flex:1; }
+.page-search .btn { font-size:14px; }
+.page-search .btn svg { width:18px; height:18px; }
+/* the per-type / per-outlet counts: one block of cells sharing rules (each cell's rules overlap its neighbours' by 1px),
+   one row that scrolls inside itself on a phone */
+.page-search .facets { display:flex; gap:0; padding:0 1px 1px 0; overflow-x:auto; scrollbar-width:none; margin:0 0 8px; }
+.page-search .facets .chip { margin:0 -1px -1px 0; }
+.page-search .facets:empty { display:none; }
+.page-search .facets::-webkit-scrollbar { display:none; }
+.page-search .facets .chip { white-space:nowrap; flex:none; }
+/* desktop: every facet in view, wrapping onto a second row rather than hiding past the edge */
+@media (min-width:960px) { .page-search .facets { flex-wrap:wrap; overflow:visible; } }
+/* the hits: ruled rows on one sheet */
+.page-search .list { display:flex; flex-direction:column; gap:0; background:var(--panel); }
+.page-search .list:empty { display:none; }
+.page-search .hit { background:var(--panel); padding:14px 16px 14px; min-width:0; }
+.page-search .hit + .hit { border-top:1px solid var(--rule); }
+.page-search .hit h2 { margin:0; font-size:17px; line-height:1.45; font-weight:700; overflow-wrap:anywhere; }
+.page-search .hit h2 a { text-decoration:none; color:inherit; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; line-clamp:3; overflow:hidden; }
+.page-search .hit h2 a:hover { text-decoration:underline; text-underline-offset:3px; }
+.page-search .hit .m { display:flex; flex-wrap:wrap; align-items:center; gap:2px 12px; margin-top:6px; font-size:13px; color:var(--muted); overflow-wrap:anywhere; }
+.page-search .hit .m b { color:var(--ink); font-weight:600; }
+.page-search .hit .t { color:var(--ink); }
+.page-search .hit .m a { color:var(--ink); font-weight:600; text-underline-offset:3px; }
+.page-search .hit p { margin:6px 0 0; font-size:14px; line-height:1.6; color:var(--ink); overflow-wrap:anywhere; }
+.page-search mark { padding:0 1px; }
+/* the pager: one block of three cells, one rule colour, shared edges, flush left */
+.page-search .pager { display:flex; align-items:stretch; justify-content:flex-start; gap:0; margin:16px 0 4px; font-size:14px; color:var(--ink); }
+.page-search .pager .btn { border-color:var(--rule); }
+.page-search .pager > span { display:inline-flex; align-items:center; min-height:var(--ctl); padding:0 14px; background:var(--panel);
+  border:1px solid var(--rule); margin-inline:-1px; font-family:var(--num); font-weight:600; }
+.page-search .note { color:var(--muted); font-size:14px; padding:24px 16px; text-align:left; margin:0; }
+.page-search .list > .note:only-child { background:var(--panel); padding:28px 16px; }
+/* the substring tier: an ink rule across the list with its explanation below */
+.page-search .note.tier { padding:10px 16px 2px; text-align:left; font-size:13px; color:var(--ink); border-top:3px solid var(--ink); margin-top:0; }
+/* failed: ink text with the house cross */
+.page-search .err { color:var(--ink); font-weight:600; }
+.page-search .note.err::before { content:""; display:inline-block; width:16px; height:16px; margin-right:8px; vertical-align:-3px; background:currentColor;
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='square'%3E%3Cpath d='M6 6l12 12M18 6L6 18'/%3E%3C/svg%3E") center / contain no-repeat;
+          mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='square'%3E%3Cpath d='M6 6l12 12M18 6L6 18'/%3E%3C/svg%3E") center / contain no-repeat; }
+.page-search .lic { color:var(--muted); font-size:13px; margin:16px 0 0; max-width:72ch; }

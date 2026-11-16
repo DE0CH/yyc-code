@@ -1,0 +1,86 @@
+name: hermit-ami
+# Keeps the new stack's AWS sandbox host AMI (launch template hermit-host, eu-central-1) in step with what
+# yyc-ai/deploy/hermit/hermit.json pins: the sandbox image (sandbox.image), the sandboxd release (fabric.sandboxd) and
+# the gVisor release (fabric.runsc) (yyc-ai/refactor spec-hermit 14.3, spec-platform 13.5), and the template's disk
+# with fabric.aws.diskGiB (a size change writes a new template version from the same AMI, no bake). Runs only when one
+# of the four changed against the parent commit (an allowlist, prompt or catalogue edit never bakes), with the fabric scripts
+# of the aviary commit yyc-ai/deploy/kustomization.yaml pins for hermit (not aviary main): `infra.sh sync` bakes on a
+# t3.large builder (about 15 min) when the template's AMI tags differ from the pins, makes the new AMI the template's
+# only version and prunes the old AMI and snapshot; then `check` must exit 0. Before the bake, `infra.sh publish-image`
+# puts the sandbox image in the hosts' image bucket (fabric.aws.imageBucket, S3 in the hosts' region; `infra.sh
+# image-bucket` made it): hosts launched while the AMI bakes fetch the image from there, and the gateway serves none.
+# Secrets: YYC_HERMIT_AMI_AWS_ACCESS_KEY_ID/_SECRET_ACCESS_KEY (IAM user hermit-ami-ci, aviary infra.sh ci-iam),
+# YYC_SANDBOX_GHCR_DOCKERCONFIGJSON (read-only pull login for the private ghcr.io/de0ch/hermit-sandbox).
+on:
+  push:
+    branches: [main]
+    paths: ["yyc-ai/deploy/hermit/hermit.json", ".github/workflows/hermit-ami.yml"]
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "bake even when the AMI already holds the pins"
+        type: boolean
+        default: false
+
+concurrency:
+  group: hermit-ami
+  cancel-in-progress: false
+
+jobs:
+  ami:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: changed pins
+        id: pins
+        run: |
+          set -euo pipefail
+          f=yyc-ai/deploy/hermit/hermit.json
+          q='[.sandbox.image, .fabric.sandboxd, .fabric.runsc, .fabric.aws.diskGiB]'
+          now=$(jq -c "$q" "$f")
+          before=$(git show HEAD^:"$f" 2>/dev/null | jq -c "$q" 2>/dev/null || echo null)
+          echo "pins now $now, before $before"
+          # a dispatch always checks (and bakes when stale); a push only when a pin changed
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ] || [ "$now" != "$before" ]; then echo "run=1" >> "$GITHUB_OUTPUT"; else echo "run=0" >> "$GITHUB_OUTPUT"; fi
+          aviary=$(yq -r '.images[] | select(.name == "hermit") | .newTag' yyc-ai/deploy/kustomization.yaml)
+          [[ $aviary =~ ^[0-9a-f]{12}$ ]] || { echo "::error::hermit's newTag '$aviary' is not an aviary <sha12>"; exit 1; }
+          echo "aviary=$aviary" >> "$GITHUB_OUTPUT"
+      - name: aviary at the pinned commit
+        if: steps.pins.outputs.run == '1'
+        env:
+          AVIARY: ${{ steps.pins.outputs.aviary }}
+        run: |
+          git clone -q --filter=blob:none https://github.com/DE0CH/aviary "$RUNNER_TEMP/aviary"
+          git -C "$RUNNER_TEMP/aviary" checkout -q "$AVIARY"
+          git -C "$RUNNER_TEMP/aviary" log -1 --format='aviary %H %s'
+      - name: crane
+        if: steps.pins.outputs.run == '1'
+        run: curl -fsSL https://github.com/google/go-containerregistry/releases/download/v0.20.6/go-containerregistry_Linux_x86_64.tar.gz | sudo tar -xz -C /usr/local/bin crane
+      - name: bake if stale, then check
+        if: steps.pins.outputs.run == '1'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.YYC_HERMIT_AMI_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.YYC_HERMIT_AMI_AWS_SECRET_ACCESS_KEY }}
+          GHCR_DOCKERCONFIGJSON: ${{ secrets.YYC_SANDBOX_GHCR_DOCKERCONFIGJSON }}
+          FORCE: ${{ inputs.force && '1' || '' }}
+        run: |
+          set -euo pipefail
+          auth=$(jq -r '.auths["ghcr.io"].auth' <<<"$GHCR_DOCKERCONFIGJSON" | base64 -d)
+          export GHCR_USER=${auth%%:*} GHCR_TOKEN=${auth#*:}
+          echo "::add-mask::$GHCR_TOKEN"
+          cfg=yyc-ai/deploy/hermit/hermit.json
+          a="$RUNNER_TEMP/aviary/fabric/aws/infra.sh"
+          # the image bucket first (fabric.aws.imageBucket): hermit moves new sandboxes to a new sandbox.image only
+          # once it is published there, and hosts launched while the AMI bakes fetch it from the bucket
+          if jq -e '.fabric.aws.imageBucket' "$cfg" >/dev/null; then
+            bash "$a" --config "$cfg" publish-image
+          fi
+          bash "$a" --config "$cfg" sync
+          bash "$a" --config "$cfg" check
+          echo "### hermit-host AMI" >> "$GITHUB_STEP_SUMMARY"
+          bash "$a" --config "$cfg" current | tee -a "$GITHUB_STEP_SUMMARY"

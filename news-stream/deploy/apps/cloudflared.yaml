@@ -1,0 +1,78 @@
+# Connector for the tunnel "yyc-stream" on YYC's Cloudflare account (deploy/cloudflare/tofu/tunnels.tf). Its ingress
+# sends newswatch.yyc-internal.com and yyc-beta.deyaochen.com to http://127.0.0.1:8080, so a socat sidecar listens there in this
+# pod and forwards to Service web; /app/wisers goes straight to its Service.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudflared
+  namespace: yyc
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels: {app: cloudflared}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxUnavailable: 1, maxSurge: 0}  # one connector at a time; the other keeps the tunnel up
+  template:
+    metadata:
+      labels: {app: cloudflared}
+    spec:
+      topologySpreadConstraints:  # one pod per node where it can (a node's loss leaves the other)
+        - {maxSkew: 1, topologyKey: kubernetes.io/hostname, whenUnsatisfiable: ScheduleAnyway, labelSelector: {matchLabels: {app: cloudflared}}}
+      securityContext: {runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532}
+      # cloudflared drains first: on SIGTERM it stops taking requests and waits for those in flight (--grace-period 3m,
+      # the most cloudflared accepts: "grace-period must be equal or less than 3m0s"; an AI request still running after
+      # 3 minutes on a connector being replaced is cut, web allows 300 s); the socat it sends them through is a native
+      # sidecar, stopped only after cloudflared has exited (it was a regular container, killed at SIGTERM with the
+      # requests in it)
+      terminationGracePeriodSeconds: 200
+      initContainers:
+        - name: origin
+          image: alpine/socat:1.8.1.1
+          restartPolicy: Always
+          args: ["TCP-LISTEN:8080,bind=127.0.0.1,fork,reuseaddr", "TCP:web.yyc.svc.cluster.local:80"]
+          resources:
+            requests:
+              cpu: 5m
+              memory: 32Mi
+              ephemeral-storage: 50Mi
+            limits:
+              cpu: 200m
+              memory: 32Mi
+              ephemeral-storage: 64Mi
+      containers:
+        - name: cloudflared
+          image: cloudflare/cloudflared:2026.10.0
+          args: [tunnel, --no-autoupdate, --edge-ip-version, auto, --metrics, "0.0.0.0:2000", --grace-period, 3m, run]  # auto: pods are IPv4-only (out through the node's WARP)
+          env:
+            - {name: TUNNEL_TOKEN, valueFrom: {secretKeyRef: {name: tunnel, key: token}}}
+          readinessProbe:
+            httpGet: {path: /ready, port: 2000}
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: {path: /ready, port: 2000}
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 20m
+              memory: 128Mi
+              ephemeral-storage: 50Mi
+            limits:
+              cpu: 500m
+              memory: 128Mi
+              ephemeral-storage: 256Mi
+      priorityClassName: serving
+---
+# a node drain never takes both connectors at once
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: cloudflared
+  namespace: yyc
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels: {app: cloudflared}

@@ -1,0 +1,810 @@
+<!doctype html>
+<html lang="zh-HK">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>名牌報名</title>
+<meta name="robots" content="noindex">
+<style>
+:root {
+  --ground: #eef0f2; --panel: #ffffff; --ink: #14171a; --muted: #59626b; --rule: #d3d8dd; --on-ink: #ffffff;
+  --c-1: #c8102e; --c-2: #005eb8;
+  --line-w: 6px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ground: #111315; --panel: #1a1d20; --ink: #e8eaec; --muted: #9ea6ae; --rule: #33393f; --on-ink: #111315;
+    --c-1: #ff6b78; --c-2: #5aa9ff;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; margin: 0; padding: 0; border-radius: 0; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  background: var(--ground); color: var(--ink); font-size: 16px; line-height: 1.5; font-variant-numeric: tabular-nums;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang HK", "PingFang TC", "Noto Sans HK",
+    "Noto Sans TC", "Noto Sans CJK TC", "Microsoft JhengHei", "Hiragino Sans", system-ui, sans-serif;
+}
+a { color: inherit; }
+svg.i { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: square; stroke-linejoin: miter; }
+:focus-visible { outline: 3px solid var(--c-2); outline-offset: 2px; }
+[hidden] { display: none !important; }
+
+.top { background: var(--panel); border-bottom: 1px solid var(--rule); }
+.top-in { max-width: 1280px; margin: 0 auto; padding: 0 16px; min-height: 56px; display: flex; align-items: center; gap: 12px; }
+.brand { font-weight: 800; font-size: 1.0625rem; text-decoration: none; min-height: 44px; display: flex; align-items: center; gap: 10px; }
+.brand i { width: 14px; height: 14px; background: var(--ink); display: block; }
+.signin { background: var(--panel); border-bottom: 1px solid var(--rule); }
+.signin-in { max-width: 1280px; margin: 0 auto; padding: 12px 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; font-weight: 600; }
+
+.wrap { max-width: 1280px; margin: 0 auto; padding: 16px; }
+.sheet { background: var(--panel); padding: 20px; }
+.stack { display: grid; gap: 8px; }
+.row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.spread { justify-content: space-between; }
+h1 { font-size: 1.75rem; line-height: 1.2; font-weight: 800; overflow-wrap: anywhere; }
+h2 { font-size: 1.125rem; font-weight: 800; line-height: 1.3; }
+.en { color: var(--muted); font-weight: 500; }
+.muted { color: var(--muted); }
+.small { font-size: .875rem; }
+.back { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; text-decoration: none; font-weight: 600; color: var(--muted); }
+.back:hover { color: var(--ink); }
+
+/* buttons */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 8px 16px;
+  font: inherit; font-weight: 700; color: var(--ink); background: var(--panel); border: 2px solid var(--ink);
+  text-decoration: none; cursor: pointer; white-space: nowrap;
+}
+.btn:hover { background: var(--ground); }
+.btn.primary { background: var(--ink); color: var(--on-ink); }
+.btn.primary:hover { background: var(--muted); border-color: var(--muted); }
+.btn.quiet { border-color: var(--rule); }
+.btn[disabled] { color: var(--muted); border-color: var(--rule); background: var(--panel); cursor: default; }
+.btn.primary[disabled] { background: var(--rule); color: var(--muted); }
+
+/* event list */
+.grid { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr)); }
+.ev { display: block; text-decoration: none; background: var(--panel); padding: 20px; border: 2px solid transparent; }
+.ev:hover { border-color: var(--ink); }
+.ev h2 { font-size: 1.375rem; overflow-wrap: anywhere; }
+.ev .en { display: block; font-size: .9375rem; overflow-wrap: anywhere; }
+.meta { margin-top: 10px; display: grid; gap: 2px; font-size: .9375rem; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.tag { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--rule); padding: 3px 8px; font-size: .875rem; font-weight: 600; }
+.tag.on { border-color: var(--ink); background: var(--ink); color: var(--on-ink); }
+.tag.off { color: var(--muted); }
+.counts { display: grid; grid-template-columns: repeat(5, 1fr); margin-top: 16px; border: 1px solid var(--rule); }
+.count { padding: 8px 6px; border-left: 1px solid var(--rule); min-width: 0; }
+.count:first-child { border-left: 0; }
+.count b { display: block; font-size: 1.5rem; font-weight: 700; line-height: 1.1; }
+.count span { display: block; font-size: .8125rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.count.hot { background: var(--ink); color: var(--on-ink); }
+.count.hot span { color: var(--on-ink); }
+.count.dup b { color: var(--c-1); }
+.count.zero b { color: var(--muted); font-weight: 500; }
+.empty { padding: 32px 20px; display: grid; gap: 16px; justify-items: start; }
+
+/* event view */
+.ev-layout { display: grid; gap: 8px; }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin-top: 16px; border-top: 1px solid var(--rule); }
+.fact { padding: 8px 12px 8px 0; border-bottom: 1px solid var(--rule); min-width: 0; }
+.fact dt { font-size: .8125rem; color: var(--muted); }
+.fact dd { font-weight: 600; overflow-wrap: anywhere; }
+.link-row { display: flex; gap: 8px; margin-top: 16px; align-items: stretch; flex-wrap: wrap; }
+.link-box { flex: 1 1 220px; min-width: 0; display: flex; align-items: center; padding: 8px 12px; border: 1px solid var(--rule); font-size: .9375rem; overflow-wrap: anywhere; min-height: 44px; }
+.qr { background: #fff; padding: 8px; border: 1px solid var(--rule); width: 100%; max-width: 260px; }
+.qr svg { display: block; width: 100%; height: auto; }
+.qr-row { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; margin-top: 12px; }
+.qr-acts { display: grid; gap: 8px; }
+
+.tabs { display: grid; grid-template-columns: repeat(4, 1fr); border: 2px solid var(--ink); background: var(--panel); }
+.tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 56px; padding: 6px 4px;
+  text-decoration: none; font-weight: 700; border-left: 2px solid var(--ink); text-align: center; }
+.tab:first-child { border-left: 0; }
+.tab:hover { background: var(--ground); }
+.tab[aria-current="page"] { background: var(--ink); color: var(--on-ink); }
+.tab .n { font-size: .875rem; font-weight: 600; display: flex; gap: 6px; align-items: center; }
+.dupn { background: var(--c-1); color: #fff; padding: 0 5px; font-weight: 700; }
+@media (prefers-color-scheme: dark) { .dupn { color: var(--on-ink); } }
+
+.notice { display: flex; gap: 12px; align-items: flex-start; }
+.notice .pip { margin-top: 5px; }
+
+/* guest cards */
+.card { background: var(--panel); padding: 20px; border-left: 6px solid transparent; }
+.card.flagged { border-left-color: var(--c-1); }
+.card-h { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+.gname { font-size: 1.375rem; font-weight: 800; line-height: 1.25; overflow-wrap: anywhere; min-width: 0; }
+.verdict { display: inline-flex; align-items: center; gap: 8px; font-size: .9375rem; font-weight: 600; min-height: 28px; }
+.pip { width: 12px; height: 12px; border: 2px solid var(--ink); flex: none; display: inline-block; }
+.pip.on { background: var(--ink); }
+.pip.off { border-color: var(--muted); }
+.verdict.wait { color: var(--muted); }
+.badge-dup { background: var(--c-1); color: #fff; padding: 4px 8px 3px; font-weight: 700; font-size: .875rem; }
+@media (prefers-color-scheme: dark) { .badge-dup { color: var(--on-ink); } }
+.kv { display: grid; grid-template-columns: 4.5rem 1fr; margin-top: 12px; border-top: 1px solid var(--rule); }
+.kv dt, .kv dd { padding: 6px 0; border-bottom: 1px solid var(--rule); min-width: 0; }
+.kv dt { color: var(--muted); font-size: .875rem; line-height: 1.5rem; }
+.kv dd { overflow-wrap: anywhere; }
+.kv dd.none { color: var(--muted); }
+.acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.acts .btn { flex: 1 1 auto; }
+@media (min-width: 600px) { .acts .btn { flex: 0 0 auto; min-width: 104px; } }
+.line-err { display: flex; gap: 8px; align-items: flex-start; margin-top: 12px; font-weight: 600; }
+.line-ok { display: flex; gap: 8px; align-items: center; margin-top: 12px; font-weight: 600; }
+
+/* duplicate comparison */
+.dups { margin-top: 16px; display: grid; gap: 12px; }
+.dups-h { font-weight: 700; }
+.cand { border: 2px solid var(--ink); }
+.cand-h { padding: 10px 12px; border-bottom: 1px solid var(--rule); display: grid; gap: 2px; }
+.reason { font-weight: 700; display: flex; gap: 8px; align-items: center; }
+.reason::before { content: ""; width: 12px; height: 12px; background: var(--c-1); flex: none; }
+.cmp { display: grid; grid-template-columns: 4rem 1fr 1fr; }
+.cmp > div { padding: 6px 8px; border-bottom: 1px solid var(--rule); min-width: 0; overflow-wrap: anywhere; font-size: .9375rem; }
+.cmp > div:nth-last-child(-n+3) { border-bottom: 0; }
+.cmp .lab { color: var(--muted); font-size: .8125rem; line-height: 1.4rem; padding-left: 12px; }
+.cmp .hd { font-weight: 700; font-size: .875rem; background: var(--ground); }
+.cmp .lab.hd { background: var(--ground); }
+.cmp .b { border-left: 1px solid var(--rule); }
+.cmp .same { font-weight: 700; }
+.cmp .lab.same { color: var(--ink); }
+.cmp .lab.same::after { content: "相同"; display: block; font-weight: 700; font-size: .75rem; line-height: 1.2; }
+@media (min-width: 900px) { .cmp { grid-template-columns: 6rem 1fr 1fr; } }
+
+/* inline confirm panels */
+.panel { margin-top: 12px; border: 2px solid var(--ink); padding: 14px; display: grid; gap: 12px; }
+.choice { display: grid; gap: 8px; }
+.opt { display: flex; gap: 12px; align-items: flex-start; border: 1px solid var(--rule); padding: 12px; cursor: pointer; min-height: 44px; }
+.opt:hover { border-color: var(--ink); }
+.opt input { appearance: none; -webkit-appearance: none; width: 20px; height: 20px; border: 2px solid var(--ink); flex: none; margin-top: 2px; background: var(--panel); }
+.opt input:checked { background: var(--ink); box-shadow: inset 0 0 0 3px var(--panel); }
+.opt:has(input:checked) { border-color: var(--ink); border-width: 2px; padding: 11px; }
+.opt b { display: block; }
+.opt span.small { display: block; }
+
+/* forms */
+.form { display: grid; gap: 16px; }
+.field label { display: block; font-weight: 700; margin-bottom: 6px; }
+.field .hint { font-size: .875rem; color: var(--muted); margin-top: 4px; }
+.field input[type=text], .field input[type=email], .field input[type=tel], .field input[type=date] {
+  display: block; width: 100%; height: 48px; padding: 0 12px; font: inherit; color: var(--ink); background: var(--panel);
+  border: 2px solid var(--ink); min-width: 0;
+}
+.field input[disabled] { border-color: var(--rule); color: var(--muted); }
+.seg { display: grid; grid-template-columns: 1fr 1fr; border: 2px solid var(--ink); }
+.seg label { display: block; margin: 0; padding: 10px 12px; min-height: 48px; cursor: pointer; font-weight: 700; border-left: 2px solid var(--ink); }
+.seg label:first-child { border-left: 0; }
+.seg label span { display: block; font-weight: 500; font-size: .8125rem; color: var(--muted); }
+.seg input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.seg label:has(input:checked) { background: var(--ink); color: var(--on-ink); }
+.seg label:has(input:checked) span { color: var(--on-ink); }
+.seg label:has(input:focus-visible) { outline: 3px solid var(--c-2); outline-offset: 2px; }
+.two { display: grid; gap: 16px; }
+
+.outbox-body { margin-top: 12px; border-top: 1px solid var(--rule); padding-top: 10px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: .9375rem; }
+details summary { cursor: pointer; font-weight: 700; min-height: 44px; display: flex; align-items: center; list-style: none; gap: 8px; }
+details summary::-webkit-details-marker { display: none; }
+details[open] summary svg { transform: rotate(180deg); }
+
+.loading { padding: 32px 20px; color: var(--muted); }
+
+@media (min-width: 900px) {
+  .wrap { padding: 24px; }
+  .sheet, .card { padding: 24px 28px; }
+  h1 { font-size: 2.25rem; }
+  .ev-layout { grid-template-columns: minmax(0, 1fr) 380px; align-items: start; }
+  .ev-layout > .main { grid-column: 1; }
+  .ev-layout > .side { grid-column: 2; grid-row: 1 / span 3; }
+  .two { grid-template-columns: 1fr 1fr; }
+  .form-layout { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 8px; align-items: start; }
+}
+@media (max-width: 899px) { .form-layout { display: grid; gap: 8px; } }
+</style>
+</head>
+<body>
+<header class="top"><div class="top-in"><a class="brand" href="#/"><i aria-hidden="true"></i>名牌報名</a></div></header>
+<div class="signin" id="signin" hidden><div class="signin-in">
+  <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+  <span>登入已過期，請重新載入此頁以登入。</span>
+  <button class="btn" type="button" data-act="reload">重新載入</button>
+</div></div>
+<main class="wrap" id="app"><div class="loading">載入中</div></main>
+
+<script>
+/* Minimal QR Code encoder (byte mode, error correction level M, versions 1-10), written for this page.
+   Follows ISO/IEC 18004; structure after Project Nayuki's QR Code generator (MIT). */
+var QR = (function () {
+  var ECC = [0, 10, 16, 26, 18, 24, 16, 18, 22, 22, 26];
+  var BLK = [0, 1, 1, 1, 2, 2, 4, 4, 4, 5, 5];
+  function rawModules(v) {
+    var r = (16 * v + 128) * v + 64;
+    if (v >= 2) { var n = Math.floor(v / 7) + 2; r -= (25 * n - 10) * n - 55; if (v >= 7) r -= 36; }
+    return r;
+  }
+  function dataCodewords(v) { return Math.floor(rawModules(v) / 8) - ECC[v] * BLK[v]; }
+  function gmul(x, y) { var z = 0; for (var i = 7; i >= 0; i--) { z = (z << 1) ^ ((z >>> 7) * 0x11d); z ^= ((y >>> i) & 1) * x; } return z & 255; }
+  function rsDivisor(d) {
+    var r = []; for (var i = 0; i < d; i++) r.push(0); r[d - 1] = 1; var root = 1;
+    for (i = 0; i < d; i++) { for (var j = 0; j < d; j++) { r[j] = gmul(r[j], root); if (j + 1 < d) r[j] ^= r[j + 1]; } root = gmul(root, 2); }
+    return r;
+  }
+  function rsRemainder(data, div) {
+    var r = div.map(function () { return 0; });
+    data.forEach(function (b) { var f = b ^ r.shift(); r.push(0); for (var i = 0; i < r.length; i++) r[i] ^= gmul(div[i], f); });
+    return r;
+  }
+  function alignPos(v) {
+    if (v === 1) return [];
+    var n = Math.floor(v / 7) + 2, size = v * 4 + 17, step = Math.ceil((v * 4 + 4) / (n * 2 - 2)) * 2, r = [6];
+    for (var p = size - 7; r.length < n; p -= step) r.splice(1, 0, p);
+    return r;
+  }
+  function encode(text) {
+    var bytes = Array.from(new TextEncoder().encode(text)), v;
+    for (v = 1; v <= 10; v++) if (4 + (v < 10 ? 8 : 16) + bytes.length * 8 <= dataCodewords(v) * 8) break;
+    if (v > 10) throw new Error("QR: text too long");
+    var bits = [], push = function (val, len) { for (var i = len - 1; i >= 0; i--) bits.push((val >>> i) & 1); };
+    push(4, 4); push(bytes.length, v < 10 ? 8 : 16); bytes.forEach(function (b) { push(b, 8); });
+    var cap = dataCodewords(v) * 8;
+    push(0, Math.min(4, cap - bits.length)); push(0, (8 - bits.length % 8) % 8);
+    for (var pad = 0xec; bits.length < cap; pad ^= 0xec ^ 0x11) push(pad, 8);
+    var data = []; for (var i = 0; i < bits.length; i += 8) { var b = 0; for (var j = 0; j < 8; j++) b = (b << 1) | bits[i + j]; data.push(b); }
+    var nb = BLK[v], el = ECC[v], raw = Math.floor(rawModules(v) / 8), nShort = nb - raw % nb, shortLen = Math.floor(raw / nb);
+    var div = rsDivisor(el), blocks = [], k = 0;
+    for (i = 0; i < nb; i++) {
+      var dat = data.slice(k, k + shortLen - el + (i < nShort ? 0 : 1)); k += dat.length;
+      var ecc = rsRemainder(dat, div); if (i < nShort) dat.push(0); blocks.push(dat.concat(ecc));
+    }
+    var cw = [];
+    for (i = 0; i < blocks[0].length; i++) for (j = 0; j < nb; j++) if (i !== shortLen - el || j >= nShort) cw.push(blocks[j][i]);
+    var size = v * 4 + 17, m = [], fn = [];
+    for (i = 0; i < size; i++) { m.push(new Array(size).fill(false)); fn.push(new Array(size).fill(false)); }
+    var set = function (x, y, d) { m[y][x] = d; fn[y][x] = true; };
+    for (i = 0; i < size; i++) { set(6, i, i % 2 === 0); set(i, 6, i % 2 === 0); }
+    [[3, 3], [size - 4, 3], [3, size - 4]].forEach(function (c) {
+      for (var dy = -4; dy <= 4; dy++) for (var dx = -4; dx <= 4; dx++) {
+        var x = c[0] + dx, y = c[1] + dy, dist = Math.max(Math.abs(dx), Math.abs(dy));
+        if (x >= 0 && x < size && y >= 0 && y < size) set(x, y, dist !== 2 && dist !== 4);
+      }
+    });
+    var ap = alignPos(v), last = ap.length - 1;
+    for (i = 0; i <= last; i++) for (j = 0; j <= last; j++) {
+      if ((i === 0 && j === 0) || (i === 0 && j === last) || (i === last && j === 0)) continue;
+      for (var dy = -2; dy <= 2; dy++) for (var dx = -2; dx <= 2; dx++) set(ap[i] + dx, ap[j] + dy, Math.max(Math.abs(dx), Math.abs(dy)) !== 1);
+    }
+    var drawFormat = function (mask) {
+      var d = mask, r = d;
+      for (var t = 0; t < 10; t++) r = (r << 1) ^ ((r >>> 9) * 0x537);
+      var f = ((d << 10) | r) ^ 0x5412, bit = function (n) { return ((f >>> n) & 1) !== 0; };
+      for (var q = 0; q <= 5; q++) set(8, q, bit(q));
+      set(8, 7, bit(6)); set(8, 8, bit(7)); set(7, 8, bit(8));
+      for (q = 9; q < 15; q++) set(14 - q, 8, bit(q));
+      for (q = 0; q < 8; q++) set(size - 1 - q, 8, bit(q));
+      for (q = 8; q < 15; q++) set(8, size - 15 + q, bit(q));
+      set(8, size - 8, true);
+    };
+    drawFormat(0);
+    if (v >= 7) {
+      var r = v; for (i = 0; i < 12; i++) r = (r << 1) ^ ((r >>> 11) * 0x1f25);
+      var vb = (v << 12) | r;
+      for (i = 0; i < 18; i++) { var bt = ((vb >>> i) & 1) !== 0, a = size - 11 + i % 3, bb = Math.floor(i / 3); set(a, bb, bt); set(bb, a, bt); }
+    }
+    var bi = 0;
+    for (var right = size - 1; right >= 1; right -= 2) {
+      if (right === 6) right = 5;
+      for (var vert = 0; vert < size; vert++) for (j = 0; j < 2; j++) {
+        var x = right - j, up = ((right + 1) & 2) === 0, y = up ? size - 1 - vert : vert;
+        if (!fn[y][x] && bi < cw.length * 8) { m[y][x] = ((cw[bi >>> 3] >>> (7 - (bi & 7))) & 1) !== 0; bi++; }
+      }
+    }
+    var maskFn = [
+      function (x, y) { return (x + y) % 2 === 0; }, function (x, y) { return y % 2 === 0; },
+      function (x) { return x % 3 === 0; }, function (x, y) { return (x + y) % 3 === 0; },
+      function (x, y) { return (Math.floor(x / 3) + Math.floor(y / 2)) % 2 === 0; },
+      function (x, y) { return x * y % 2 + x * y % 3 === 0; },
+      function (x, y) { return (x * y % 2 + x * y % 3) % 2 === 0; },
+      function (x, y) { return ((x + y) % 2 + x * y % 3) % 2 === 0; }];
+    var applyMask = function (k) { for (var y = 0; y < size; y++) for (var x = 0; x < size; x++) if (!fn[y][x] && maskFn[k](x, y)) m[y][x] = !m[y][x]; };
+    var penalty = function () {
+      var p = 0, dark = 0, lines = [];
+      for (var y = 0; y < size; y++) { var row = "", col = ""; for (var x = 0; x < size; x++) { row += m[y][x] ? 1 : 0; col += m[x][y] ? 1 : 0; if (m[y][x]) dark++; } lines.push(row, col); }
+      lines.forEach(function (s) {
+        (s.match(/0{5,}|1{5,}/g) || []).forEach(function (run) { p += run.length - 2; });
+        p += 40 * ((s.match(/(?=10111010000|00001011101)/g) || []).length);
+      });
+      for (y = 0; y < size - 1; y++) for (x = 0; x < size - 1; x++) { var c = m[y][x]; if (c === m[y][x + 1] && c === m[y + 1][x] && c === m[y + 1][x + 1]) p += 3; }
+      var total = size * size; p += (Math.ceil(Math.abs(dark * 20 - total * 10) / total) - 1) * 10;
+      return p;
+    };
+    var best = 0, bestP = Infinity;
+    for (k = 0; k < 8; k++) { applyMask(k); drawFormat(k); var pp = penalty(); if (pp < bestP) { bestP = pp; best = k; } applyMask(k); }
+    applyMask(best); drawFormat(best);
+    return m;
+  }
+  function svg(text) {
+    var m = encode(text), n = m.length, q = 4, d = "";
+    for (var y = 0; y < n; y++) for (var x = 0; x < n; x++) if (m[y][x]) d += "M" + (x + q) + " " + (y + q) + "h1v1h-1z";
+    var w = n + 2 * q;
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + w + " " + w + '" shape-rendering="crispEdges">' +
+      '<rect width="' + w + '" height="' + w + '" fill="#fff"/><path fill="#000" d="' + d + '"/></svg>';
+  }
+  function png(text, px) {
+    var m = encode(text), n = m.length, q = 4, w = n + 2 * q, s = Math.max(1, Math.floor(px / w)), c = document.createElement("canvas");
+    c.width = c.height = w * s; var g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.fillStyle = "#000";
+    for (var y = 0; y < n; y++) for (var x = 0; x < n; x++) if (m[y][x]) g.fillRect((x + q) * s, (y + q) * s, s, s);
+    return c.toDataURL("image/png");
+  }
+  return { encode: encode, svg: svg, png: png };
+})();
+</script>
+
+<script>
+(function () {
+  "use strict";
+  var PUBLIC = "https://register.yyc-internal.com/e/";
+  var ID_RE = /^[a-z0-9-]{3,40}$/;
+  var app = document.getElementById("app");
+
+  var I = {
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    back: '<path d="M15 5l-7 7 7 7"/>',
+    copy: '<path d="M9 9h11v11H9z"/><path d="M5 15H4V4h11v1"/>',
+    check: '<path d="M4 12l5 5L20 6"/>',
+    cross: '<path d="M6 6l12 12M18 6L6 18"/>',
+    down: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
+    edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/>',
+    chev: '<path d="M6 9l6 6 6-6"/>'
+  };
+  function icon(n) { return '<svg class="i" viewBox="0 0 24 24" aria-hidden="true">' + I[n] + "</svg>"; }
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; });
+  }
+  function fmtDate(d) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d || "");
+    if (!m) return d || "";
+    try { return new Intl.DateTimeFormat("zh-HK", { year: "numeric", month: "long", day: "numeric", weekday: "short", timeZone: "UTC" }).format(new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], 12))); }
+    catch (e) { return d; }
+  }
+  function fmtTime(iso) {
+    if (!iso) return "";
+    var t = new Date(iso); if (isNaN(t)) return iso;
+    try { return new Intl.DateTimeFormat("zh-HK", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Hong_Kong" }).format(t); }
+    catch (e) { return iso; }
+  }
+  var SOURCE = { form: "網上報名表", staff: "職員新增", "import": "名單匯入" };
+  var STATE = { pending: "待處理", accepted: "已確認", rejected: "已拒絕", merged: "已合併" };
+
+  /* ---------- API ---------- */
+  function signinNeeded() { document.getElementById("signin").hidden = false; }
+  function api(method, path, body) {
+    var opt = { method: method, credentials: "same-origin", redirect: "manual", headers: { accept: "application/json" } };
+    if (body !== undefined) { opt.headers["content-type"] = "application/json"; opt.body = JSON.stringify(body); }
+    return fetch(path, opt).then(function (res) {
+      if (res.type === "opaqueredirect" || res.status === 401 || res.status === 403) {
+        signinNeeded(); var e = new Error("請重新載入此頁以登入"); e.signin = true; throw e;
+      }
+      var ct = res.headers.get("content-type") || "";
+      if (ct.indexOf("json") < 0) {
+        if (ct.indexOf("html") >= 0) { signinNeeded(); var e2 = new Error("請重新載入此頁以登入"); e2.signin = true; throw e2; }
+        if (!res.ok) throw httpErr(res.status, null);
+        return null;
+      }
+      return res.json().then(function (j) { if (!res.ok) throw httpErr(res.status, j && j.error); return j; });
+    }, function () { throw new Error("無法連線，請檢查網絡後再試"); });
+  }
+  function httpErr(status, msg) {
+    var e = new Error(msg || (status === 409 ? "此操作不適用於目前的狀態，請重新載入" : status === 404 ? "找不到" : "伺服器錯誤（" + status + "）"));
+    e.status = status; return e;
+  }
+
+  /* ---------- state ---------- */
+  var S = { events: null, guests: null, outbox: null, eventId: null, ui: {}, addMsg: null, poll: null };
+  function ui(id) { return S.ui[id] || (S.ui[id] = {}); }
+
+  /* ---------- routing ---------- */
+  function route() {
+    var h = (location.hash || "#/").replace(/^#/, "");
+    var p = h.split("/").filter(Boolean).map(decodeURIComponent);
+    clearInterval(S.poll); S.poll = null;
+    window.scrollTo(0, 0);
+    if (p.length === 0) return viewList();
+    if (p[0] === "new") return viewEventForm(null);
+    if (p[0] === "e" && p[1]) {
+      if (p[2] === "edit") return viewEventForm(p[1]);
+      return viewEvent(p[1], p[2] || "pending");
+    }
+    location.hash = "#/";
+  }
+  window.addEventListener("hashchange", route);
+
+  function loadEvents() { return api("GET", "/api/events").then(function (j) { S.events = (j && j.events) || []; return S.events; }); }
+  function findEvent(id) { return (S.events || []).filter(function (e) { return e.id === id; })[0]; }
+  function fail(e) {
+    app.innerHTML = '<div class="sheet"><div class="line-err" style="margin:0">' + icon("cross") + "<span>" + esc(e.message) + "</span></div></div>";
+  }
+
+  /* ---------- event list ---------- */
+  function viewList() {
+    document.title = "名牌報名";
+    if (!S.events) app.innerHTML = '<div class="loading">載入中</div>';
+    loadEvents().then(renderList, fail);
+  }
+  function countCell(n, label, cls) {
+    n = n || 0;
+    return '<div class="count ' + (n ? cls || "" : "zero") + '"><b>' + n + "</b><span>" + label + "</span></div>";
+  }
+  function renderList() {
+    var evs = S.events.slice().sort(function (a, b) { return (b.date || "").localeCompare(a.date || ""); });
+    var h = '<div class="stack"><div class="sheet row spread"><h1>活動</h1><a class="btn primary" href="#/new">' + icon("plus") + "新增活動</a></div>";
+    if (!evs.length) {
+      h += '<div class="sheet empty"><p>還沒有活動。新增一個活動，就會有公開報名表的連結和二維碼。</p><a class="btn primary" href="#/new">' + icon("plus") + "新增活動</a></div>";
+    } else {
+      h += '<div class="grid">' + evs.map(function (e) {
+        var c = e.counts || {};
+        return '<a class="ev" href="#/e/' + encodeURIComponent(e.id) + '"><h2>' + esc(e.name) + "</h2>" +
+          (e.nameEn ? '<span class="en">' + esc(e.nameEn) + "</span>" : "") +
+          '<div class="meta"><span>' + esc(fmtDate(e.date)) + "</span>" + (e.venue ? '<span class="muted">' + esc(e.venue) + "</span>" : "") + "</div>" +
+          '<div class="tags"><span class="tag ' + (e.open ? "on" : "off") + '">' + (e.open ? "接受報名中" : "已停止報名") + "</span>" +
+          '<span class="tag">' + (e.mode === "auto" ? "自動確認" : "人手審批") + "</span></div>" +
+          '<div class="counts">' + countCell(c.pending, "待處理", "hot") + countCell(c.flagged, "可能重複", "dup") +
+          countCell(c.accepted, "已確認") + countCell(c.rejected, "已拒絕") + countCell(c.outbox, "訊息") + "</div></a>";
+      }).join("") + "</div>";
+    }
+    app.innerHTML = h + "</div>";
+  }
+
+  /* ---------- share block ---------- */
+  function shareBlock(id, withActions) {
+    var url = PUBLIC + id, svg = "";
+    try { svg = QR.svg(url); } catch (e) { svg = ""; }
+    return '<div class="qr-row"><div class="qr" role="img" aria-label="報名表二維碼">' + svg + "</div>" +
+      (withActions ? '<div class="qr-acts"><button class="btn" type="button" data-act="dl-svg" data-id="' + esc(id) + '">' + icon("down") + "下載 SVG</button>" +
+        '<button class="btn" type="button" data-act="dl-png" data-id="' + esc(id) + '">' + icon("down") + "下載 PNG</button>" +
+        '<p class="small muted">海報用：SVG 可任意放大；PNG 為 1200 像素。</p></div>' : "") + "</div>";
+  }
+  function linkRow(id) {
+    var url = PUBLIC + id;
+    return '<div class="link-row"><a class="link-box" href="' + esc(url) + '" target="_blank" rel="noopener">' + esc(url) + "</a>" +
+      '<button class="btn" type="button" data-act="copy" data-url="' + esc(url) + '">' + icon("copy") + '<span>複製連結</span></button></div>';
+  }
+
+  /* ---------- event form ---------- */
+  function viewEventForm(id) {
+    document.title = (id ? "編輯活動" : "新增活動") + " - 名牌報名";
+    var go = function () {
+      var e = id ? findEvent(id) : null;
+      if (id && !e) return fail(new Error("找不到此活動"));
+      renderEventForm(e);
+    };
+    if (S.events) go(); else { app.innerHTML = '<div class="loading">載入中</div>'; loadEvents().then(go, fail); }
+  }
+  function renderEventForm(e) {
+    var isNew = !e; e = e || { id: "", name: "", nameEn: "", date: "", venue: "", mode: "review", open: true };
+    var backHref = isNew ? "#/" : "#/e/" + encodeURIComponent(e.id);
+    app.innerHTML = '<div class="stack"><div class="sheet"><a class="back" href="' + backHref + '">' + icon("back") + (isNew ? "所有活動" : "返回活動") + "</a>" +
+      "<h1>" + (isNew ? "新增活動" : "編輯活動") + "</h1></div>" +
+      '<div class="form-layout"><form class="sheet form" id="evform" novalidate>' +
+      '<div class="field"><label for="f-name">活動名稱</label><input type="text" id="f-name" name="name" required maxlength="200" value="' + esc(e.name) + '"></div>' +
+      '<div class="field"><label for="f-nameEn">英文名稱 <span class="muted small">選填</span></label><input type="text" id="f-nameEn" name="nameEn" maxlength="200" value="' + esc(e.nameEn || "") + '" lang="en"></div>' +
+      '<div class="two"><div class="field"><label for="f-date">日期</label><input type="date" id="f-date" name="date" required value="' + esc(e.date) + '"></div>' +
+      '<div class="field"><label for="f-venue">地點 <span class="muted small">選填</span></label><input type="text" id="f-venue" name="venue" maxlength="200" value="' + esc(e.venue || "") + '"></div></div>' +
+      '<div class="field"><label for="f-id">網址代號</label><input type="text" id="f-id" name="id" required maxlength="40" autocapitalize="off" spellcheck="false" value="' + esc(e.id) + '"' + (isNew ? "" : " disabled") + ">" +
+      '<p class="hint">' + (isNew ? "3–40 個小寫英文字母、數字或 -，例如 surgical-futures-2026。建立後不能更改。" : "建立後不能更改。") + "</p></div>" +
+      '<div class="field"><label id="l-mode">確認方式</label><div class="seg" role="radiogroup" aria-labelledby="l-mode">' +
+      '<label><input type="radio" name="mode" value="auto"' + (e.mode === "auto" ? " checked" : "") + '>自動確認<span>報名即確認；可能重複的仍等職員處理</span></label>' +
+      '<label><input type="radio" name="mode" value="review"' + (e.mode !== "auto" ? " checked" : "") + '>人手審批<span>每個報名由職員確認</span></label></div></div>' +
+      '<div class="field"><label id="l-open">報名表</label><div class="seg" role="radiogroup" aria-labelledby="l-open">' +
+      '<label><input type="radio" name="open" value="1"' + (e.open ? " checked" : "") + '>接受報名<span>公開連結可以報名</span></label>' +
+      '<label><input type="radio" name="open" value="0"' + (!e.open ? " checked" : "") + '>停止報名<span>連結顯示「不接受報名」</span></label></div></div>' +
+      '<div id="evform-msg"></div>' +
+      '<div class="row"><button class="btn primary" type="submit" id="evform-go">' + (isNew ? "建立活動" : "儲存") + '</button><a class="btn quiet" href="' + backHref + '">取消</a></div>' +
+      "</form>" +
+      '<aside class="sheet" id="evform-share"></aside></div></div>';
+    var f = document.getElementById("evform"), idIn = document.getElementById("f-id");
+    var share = function () {
+      var id = idIn.value.trim(), box = document.getElementById("evform-share");
+      box.innerHTML = "<h2>公開報名連結</h2>" + (ID_RE.test(id) ? linkRow(id) + shareBlock(id, !isNew) + (isNew ? '<p class="small muted" style="margin-top:12px">建立活動後連結才會生效。</p>' : "")
+        : '<p class="muted" style="margin-top:8px">填寫網址代號後，這裏會顯示報名表的連結和二維碼。</p>');
+    };
+    share();
+    if (isNew) idIn.addEventListener("input", share);
+    f.addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      var fd = new FormData(f), msg = document.getElementById("evform-msg"), btn = document.getElementById("evform-go");
+      var body = { name: (fd.get("name") || "").trim(), nameEn: (fd.get("nameEn") || "").trim() || null, date: fd.get("date") || "",
+        venue: (fd.get("venue") || "").trim() || null, mode: fd.get("mode"), open: fd.get("open") === "1" };
+      var errs = [];
+      if (isNew) { body.id = idIn.value.trim(); if (!ID_RE.test(body.id)) errs.push("網址代號要 3–40 個小寫英文字母、數字或 -"); }
+      if (!body.name) errs.push("請填寫活動名稱");
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(body.date)) errs.push("請選擇日期");
+      if (errs.length) { msg.innerHTML = errLine(errs.join("；")); return; }
+      btn.disabled = true; btn.textContent = "儲存中"; msg.innerHTML = "";
+      (isNew ? api("POST", "/api/events", body) : api("PATCH", "/api/events/" + encodeURIComponent(e.id), body)).then(function (saved) {
+        S.events = null;
+        location.hash = "#/e/" + encodeURIComponent((saved && saved.id) || body.id || e.id);
+      }, function (er) {
+        btn.disabled = false; btn.textContent = isNew ? "建立活動" : "儲存";
+        msg.innerHTML = errLine(er.status === 409 ? "此網址代號已被使用，請換一個" : er.message);
+      });
+    });
+  }
+  function errLine(t) { return '<div class="line-err" style="margin:0">' + icon("cross") + "<span>" + esc(t) + "</span></div>"; }
+
+  /* ---------- event view ---------- */
+  function viewEvent(id, tab) {
+    if (["pending", "accepted", "rejected", "outbox"].indexOf(tab) < 0) tab = "pending";
+    var same = S.eventId === id;
+    S.eventId = id; S.tab = tab;
+    if (!same) { S.guests = null; S.outbox = null; S.ui = {}; S.addMsg = null; }
+    var ev = findEvent(id);
+    if (!ev || !S.guests) app.innerHTML = '<div class="loading">載入中</div>';
+    Promise.all([S.events ? Promise.resolve(S.events) : loadEvents(), loadGuests(), tab === "outbox" || !S.outbox ? loadOutbox() : Promise.resolve()]).then(function () {
+      var e = findEvent(id);
+      if (!e) return fail(new Error("找不到此活動"));
+      document.title = e.name + " - 名牌報名";
+      renderEventShell(e);
+      renderTab();
+      S.poll = setInterval(pollTick, 4000);
+    }, fail);
+  }
+  function loadGuests() { var id = S.eventId; return api("GET", "/api/events/" + encodeURIComponent(id) + "/guests").then(function (j) { if (S.eventId === id) S.guests = (j && j.guests) || []; }); }
+  function loadOutbox() { var id = S.eventId; return api("GET", "/api/events/" + encodeURIComponent(id) + "/outbox").then(function (j) { if (S.eventId === id) S.outbox = (j && j.messages) || []; }); }
+  function pollTick() {
+    if (document.hidden || !S.guests) return;
+    var checking = S.guests.some(function (g) { return g.dup && g.dup.state === "checking"; });
+    if (!checking && S.tab !== "outbox") return;
+    (S.tab === "outbox" ? loadOutbox() : loadGuests()).then(renderTab, function () {});
+  }
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden && S.eventId && /^#\/e\//.test(location.hash) && !/\/edit$/.test(location.hash)) {
+      Promise.all([loadGuests(), loadOutbox()]).then(renderTab, function () {});
+    }
+  });
+
+  function renderEventShell(e) {
+    var facts = [["日期", fmtDate(e.date)], ["地點", e.venue || "未填"], ["確認方式", e.mode === "auto" ? "自動確認" : "人手審批"], ["報名表", e.open ? "接受報名中" : "已停止報名"]];
+    app.innerHTML = '<div class="ev-layout">' +
+      '<div class="main stack"><section class="sheet"><a class="back" href="#/">' + icon("back") + "所有活動</a>" +
+      '<div class="row spread" style="align-items:flex-start"><div style="min-width:0"><h1>' + esc(e.name) + "</h1>" + (e.nameEn ? '<p class="en" style="font-size:1.0625rem">' + esc(e.nameEn) + "</p>" : "") + "</div>" +
+      '<a class="btn" href="#/e/' + encodeURIComponent(e.id) + '/edit">' + icon("edit") + "編輯</a></div>" +
+      '<dl class="facts">' + facts.map(function (f) { return '<div class="fact"><dt>' + f[0] + "</dt><dd>" + esc(f[1]) + "</dd></div>"; }).join("") + "</dl>" +
+      linkRow(e.id) + "</section>" +
+      '<nav class="tabs" id="tabs" aria-label="報名分類"></nav>' +
+      '<div class="stack" id="list"></div></div>' +
+      '<aside class="side stack"><section class="sheet"><h2>海報二維碼</h2><p class="small muted">掃描後打開公開報名表。</p>' + shareBlock(e.id, true) + "</section>" +
+      '<section class="sheet" id="add"></section></aside></div>';
+    renderAdd();
+  }
+
+  function byState(st) { return (S.guests || []).filter(function (g) { return g.state === st; }); }
+  function isFlagged(g) { return g.dup && g.dup.state === "flagged"; }
+  function renderTabs() {
+    var p = byState("pending"), a = byState("accepted"), r = byState("rejected").length + byState("merged").length;
+    var pf = p.filter(isFlagged).length, af = a.filter(isFlagged).length;
+    var base = "#/e/" + encodeURIComponent(S.eventId) + "/";
+    var t = function (key, label, n, f) {
+      return '<a class="tab" href="' + base + key + '"' + (S.tab === key ? ' aria-current="page"' : "") + "><span>" + label + '</span><span class="n">' + n +
+        (f ? '<span class="dupn" title="可能重複">' + f + " 重複</span>" : "") + "</span></a>";
+    };
+    document.getElementById("tabs").innerHTML = t("pending", "待處理", p.length, pf) + t("accepted", "已確認", a.length, af) + t("rejected", "已拒絕", r, 0) +
+      t("outbox", "訊息", (S.outbox || []).length, 0);
+  }
+
+  function renderTab() {
+    if (!document.getElementById("list")) return;
+    renderTabs();
+    var L = document.getElementById("list"), h = "";
+    if (S.tab === "outbox") { L.innerHTML = renderOutbox(); return; }
+    if (S.tab === "pending") {
+      var p = byState("pending").sort(function (a, b) {
+        var fa = isFlagged(a) ? 0 : 1, fb = isFlagged(b) ? 0 : 1;
+        return fa - fb || (a.created || "").localeCompare(b.created || "");
+      });
+      h = p.length ? p.map(card).join("") : emptyCard("沒有待處理的報名。");
+    } else if (S.tab === "accepted") {
+      var a = byState("accepted").sort(function (x, y) { return (isFlagged(x) ? 0 : 1) - (isFlagged(y) ? 0 : 1) || (x.name || "").localeCompare(y.name || ""); });
+      h = a.length ? a.map(card).join("") : emptyCard("還沒有已確認的嘉賓。");
+    } else {
+      var r = byState("rejected"), m = byState("merged");
+      h = r.length ? r.map(card).join("") : emptyCard("沒有已拒絕的報名。");
+      if (m.length) h += '<div class="sheet"><h2>已合併</h2><p class="small muted">這些報名已合併到另一個報名，不再單獨計算。</p></div>' + m.map(card).join("");
+    }
+    L.innerHTML = h;
+  }
+  function emptyCard(t) { return '<div class="sheet muted">' + esc(t) + "</div>"; }
+  function guestById(id) { return (S.guests || []).filter(function (g) { return g.id === id; })[0]; }
+  function phone(g) { return g.mobile != null ? g.mobile : g.phone; }
+
+  function verdict(g) {
+    var d = (g.dup && g.dup.state) || "none";
+    if (d === "flagged") return '<span class="badge-dup">可能重複</span>';
+    if (d === "checking") return '<span class="verdict wait"><span class="pip off"></span>正在檢查重複</span>';
+    if (d === "error") return '<span class="verdict">' + icon("cross") + "重複檢查失敗</span>";
+    if (d === "cleared") return '<span class="verdict"><span class="pip on"></span>已核對：不是重複</span>';
+    return g.state === "pending" ? '<span class="verdict"><span class="pip on"></span>沒有發現重複</span>' : "";
+  }
+
+  function card(g) {
+    var u = ui(g.id), d = (g.dup && g.dup.state) || "none", flagged = d === "flagged";
+    var cands = flagged ? (g.dup.candidates || []) : [];
+    var rows = [["機構", g.institution], ["電郵", g.email], ["電話", phone(g)], ["來源", SOURCE[g.source] || g.source], ["提交", fmtTime(g.created)]];
+    if (g.title) rows.splice(1, 0, ["職銜", g.title]);
+    if (g.state === "merged") { var into = guestById(g.mergedInto); rows.push(["合併到", into ? into.name : g.mergedInto]); }
+    if (g.by && g.state !== "pending") rows.push(["處理", (g.by || "") + (g.at ? "，" + fmtTime(g.at) : "")]);
+    var h = '<article class="card' + (flagged ? " flagged" : "") + '" id="g-' + esc(g.id) + '"><div class="card-h"><h3 class="gname">' + esc(g.name) + "</h3>" + verdict(g) + "</div>" +
+      '<dl class="kv">' + rows.map(function (r) {
+        var v = r[1]; return "<dt>" + r[0] + "</dt>" + (v ? "<dd>" + esc(v) + "</dd>" : '<dd class="none">未填</dd>');
+      }).join("") + "</dl>";
+    if (d === "error") h += '<p class="small muted" style="margin-top:8px">系統未能自動檢查重複，請自行核對名單。</p>';
+    if (cands.length) h += '<div class="dups"><p class="dups-h">可能與以下 ' + cands.length + " 個報名重複</p>" + cands.map(function (c) { return compare(g, c); }).join("") + "</div>";
+
+    /* actions */
+    var acts = [];
+    var busy = u.busy;
+    var b = function (act, label, cls) {
+      return '<button class="btn ' + (cls || "") + '" type="button" data-act="' + act + '" data-id="' + esc(g.id) + '"' + (busy ? " disabled" : "") + ">" + (busy === act ? "處理中" : label) + "</button>";
+    };
+    if (g.state === "pending") { acts.push(b("accept", "確認", "primary")); acts.push(b("ask-reject", "拒絕")); }
+    if ((g.state === "pending" || g.state === "accepted") && (flagged || d === "error")) acts.push(b("not-duplicate", "不是重複"));
+    if ((g.state === "pending" || g.state === "accepted") && cands.length) acts.push(b("ask-merge", "合併"));
+    if (acts.length && !u.panel) h += '<div class="acts">' + acts.join("") + "</div>";
+
+    if (u.panel === "reject") {
+      h += '<div class="panel"><p><b>拒絕「' + esc(g.name) + '」的報名？</b><br><span class="small muted">對方不會收到任何通知。</span></p>' +
+        '<div class="row">' + b("reject", "確定拒絕", "primary") + '<button class="btn quiet" type="button" data-act="cancel" data-id="' + esc(g.id) + '"' + (busy ? " disabled" : "") + ">取消</button></div></div>";
+    }
+    if (u.panel === "merge") h += mergePanel(g, cands, u);
+    if (u.err) h += '<div class="line-err">' + icon("cross") + "<span>" + esc(u.err) + "</span></div>";
+    if (u.ok) h += '<div class="line-ok">' + icon("check") + "<span>" + esc(u.ok) + "</span></div>";
+    return h + "</article>";
+  }
+
+  function norm(s) { return String(s || "").trim().toLowerCase().replace(/\s+/g, " "); }
+  function digits(s) { var d = String(s || "").replace(/\D/g, ""); return d.length === 11 && d.indexOf("852") === 0 ? d.slice(3) : d; }
+  function compare(g, c) {
+    var o = guestById(c.id);
+    var head = '<div class="cand-h"><span class="reason">' + esc(c.reason || "可能重複") + "</span></div>";
+    if (!o) return '<div class="cand">' + head + '<p class="small muted" style="padding:10px 12px">找不到這個報名（' + esc(c.id) + "）。</p></div>";
+    var rows = [
+      ["姓名", g.name, o.name, norm(g.name) === norm(o.name)],
+      ["機構", g.institution, o.institution, !!g.institution && norm(g.institution) === norm(o.institution)],
+      ["電郵", g.email, o.email, !!g.email && norm(g.email) === norm(o.email)],
+      ["電話", phone(g), phone(o), !!phone(g) && digits(phone(g)) === digits(phone(o))],
+      ["狀態", STATE[g.state] || g.state, STATE[o.state] || o.state, false],
+      ["提交", fmtTime(g.created), fmtTime(o.created), false]
+    ];
+    return '<div class="cand">' + head + '<div class="cmp"><div class="lab hd"></div><div class="hd">此報名</div><div class="hd b">另一個報名</div>' +
+      rows.map(function (r) {
+        var s = r[3] ? " same" : "";
+        return '<div class="lab' + s + '">' + r[0] + '</div><div class="' + s + '">' + (r[1] ? esc(r[1]) : '<span class="muted">未填</span>') + '</div><div class="b' + s + '">' + (r[2] ? esc(r[2]) : '<span class="muted">未填</span>') + "</div>";
+      }).join("") + "</div></div>";
+  }
+
+  function mergePanel(g, cands, u) {
+    var groups = [];
+    cands.forEach(function (c) {
+      var o = guestById(c.id); if (!o || o.state === "merged") return;
+      groups.push({ o: o, opts: [
+        { v: g.id + ">" + o.id, t: "保留另一個報名「" + o.name + "」", s: "此報名會併入它" + (o.state === "pending" ? "；保留的報名仍待確認" : "") },
+        { v: o.id + ">" + g.id, t: "保留此報名「" + g.name + "」", s: "另一個報名會併入此報名" + (o.state === "accepted" ? "；它已確認的二維碼會失效" : "") }] });
+    });
+    var busy = u.busy;
+    if (!groups.length) return '<div class="panel"><p>沒有可以合併的報名。</p><div class="row"><button class="btn quiet" type="button" data-act="cancel" data-id="' + esc(g.id) + '">取消</button></div></div>';
+    var opt = function (o) {
+      return '<label class="opt"><input type="radio" name="m-' + esc(g.id) + '" value="' + esc(o.v) + '" data-act="pick" data-id="' + esc(g.id) + '"' + (u.pick === o.v ? " checked" : "") + (busy ? " disabled" : "") + ">" +
+        "<span><b>" + esc(o.t) + '</b><span class="small muted">' + esc(o.s) + "</span></span></label>";
+    };
+    return '<div class="panel"><p><b>合併後只保留一個報名。保留哪一個？</b></p>' + groups.map(function (gr) {
+      return '<div class="choice" role="radiogroup" aria-label="與 ' + esc(gr.o.name) + ' 合併">' + (groups.length > 1 ? '<p class="small"><b>與「' + esc(gr.o.name) + "」合併</b>" + (gr.o.email ? '<span class="muted">（' + esc(gr.o.email) + "）</span>" : "") + "</p>" : "") +
+        gr.opts.map(opt).join("") + "</div>";
+    }).join("") + '<div class="row"><button class="btn primary" type="button" data-act="merge" data-id="' + esc(g.id) + '"' + (!u.pick || busy ? " disabled" : "") + ">" + (busy === "merge" ? "處理中" : "確定合併") + "</button>" +
+      '<button class="btn quiet" type="button" data-act="cancel" data-id="' + esc(g.id) + '"' + (busy ? " disabled" : "") + ">取消</button></div></div>";
+  }
+
+  function putGuest(g) {
+    if (!g || !g.id) return;
+    var i = S.guests.findIndex(function (x) { return x.id === g.id; });
+    if (i >= 0) S.guests[i] = g; else S.guests.push(g);
+  }
+  function act(kind, gid) {
+    var u = ui(gid), g = guestById(gid); if (!g) return;
+    u.err = null; u.ok = null;
+    var path = "/api/guests/", body, done;
+    if (kind === "merge") {
+      if (!u.pick) return;
+      var pr = u.pick.split(">"); path += encodeURIComponent(pr[0]) + "/merge"; body = { into: pr[1] };
+      done = function (j) { if (j) { putGuest(j.merged); putGuest(j.into); } u.panel = null; u.pick = null; };
+    } else {
+      path += encodeURIComponent(gid) + "/" + kind;
+      done = function (j) { putGuest(j); if (kind === "reject") u.panel = null; };
+    }
+    u.busy = kind; renderTab();
+    api("POST", path, body).then(function (j) {
+      u.busy = null; done(j); renderTab(); refreshQuiet();
+    }, function (e) { u.busy = null; u.err = e.message; renderTab(); });
+  }
+  function refreshQuiet() {
+    var id = S.eventId;
+    Promise.all([loadGuests(), loadOutbox()]).then(function () { if (S.eventId === id) renderTab(); }, function () {});
+    S.events = null; loadEvents().catch(function () {});
+  }
+
+  /* ---------- outbox ---------- */
+  function renderOutbox() {
+    var h = '<div class="sheet notice"><span class="pip off"></span><div><b>發送功能暫時關閉</b><p class="small muted">確認通知和活動前一天的提醒只記錄在這裏，沒有寄出電郵或 WhatsApp。</p></div></div>';
+    var ms = S.outbox || [];
+    if (!ms.length) return h + emptyCard("還沒有訊息。嘉賓的報名確認後，確認通知會出現在這裏。");
+    var KIND = { confirmation: "確認通知", reminder: "活動前提醒" }, CH = { email: "電郵", whatsapp: "WhatsApp" };
+    var ST = { off: ["未發送（功能關閉）", "off"], sent: ["已發送", "on"], failed: ["發送失敗", "fail"] };
+    return h + ms.map(function (m) {
+      var g = guestById(m.guest), st = ST[m.status] || [m.status, "off"];
+      var stHtml = st[1] === "fail" ? '<span class="verdict">' + icon("cross") + st[0] + "</span>" : '<span class="verdict' + (st[1] === "off" ? " wait" : "") + '"><span class="pip ' + st[1] + '"></span>' + esc(st[0]) + "</span>";
+      return '<article class="card"><div class="card-h"><h3 class="gname" style="font-size:1.125rem">' + esc(KIND[m.kind] || m.kind) + " 給 " + esc(g ? g.name : m.to) + "</h3>" + stHtml + "</div>" +
+        '<dl class="kv"><dt>渠道</dt><dd>' + esc(CH[m.channel] || m.channel) + "</dd><dt>收件人</dt><dd>" + esc(m.to) + "</dd>" +
+        (m.subject ? "<dt>主旨</dt><dd>" + esc(m.subject) + "</dd>" : "") + "<dt>建立</dt><dd>" + esc(fmtTime(m.created)) + "</dd></dl>" +
+        '<details><summary>' + icon("chev") + "內容</summary><div class=\"outbox-body\">" + esc(m.body) + "</div></details></article>";
+    }).join("");
+  }
+
+  /* ---------- add guest ---------- */
+  function renderAdd() {
+    var box = document.getElementById("add"); if (!box) return;
+    box.innerHTML = '<h2>職員新增嘉賓</h2><p class="small muted">新增後即確認，系統仍會檢查重複。</p>' +
+      '<form class="form" id="addform" style="margin-top:12px">' +
+      '<div class="field"><label for="a-name">姓名</label><input type="text" id="a-name" name="name" required maxlength="100" autocomplete="off"></div>' +
+      '<div class="field"><label for="a-inst">機構 <span class="muted small">選填</span></label><input type="text" id="a-inst" name="institution" maxlength="200" autocomplete="off"></div>' +
+      '<div class="field"><label for="a-email">電郵</label><input type="email" id="a-email" name="email" required maxlength="200" autocomplete="off" autocapitalize="off" spellcheck="false"></div>' +
+      '<div class="field"><label for="a-mobile">電話</label><input type="tel" id="a-mobile" name="mobile" required maxlength="30" autocomplete="off"></div>' +
+      '<div id="addmsg"></div><button class="btn primary" type="submit" id="addgo">' + icon("plus") + "新增嘉賓</button></form>";
+    var f = document.getElementById("addform");
+    f.addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      var fd = new FormData(f), msg = document.getElementById("addmsg"), btn = document.getElementById("addgo");
+      var body = { name: fd.get("name").trim(), institution: fd.get("institution").trim(), email: fd.get("email").trim(), mobile: fd.get("mobile").trim() };
+      var errs = [], dg = body.mobile.replace(/[+\-()\s]/g, "");
+      if (!body.name) errs.push("請填寫姓名");
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) errs.push("電郵格式不正確");
+      if (!/^\d{6,20}$/.test(dg)) errs.push("電話要 6–20 位數字");
+      if (errs.length) { msg.innerHTML = errLine(errs.join("；")); return; }
+      btn.disabled = true; msg.innerHTML = "";
+      api("POST", "/api/events/" + encodeURIComponent(S.eventId) + "/guests", body).then(function (g) {
+        btn.disabled = false; f.reset();
+        putGuest(g);
+        msg.innerHTML = '<div class="line-ok" style="margin:0">' + icon("check") + "<span>已新增「" + esc(body.name) + "」</span></div>";
+        renderTab(); refreshQuiet();
+      }, function (e) { btn.disabled = false; msg.innerHTML = errLine(e.message); });
+    });
+  }
+
+  /* ---------- downloads, copy ---------- */
+  function download(name, href) { var a = document.createElement("a"); a.href = href; a.download = name; document.body.appendChild(a); a.click(); a.remove(); }
+
+  /* ---------- delegated clicks ---------- */
+  document.addEventListener("click", function (ev) {
+    var t = ev.target.closest("[data-act]"); if (!t) return;
+    var a = t.getAttribute("data-act"), id = t.getAttribute("data-id");
+    if (a === "reload") return location.reload();
+    if (a === "copy") {
+      var url = t.getAttribute("data-url"), lab = t.querySelector("span");
+      var ok = function () { t.querySelector("svg").outerHTML = icon("check"); lab.textContent = "已複製"; setTimeout(function () { if (t.isConnected) { t.querySelector("svg").outerHTML = icon("copy"); lab.textContent = "複製連結"; } }, 2500); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(ok, function () { lab.textContent = "請手動複製"; });
+      else lab.textContent = "請手動複製";
+      return;
+    }
+    if (a === "dl-svg") return download(id + "-qr.svg", URL.createObjectURL(new Blob([QR.svg(PUBLIC + id)], { type: "image/svg+xml" })));
+    if (a === "dl-png") return download(id + "-qr.png", QR.png(PUBLIC + id, 1200));
+    if (a === "pick") { ui(id).pick = t.value; renderTab(); var el = document.querySelector('input[name="m-' + CSS.escape(id) + '"]:checked'); if (el) el.focus(); return; }
+    if (a === "ask-reject") { ui(id).panel = "reject"; ui(id).err = null; return renderTab(); }
+    if (a === "ask-merge") { ui(id).panel = "merge"; ui(id).err = null; ui(id).pick = null; return renderTab(); }
+    if (a === "cancel") { ui(id).panel = null; ui(id).pick = null; return renderTab(); }
+    if (a === "accept" || a === "reject" || a === "not-duplicate" || a === "merge") return act(a, id);
+  });
+
+  route();
+})();
+</script>
+</body>
+</html>

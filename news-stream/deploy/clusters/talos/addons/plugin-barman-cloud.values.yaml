@@ -1,0 +1,4 @@
+# As ../../hetzner/postgres-operator.yaml (chart 0.8.1 = v0.15.1).
+priorityClassName: serving
+resources: {limits: {memory: 128Mi}, requests: {cpu: 10m, memory: 64Mi}}
+tolerations: [{key: node-role.kubernetes.io/control-plane, operator: Exists, effect: NoSchedule}]

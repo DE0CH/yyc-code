@@ -1,0 +1,7 @@
+# The router on YYC's Cloudflare account (deploy.sh). Its routes (newswatch.yyc-internal.com/*, yyc-beta.deyaochen.com/* on the
+# SaaS zone yyc-internal.com) are OpenTofu's (deploy/cloudflare/tofu/saas.tf), so none here.
+name = "yyc-edge"
+main = "worker.js"
+compatibility_date = "2026-09-01"
+account_id = "00916611232966eaf40906a57d09394e"
+workers_dev = false

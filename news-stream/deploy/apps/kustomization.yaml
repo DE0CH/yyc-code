@@ -1,0 +1,46 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespaces.yaml
+  - priorityclasses.yaml
+  - limits.yaml
+  - web.yaml
+  - poller.yaml
+  - cloudflared.yaml
+  - cronjobs.yaml
+  - wisers.yaml
+  - flagd.yaml
+  - monitor.yaml
+  - transcribe.yaml
+  - tiktok-videos.yaml
+  - images.yaml
+  - whatsapp.yaml
+  - mailmerge.yaml
+  - yyc-mcp.yaml
+  - socks.yaml
+  - outbound.yaml
+# outbound.yaml's proxy settings into the news stream's workloads (their first container already has envFrom)
+patches:
+  - target: {kind: CronJob, namespace: yyc, name: "^(browser|sites-browser|facebook|instagram|comments|replies|forums|forums-browser|lihkg|tikhub|watch|sites|cache|fulltext|paywall|reports|uptime|backfill|broadcast)$"}
+    patch: |-
+      - {op: add, path: /spec/jobTemplate/spec/template/spec/containers/0/envFrom/-, value: {configMapRef: {name: outbound}}}
+  - target: {kind: Deployment, namespace: yyc, name: "^(images|monitor|poller|tiktok-videos|transcribe|web|wisers)$"}
+    patch: |-
+      - {op: add, path: /spec/template/spec/containers/0/envFrom/-, value: {configMapRef: {name: outbound}}}
+configMapGenerator:
+  - name: flags
+    namespace: yyc
+    files: [flags/flags.json]
+    options: {disableNameSuffixHash: true}
+# the images: each CI workflow pins its own newTag on every build (deploy/pin-image.py: news-stream-image.yml for
+# "yyc-news-stream", mcp-image.yml for "yyc-mcp"); the names are placeholders the manifests use, never the real ones
+images:
+  - name: yyc-news-stream
+    newName: ghcr.io/de0ch/yyc-news-stream
+    newTag: '140ee9c398e1'
+  - name: yyc-mcp
+    newName: ghcr.io/de0ch/yyc-mcp
+    newTag: '140ee9c398e1'
+  - name: yyc-socks
+    newName: ghcr.io/de0ch/yyc-socks
+    newTag: '0dbbbd60afa5'

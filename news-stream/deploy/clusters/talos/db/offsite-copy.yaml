@@ -1,0 +1,97 @@
+# The off-site copy of YYC's Postgres backups (Deyao, 2026-11-09: the 3-2-1 rule's off-site copy, Cloudflare R2): every
+# hour rclone copies, never deletes, from Hetzner (fsn1) to R2 bucket yyc-pg-offsite (YYC's Cloudflare account, location
+# Western Europe):
+# - yyc-pg-pitr/pg-talos and yyc-pg-pitr/magpie-pg (base backups and WAL) to pitr/pg-talos and pitr/magpie-pg, the same
+#   layout Barman Cloud writes, so ObjectStore pg-offsite below restores from it (the restore tests use it every other
+#   week, ./restore-test.yaml);
+# - yyc-pg-backups/dumps (the daily pg_dumps) to dumps/.
+# The bucket's lock rule keeps every object 14 days from its upload: nothing, this job's token included, can delete or
+# overwrite it before then (so base backups are copied only once finished; the one caught mid-backup on 2026-11-09,
+# pg-talos/base/20261109T071247, keeps its first backup.info there and is skipped by restores from R2) (set with a one-off setup token, 2026-11-09; README "Backups"). After the copy, objects older
+# than 22 days go (the oldest base backup a 14-day restore window needs is up to 21 days old: weekly base backups),
+# dumps after 15 days.
+# Credential: SealedSecret db/pg-offsite-r2, Cloudflare token yyc-pg-offsite: object read and write on this bucket only.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: pg-offsite-copy
+  namespace: db
+spec:
+  schedule: "40 * * * *"
+  timeZone: Etc/UTC
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 3300
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels: {app: pg-offsite-copy}
+        spec:
+          restartPolicy: Never
+          securityContext: {runAsUser: 26, runAsGroup: 26, runAsNonRoot: true, seccompProfile: {type: RuntimeDefault}}
+          nodeSelector: {pool: apps}
+          enableServiceLinks: false
+          containers:
+            - name: copy
+              securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+              image: rclone/rclone:1.71.2
+              command:
+                - sh
+                - -c
+                - |
+                  set -eu
+                  export RCLONE_CONFIG_R2_ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+                  flags="--transfers 4 --checkers 8 --s3-chunk-size 16M --s3-upload-concurrency 2 --multi-thread-streams 1 --buffer-size 8M --s3-no-check-bucket --stats-one-line --stats 5m -v"  # 4 x 2 x 16 MB upload buffers, one download stream per file
+                  # never overwrite (the bucket lock refuses it: 409); a base backup only once it is 6 h old, so its
+                  # backup.info (rewritten when the backup ends) is final. WAL files and dumps are written once.
+                  for p in pg-talos magpie-pg; do
+                    rclone copy "hz:yyc-pg-pitr/$p/wals" "r2:yyc-pg-offsite/pitr/$p/wals" --ignore-existing $flags
+                    rclone copy "hz:yyc-pg-pitr/$p/base" "r2:yyc-pg-offsite/pitr/$p/base" --ignore-existing --min-age 6h $flags
+                  done
+                  rclone copy hz:yyc-pg-backups/dumps r2:yyc-pg-offsite/dumps --max-age 15d --ignore-existing $flags
+                  # retention: past the bucket's 14-day lock only
+                  rclone delete r2:yyc-pg-offsite/pitr --min-age 22d -v
+                  rclone delete r2:yyc-pg-offsite/dumps --min-age 15d -v
+                  echo "off-site copy done"
+              env:
+                - {name: RCLONE_CONFIG_HZ_TYPE, value: s3}
+                - {name: RCLONE_CONFIG_HZ_PROVIDER, value: Other}
+                - {name: RCLONE_CONFIG_HZ_ENDPOINT, value: "https://fsn1.your-objectstorage.com"}
+                - {name: RCLONE_CONFIG_HZ_REGION, value: fsn1}
+                - {name: RCLONE_CONFIG_HZ_ACCESS_KEY_ID, valueFrom: {secretKeyRef: {name: pg-backup-s3, key: ACCESS_KEY_ID}}}
+                - {name: RCLONE_CONFIG_HZ_SECRET_ACCESS_KEY, valueFrom: {secretKeyRef: {name: pg-backup-s3, key: ACCESS_SECRET_KEY}}}
+                - {name: RCLONE_CONFIG_R2_TYPE, value: s3}
+                - {name: RCLONE_CONFIG_R2_PROVIDER, value: Cloudflare}
+                - {name: RCLONE_CONFIG_R2_REGION, value: auto}
+                - {name: RCLONE_CONFIG_R2_ACCESS_KEY_ID, valueFrom: {secretKeyRef: {name: pg-offsite-r2, key: ACCESS_KEY_ID}}}
+                - {name: RCLONE_CONFIG_R2_SECRET_ACCESS_KEY, valueFrom: {secretKeyRef: {name: pg-offsite-r2, key: SECRET_ACCESS_KEY}}}
+                - {name: R2_ACCOUNT_ID, valueFrom: {secretKeyRef: {name: pg-offsite-r2, key: ACCOUNT_ID}}}
+                - {name: HOME, value: /tmp}
+              resources:
+                requests: {cpu: 100m, memory: 256Mi}
+                limits: {memory: 1536Mi}   # OOM-killed at 512 Mi twice on 9 Nov copying the 30 GB base backup
+---
+# The off-site copy as a Barman Cloud object store: read only by the restore tests' throwaway Clusters (no Cluster
+# archives to it). The endpoint needs the account id, which is not secret (the yyc store's YYC_CF_ACCOUNT_ID).
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: pg-offsite
+  namespace: db
+spec:
+  configuration:
+    destinationPath: s3://yyc-pg-offsite/pitr/
+    endpointURL: https://00916611232966eaf40906a57d09394e.r2.cloudflarestorage.com
+    s3Credentials:
+      accessKeyId: {name: pg-offsite-r2, key: ACCESS_KEY_ID}
+      secretAccessKey: {name: pg-offsite-r2, key: SECRET_ACCESS_KEY}
+    wal: {compression: gzip}
+    data: {compression: gzip}
+  instanceSidecarConfiguration:
+    env:
+      - {name: AWS_REQUEST_CHECKSUM_CALCULATION, value: when_required}
+      - {name: AWS_RESPONSE_CHECKSUM_VALIDATION, value: when_required}

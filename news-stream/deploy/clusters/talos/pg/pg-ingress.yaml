@@ -1,0 +1,57 @@
+# Who may connect to Cluster pg on yyc-talos (T5): by selector, never by pod address (under Cilium an ipBlock never
+# matches a pod or a node of this cluster, DESIGN 15.2 N3). Each database admits only its own role (the data's own
+# grants, copied from the old cluster).
+# - its own instances (streaming between them), the operator and the instance managers (status port 8000)
+# - namespace db: the daily dump (app=pg-dump-daily) and gin-clean
+# - namespace yyc (the news stream, yyc-mcp, the WiseSearch relay, and cloudflared for Hyperdrive's db.yyc-internal.com)
+#   and namespace aiwatch: every pod, as on the old cluster (where 10.244.0.0/16 admitted every pod)
+# - namespace yyc-ai: hermit, egress, tools (DESIGN 15.8); kube-system: the JuiceFS mount pods
+# - namespace feishu-index: the indexer (database feishu_index, ./feishu-index-db.yaml)
+# - the new fabric's AWS hosts' and hermit's JuiceFS metadata: they dial pg-shared's NodePort 30433 on the gateway node.
+#   kube-proxy masquerades it to the node's cilium_host address, but Cilium tunnels the forwarded packet with identity
+#   world (not remote-node), so pg-ingress-nodes below admits world on 5432 too (2026-11-08: with host/remote-node
+#   only, every sandbox start failed "juicefs quota get: no answer in 60 s"). No node has a public address: world here
+#   is only what reaches a NodePort over the private network, and each role still needs its password.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: pg-ingress
+  namespace: db
+spec:
+  podSelector: {matchLabels: {cnpg.io/cluster: pg}}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector: {matchLabels: {cnpg.io/cluster: pg}}
+        - podSelector: {matchExpressions: [{key: app, operator: In, values: [pg-dump-daily, gin-clean, pg-heartbeat]}]}
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: yyc}}
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: aiwatch}}
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: feishu-index}}
+          podSelector: {matchLabels: {app: feishu-index}}
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: yyc-ai}}
+          podSelector: {matchExpressions: [{key: app, operator: In, values: [hermit, egress, tools]}]}
+        # the JuiceFS CSI driver's mount pods and its node plugin and controller (`juicefs status` at each mount)
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}
+          podSelector: {matchExpressions: [{key: app.kubernetes.io/name, operator: In, values: [juicefs-mount, juicefs-csi-driver]}]}
+      ports: [{port: 5432, protocol: TCP}]
+    # the YYC monitor's Postgres panel: the instance's metrics exporter (news-stream/monitor.py PG_EXPORTER)
+    - from:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: yyc}}
+          podSelector: {matchLabels: {app: monitor}}
+      ports: [{port: 9187, protocol: TCP}]
+    - from:
+        - podSelector: {matchLabels: {cnpg.io/cluster: pg}}
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: cnpg-system}}
+          podSelector: {matchLabels: {app.kubernetes.io/name: cloudnative-pg}}
+      ports: [{port: 8000, protocol: TCP}]
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: pg-ingress-nodes
+  namespace: db
+spec:
+  endpointSelector: {matchLabels: {cnpg.io/cluster: pg}}
+  ingress:
+    - fromEntities: [host, remote-node, world]
+      toPorts: [{ports: [{port: "5432", protocol: TCP}]}]

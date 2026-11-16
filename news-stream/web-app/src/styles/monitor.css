@@ -1,0 +1,227 @@
+/* Deyao's monitor's own styles (scoped to .page-monitor), in the house style (house.css): sections are white sheets on
+   the grey ground, tiles are ruled value plates. States use the flight-deck colours (house.css --st-*; Deyao,
+   2026-10-30): failed = red with an SVG cross, warn = amber with a square, ok = a small green square with ink text
+   (a dark cockpit: what is normal stays quiet), off = muted. Each state also has its own shape, so it reads without
+   colour. The providers' hues in the spending chart and bars (--p-*, named by the legend) are never red, amber or
+   green. */
+.page-monitor {
+  /* the house icons as masks (an SVG mask takes the element's colour): the failed cross and the disclosure chevron */
+  --x-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='square'%3E%3Cpath d='M6 6l12 12M18 6L6 18'/%3E%3C/svg%3E");
+  --chev-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='square'%3E%3Cpath d='M9 5l7 7-7 7'/%3E%3C/svg%3E");
+  padding-bottom:env(safe-area-inset-bottom); }
+/* the bar is the shell's (shell.css): .yyc-bar, a 56px .yyc-row with the title and the freshness, and the section jumps
+   as the level-2 .yyc-sub row (44px tabs on one full-width rule) */
+.page-monitor .bar h1 { display:flex; align-items:center; font-size:16px; margin:0; font-weight:700; white-space:nowrap; }
+.page-monitor .bar .upd { display:flex; align-items:center; margin-left:auto; padding-left:10px; font-size:13px; color:var(--muted); text-align:right; font-family:var(--num); }
+/* the freshness pip in the bar: live = green filled, stale = amber hollow, down = a red cross */
+.page-monitor .dot { display:inline-block; width:10px; height:10px; background:var(--st-ok); border:2px solid var(--st-ok); margin-right:7px; vertical-align:0; }
+.page-monitor .dot.stale { background:transparent; border-color:var(--st-warn); }
+.page-monitor .dot.down { border:0; width:12px; height:12px; background:var(--st-bad); -webkit-mask:var(--x-mask) center / 100% no-repeat; mask:var(--x-mask) center / 100% no-repeat; vertical-align:-1px; }
+.page-monitor main { padding:8px var(--gutter) 40px; display:grid; gap:8px; grid-template-columns:minmax(0,1fr); }
+/* a jump lands its section 8px under the bar (57 + 45px) */
+.page-monitor section { background:var(--panel); padding:16px; min-width:0; scroll-margin-top:110px; }
+.page-monitor section > h2 { font-size:16px; font-weight:700; margin:0 0 12px; display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+.page-monitor section > h2 small { font-weight:400; color:var(--muted); font-size:13px; }
+.page-monitor .muted { color:var(--muted); }
+.page-monitor .small { font-size:13px; }
+/* an error: red text with the cross */
+.page-monitor .err { color:var(--st-bad); font-weight:600; font-size:13px; overflow-wrap:anywhere; }
+.page-monitor .err::before, .page-monitor .tile.bad .k::before, .page-monitor .pill.bad::before, .page-monitor .stop::before, .page-monitor #banner::before {
+  content:""; display:inline-block; width:12px; height:12px; margin-right:6px; vertical-align:-1px; background:currentColor;
+  -webkit-mask:var(--x-mask) center / 100% no-repeat; mask:var(--x-mask) center / 100% no-repeat; }
+/* tiles and cards: one ruled grid per group (house.css "clean lines"), every edge one shared 1px rule: the grid draws
+   the top and left rules, each cell its right and bottom, so a short last row ends on its last cell. The figure in
+   Archivo; bad = a 3px red frame inside the cell (the shared rules stay) + red label, warn = a 3px amber frame + amber square */
+.page-monitor .tiles, .page-monitor .cards { gap:0; border-top:1px solid var(--rule); border-left:1px solid var(--rule); }
+.page-monitor .tiles { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); }
+.page-monitor .tile { border:0; border-right:1px solid var(--rule); border-bottom:1px solid var(--rule); padding:10px 12px; background:var(--panel); min-width:0; }
+.page-monitor .tile .k { font-size:13px; color:var(--muted); }
+.page-monitor .tile .v { font-family:var(--num); font-size:1.75rem; font-weight:700; line-height:1.2; font-variant-numeric:tabular-nums; margin:2px 0; }
+.page-monitor .tile .s { font-size:13px; color:var(--muted); overflow-wrap:anywhere; }
+.page-monitor .tile.bad, .page-monitor .tile.warn { outline:3px solid var(--st-bad); outline-offset:-3px; }
+.page-monitor .tile.warn { outline-color:var(--st-warn); }
+.page-monitor .tile.bad .k, .page-monitor .tile.warn .k { color:var(--ink); font-weight:700; }
+.page-monitor .tile.bad .k { color:var(--st-bad); }
+.page-monitor .tile.warn .k::before { content:""; display:inline-block; width:12px; height:12px; background:var(--st-warn); margin-right:6px; vertical-align:-1px; }
+.page-monitor .cards { display:grid; grid-template-columns:minmax(0,1fr); }
+.page-monitor .card { border:0; border-right:1px solid var(--rule); border-bottom:1px solid var(--rule); padding:10px 12px; min-width:0; }
+.page-monitor .card h3 { font-size:15px; font-weight:700; margin:0 0 4px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.page-monitor .big { font-family:var(--num); font-size:1.5rem; font-weight:700; font-variant-numeric:tabular-nums; }
+.page-monitor .kv { display:grid; grid-template-columns:auto minmax(0,1fr); gap:2px 12px; font-size:13px; margin-top:6px; }
+.page-monitor .kv dt { color:var(--muted); }
+.page-monitor .kv dd { margin:0; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+.page-monitor .src { font-size:12px; color:var(--muted); margin-top:6px; overflow-wrap:anywhere; }
+/* a status badge: square, ruled, the state as a mark before the word. ok = a green square, ink text on a quiet rule;
+   warn = an amber block, bad = a red block (lit, like a caution / warning light), off = muted */
+.page-monitor .pill { display:inline-flex; align-items:center; gap:0; font-size:12.5px; font-weight:600; line-height:1.4; padding:1px 6px; border:1px solid var(--ink);
+  color:var(--ink); background:var(--panel); white-space:nowrap; max-width:100%; overflow-wrap:anywhere; }
+/* a long pill in a list row (a deployment's "transcription off: …" reason, 484 px) wraps inside the row instead of widening the page at 390 px */
+.page-monitor .item .top .pill { white-space:normal; }
+.page-monitor .pill.ok::before, .page-monitor .pill.warn::before { content:""; flex:none; width:10px; height:10px; margin-right:6px; border:2px solid currentColor; }
+.page-monitor .pill.ok { border-color:var(--rule); }
+.page-monitor .pill.ok::before { background:var(--st-ok); border-color:var(--st-ok); }
+.page-monitor .pill.warn { font-weight:700; background:var(--st-warn); border-color:var(--st-warn); color:var(--st-on-warn); }
+.page-monitor .pill.bad { font-weight:700; background:var(--st-bad); border-color:var(--st-bad); color:var(--st-on-bad); }
+.page-monitor .pill.bad::before { flex:none; }
+.page-monitor .pill.off { border-color:var(--rule); color:var(--muted); font-weight:500; }
+/* a stop: a red block with the cross (a master warning) */
+.page-monitor .stops { display:grid; gap:8px; margin:0 0 12px; }
+.page-monitor .stop { background:var(--st-bad); color:var(--st-on-bad); padding:10px 12px; font-size:14px; overflow-wrap:anywhere; }
+.page-monitor .stop b { font-weight:700; }
+.page-monitor .stop .small { color:inherit; opacity:.8; }
+.page-monitor .stop::before { width:14px; height:14px; margin-right:8px; vertical-align:-2px; }
+.page-monitor .list { display:grid; grid-template-columns:minmax(0,1fr); gap:0; }
+.page-monitor .item { padding:10px 0; border-top:1px solid var(--rule); min-width:0; }
+.page-monitor .item:first-child { border-top:0; }
+.page-monitor .item .top { display:flex; gap:8px; align-items:baseline; flex-wrap:wrap; }
+.page-monitor .item .name { font-weight:600; font-size:14px; overflow-wrap:anywhere; }
+.page-monitor .item .id { font-size:12px; color:var(--muted); }
+.page-monitor .item .meta { font-size:13px; color:var(--muted); margin-top:2px; font-variant-numeric:tabular-nums; }
+/* every disclosure: a 44px summary row with the house chevron (SVG mask), turned instantly when open */
+.page-monitor details > summary { list-style:none; cursor:pointer; }
+.page-monitor details > summary::-webkit-details-marker { display:none; }
+.page-monitor details:not(.sbx) > summary { display:flex; align-items:center; gap:6px; min-height:var(--ctl); font-size:13px; color:var(--muted); }
+.page-monitor details:not(.sbx) > summary::before, .page-monitor details.sbx > summary .nm::before {
+  content:""; display:inline-block; flex:none; width:12px; height:12px; background:currentColor;
+  -webkit-mask:var(--chev-mask) center / 100% no-repeat; mask:var(--chev-mask) center / 100% no-repeat; }
+.page-monitor details[open] > summary::before, .page-monitor details.sbx[open] > summary .nm::before { transform:rotate(90deg); }
+.page-monitor details:not(.sbx) > summary:hover { color:var(--ink); }
+/* the source filter: the house segmented control (one outlined block, pressed = ink-filled) and the name field; a wrapped
+   field starts on the same left edge */
+.page-monitor .filters { display:flex; flex-wrap:wrap; margin-bottom:8px; align-items:center; gap:6px 8px; }
+.page-monitor .filters .seg button { font-size:14px; }
+.page-monitor .filters input { font:inherit; font-size:16px; min-height:var(--ctl); padding:0 10px; border:1px solid var(--rule); background:var(--panel); color:var(--ink); flex:1; min-width:140px; max-width:260px; }
+.page-monitor .filters input:focus { border-color:var(--ink); }
+/* the last runs of a CronJob, newest first: succeeded = green square, failed = red cross, running = dashed ink, else a ruled square */
+.page-monitor .runs { display:inline-flex; gap:3px; vertical-align:middle; }
+.page-monitor .runs i { width:12px; height:12px; border:2px solid var(--rule); display:inline-block; }
+.page-monitor .runs i.succeeded { background:var(--st-ok); border-color:var(--st-ok); }
+.page-monitor .runs i.failed { border:0; background:var(--st-bad); -webkit-mask:var(--x-mask) center / 100% no-repeat; mask:var(--x-mask) center / 100% no-repeat; }
+.page-monitor .runs i.running { border:2px dashed var(--ink); }
+.page-monitor .chart { position:relative; }
+.page-monitor .chart svg { display:block; width:100%; }
+.page-monitor .chart svg text { font-family:var(--num); }
+.page-monitor .legend { display:flex; gap:6px 16px; flex-wrap:wrap; font-size:13px; margin:8px 0 4px; }
+.page-monitor .legend span { display:inline-flex; align-items:center; gap:6px; }
+.page-monitor .legend i { width:12px; height:12px; display:inline-block; }
+.page-monitor .tip { position:absolute; pointer-events:none; background:var(--panel); color:var(--ink); border:1px solid var(--ink); padding:6px 8px; font-size:13px;
+  white-space:nowrap; z-index:5; font-family:var(--num); font-variant-numeric:tabular-nums; }
+.page-monitor .tip[hidden] { display:none; }
+.page-monitor details.days > summary { margin-top:4px; }
+.page-monitor .daygrid { display:grid; grid-template-columns:auto repeat(4, minmax(0,1fr)); gap:2px 10px; font-size:13px; font-family:var(--num); font-variant-numeric:tabular-nums; margin-top:6px; }
+.page-monitor .daygrid b { font-weight:600; color:var(--muted); }
+.page-monitor .note { font-size:13px; color:var(--muted); margin-top:8px; }
+.page-monitor .age { font-size:12px; color:var(--muted); margin:-4px 0 8px; }
+.page-monitor .age .err { color:var(--ink); }
+.page-monitor #banner { display:none; margin:0; padding:10px var(--gutter) 10px calc(var(--gutter) - 3px); background:var(--panel); color:var(--ink); font-size:14px; font-weight:600; border-left:3px solid var(--st-bad);
+  border-bottom:1px solid var(--rule); }
+.page-monitor #banner::before { background:var(--st-bad); }
+@media (min-width:700px) { .page-monitor .tiles { grid-template-columns:repeat(3, minmax(0,1fr)); } .page-monitor .cards { grid-template-columns:repeat(2, minmax(0,1fr)); } }
+@media (min-width:1100px) { .page-monitor main { grid-template-columns:repeat(2, minmax(0,1fr)); } .page-monitor #overview, .page-monitor #sources { grid-column:1 / -1; } .page-monitor .tiles { grid-template-columns:repeat(6, minmax(0,1fr)); } .page-monitor #sources .list { grid-template-columns:repeat(2, minmax(0,1fr)); column-gap:24px; } .page-monitor #sources .item:nth-child(2) { border-top:0; } }
+/* an error in place (Deyao, 2026-10-22): shown, not behind a tap; clamped to 2 lines, "more" (only when text is
+   hidden; fitErrors) expands it */
+.page-monitor .errx { margin-top:3px; }
+.page-monitor .errx pre { white-space:pre-wrap; overflow-wrap:anywhere; font-size:12px; line-height:1.45; margin:0; color:var(--ink);
+  display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; line-clamp:2; overflow:hidden; }
+.page-monitor .errx.open pre { display:block; -webkit-line-clamp:unset; line-clamp:none; overflow:visible; }
+/* history, not a live problem (Deyao, 2026-10-16): an earlier error of something that works again */
+.page-monitor .errx.past pre { color:var(--muted); }
+.page-monitor .errx .errl { color:var(--muted); }
+.page-monitor .errx .more { display:inline-flex; align-items:center; min-height:var(--ctl); background:none; border:0; padding:0; font:inherit; font-size:13px; color:var(--ink); font-weight:600; cursor:pointer; text-decoration:underline; text-underline-offset:3px; }
+.page-monitor .errx .more[hidden] { display:none; }
+/* per job (Deyao, 2026-10-16): a label column and three windows (6 h, 24 h, month), no sideways scroll at 390 px */
+.page-monitor .bdg { display:grid; grid-template-columns:minmax(0,1fr) repeat(3, 72px); gap:2px 6px; font-size:13px; align-items:baseline; }
+.page-monitor .bdg > span { min-width:0; overflow-wrap:anywhere; }
+.page-monitor .bdg .n { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.page-monitor .bdg .h { font-weight:600; color:var(--muted); font-size:12px; }
+.page-monitor .bdg .n, .page-monitor .sbar .n .a, .page-monitor .sbar .n .b { font-family:var(--num); }
+.page-monitor .bdg .b { font-weight:600; }
+.page-monitor .bdg.tot { padding:4px 0 6px; border-bottom:1px solid var(--rule); }
+.page-monitor .bdl details, .page-monitor .bdl > .bdg { border-bottom:1px solid var(--rule); padding:5px 0; }
+.page-monitor .bdg.sites { margin:4px 0 2px; font-size:12.5px; color:var(--muted); }
+.page-monitor .bdg.sites > span:not(.n) { padding-left:14px; }
+@media (min-width:700px) { .page-monitor .bdg { grid-template-columns:minmax(0,1fr) repeat(3, 92px); gap:2px 8px; } }
+.page-monitor .bdg .full { grid-column:1 / -1; overflow-wrap:anywhere; }
+.page-monitor .bdg .meta { font-size:12px; color:var(--muted); }
+
+/* spending as bars (Deyao, 2026-10-21): label, bar = the last 24 h, the 24 h figure and the month's. 390 px: the label
+   on its own line, the bar and figures under it; 700 px+: one line, the label column wide enough for model names */
+.page-monitor .sh { font-size:14px; margin:18px 0 6px; }
+.page-monitor .sptiles { margin-bottom:10px; }
+.page-monitor .spgrid { display:grid; grid-template-columns:minmax(0,1fr); gap:0 32px; align-items:start; }
+.page-monitor .blk { min-width:0; }
+/* every column is a fixed share of the row, never sized by a row's own text, so all bars of a list start and end at
+   the same x (Deyao, 2026-10-21: "this bar is not aligned") */
+.page-monitor .sbar { display:grid; grid-template-columns:minmax(0,1fr) 136px; grid-template-areas:"l l" "t a" "b b"; gap:1px 10px; align-items:center; padding:6px 0; border-top:1px solid var(--rule); font-size:13px; }
+.page-monitor .sbar .l { grid-area:l; min-width:0; overflow-wrap:anywhere; line-height:1.35; }
+.page-monitor .sbar .nm { font-weight:600; }
+.page-monitor .sbar .sub { font-size:12px; color:var(--muted); }
+.page-monitor .sbar .track { grid-area:t; height:10px; background:var(--ground); overflow:hidden; min-width:40px; }
+/* a bar's colour is its provider's (inline, from COLORS in -MonitorPage.tsx); OpenRouter's by default */
+.page-monitor .sbar .track i { display:block; height:100%; background:var(--p-1); }
+.page-monitor .sbar .n { display:contents; }
+.page-monitor .sbar .n .a { grid-area:a; font-weight:600; text-align:right; font-variant-numeric:tabular-nums; min-width:0; overflow-wrap:anywhere; }
+.page-monitor .sbar .n .b { grid-area:b; font-size:12px; color:var(--muted); text-align:right; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+.page-monitor .stack { min-width:0; }
+.page-monitor .sbar.past { opacity:.65; }
+.page-monitor .sbar.in { border-top:0; padding:3px 0; font-size:12.5px; }
+.page-monitor .sbar.in .nm { font-weight:500; }
+.page-monitor .sbmeta { font-size:12px; color:var(--muted); margin:-2px 0 4px; overflow-wrap:anywhere; }
+.page-monitor details.sbx > summary .nm::before { margin-right:6px; vertical-align:0; color:var(--muted); }
+.page-monitor details.sbx > summary:hover { background:var(--ground); }
+.page-monitor .sbin { padding:0 0 6px; }
+.page-monitor .sbar.in .l { padding-left:14px; }
+.page-monitor .bdl details.sbx { border-bottom:0; padding:0; }
+.page-monitor ul.srcs { padding-left:18px; margin:6px 0; overflow-wrap:anywhere; }
+.page-monitor .cols { columns:16em auto; column-gap:16px; }
+.page-monitor .cols > span { display:block; break-inside:avoid; }
+.page-monitor .tile .v { overflow-wrap:normal; }
+@media (min-width:700px) {
+  .page-monitor .sbar { grid-template-columns:minmax(0, 1fr) minmax(0, 1fr) 250px; grid-template-areas:"l t a" "l t b"; gap:1px 14px; }
+}
+/* a card's key: value list on a phone: the key over its value, so a long value (a Worker's usage, a server) gets the
+   whole card width instead of a 130 px column beside a long key */
+@media (max-width:520px) {
+  .page-monitor .kv { grid-template-columns:minmax(0,1fr); gap:0; }
+  .page-monitor .kv dt { margin-top:6px; font-size:12px; }
+}
+/* desktop: the wide sections (spending, balances, flags) take the full width; spending's blocks sit two to a row */
+@media (min-width:1100px) {
+  .page-monitor #spending, .page-monitor #balances, .page-monitor #flags { grid-column:1 / -1; }
+  .page-monitor #balances .cards { grid-template-columns:repeat(3, minmax(0,1fr)); }
+  .page-monitor .spgrid { grid-template-columns:repeat(2, minmax(0,1fr)); }
+  .page-monitor .sptiles { grid-template-columns:repeat(3, minmax(0, 16em)); width:fit-content; max-width:100%; }  /* the grid's rules end with its cells */
+}
+/* long source ids in the pipeline cards' lists (hk_wedding_esdlife_…) wrap inside the card at 390 px */
+.page-monitor .card li { overflow-wrap:anywhere; }
+.page-monitor details.days.off > summary { color:var(--ink); font-weight:600; }
+/* cards on desktop (Deyao, 2026-10-21: "some columns like these are way too narrow"): the key column never takes more
+   than a third of the card, so a value always has two thirds; cards with long text span the whole row; long status
+   texts are a summary line with the detail under it; lists of short values are wrapping chips */
+.page-monitor .chips { display:flex; flex-wrap:wrap; gap:4px 6px; }
+/* a value chip (not a control): a square ruled badge, so the base cell's 44px and pointer are undone */
+.page-monitor .chip { display:inline-block; min-height:0; padding:1px 6px; background:var(--panel); border:1px solid var(--rule); color:var(--ink); font-size:13px; font-weight:400; line-height:1.4; cursor:auto;
+  white-space:nowrap; max-width:100%; overflow:hidden; text-overflow:ellipsis; }
+.page-monitor .chip:hover { background:var(--panel); }
+.page-monitor .det { display:block; font-size:12px; color:var(--muted); overflow-wrap:anywhere; }
+.page-monitor .gu + .gu { margin-top:4px; }
+.page-monitor .gu .url { display:block; overflow-wrap:anywhere; }
+.page-monitor details.inl > summary { margin-top:4px; }
+@media (min-width:521px) {
+  .page-monitor .kv { grid-template-columns:fit-content(32%) minmax(0,1fr); }
+  .page-monitor .kv dt { overflow-wrap:anywhere; }
+}
+@media (min-width:700px) {
+  .page-monitor .cards { grid-auto-flow:dense; }
+  .page-monitor .card.wide { grid-column:1 / -1; }
+}
+@media (min-width:1100px) {
+  .page-monitor #jobs { grid-column:1 / -1; }
+  .page-monitor #pipe .cards { grid-template-columns:repeat(3, minmax(0,1fr)); }
+  .page-monitor .card.wide .cols { columns:22em auto; }
+}
+@media (min-width:1100px) {
+  .page-monitor .card.wide ul.ftl { columns:2; column-gap:28px; }
+  .page-monitor .card.wide ul.ftl li { break-inside:avoid; }
+}
+.page-monitor dd > .b { font-weight:700; color:var(--ink); }

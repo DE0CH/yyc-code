@@ -1,0 +1,78 @@
+# The name-tag iPhone app (nametags/README.md, nametags/ios/): the Release build on a simulator matching Deyao's iPhone
+# (iPhone 17, iOS 27.0), every screen walked by Maestro against a stub of the Worker (nametags/ios/ci/stub: no Access
+# login needed) with the screen recorded; only when every flow passes, an UNSIGNED archive that the export cloud-signs
+# with Apple's managed distribution certificate (App Store Connect API key; claude-env lessons/75) and uploads to
+# TestFlight as dev.de0ch.yycnametags (record "YYC Name Tags DE0CH"; the internal group "Owner" gets every build).
+name: nametags-ios
+on:
+  push:
+    branches: [main]
+    paths: ["nametags/ios/**", ".github/workflows/nametags-ios.yml"]
+  workflow_dispatch:
+    inputs:
+      upload: { description: "Upload to TestFlight after the replica passes", type: boolean, default: true }
+concurrency: { group: nametags-ios, cancel-in-progress: false }
+permissions: { contents: read }
+defaults:
+  run:
+    shell: bash -eo pipefail {0}
+    working-directory: nametags/ios
+jobs:
+  ios:
+    runs-on: xcode-27
+    timeout-minutes: 60
+    env:
+      BUILD_NUMBER: ${{ github.run_number }}0${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Xcode and a simulator matching Deyao's iPhone
+        run: ci/simulator.sh
+      - name: Tools (XcodeGen, Maestro, the stub server)
+        run: |
+          brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+          curl -fsSL "https://get.maestro.mobile.dev" | bash > /dev/null
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+          command -v cargo >/dev/null || { curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal > /dev/null; source "$HOME/.cargo/env"; }
+          (cd ci/stub && cargo build --release --quiet)
+      - name: Generate the project
+        run: xcodegen generate --quiet
+      - name: Build the Release app for the simulator
+        run: |
+          xcodebuild build -project NameTags.xcodeproj -scheme NameTags -configuration Release \
+            -destination "id=$SIM_UDID" -derivedDataPath DerivedData ONLY_ACTIVE_ARCH=YES \
+            CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=NO > "$RUNNER_TEMP/sim-build.log" 2>&1 \
+            || { grep -E -B3 -A8 ": (fatal )?error:" "$RUNNER_TEMP/sim-build.log" | head -n 200; tail -n 40 "$RUNNER_TEMP/sim-build.log"; exit 1; }
+          grep -E "warning:" "$RUNNER_TEMP/sim-build.log" | grep -v "appintents" | sort -u | head -n 30 || true
+      - name: Phone replica (Maestro walks every screen, recorded)
+        timeout-minutes: 30
+        run: ci/replica.sh DerivedData/Build/Products/Release-iphonesimulator/NameTags.app "$RUNNER_TEMP/replica"
+      - name: Keep the recordings, screenshots and printed tags
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nametags-ios-replica
+          path: ${{ runner.temp }}/replica
+          if-no-files-found: ignore
+      - name: Archive (unsigned)
+        if: github.event_name == 'push' || inputs.upload
+        run: |
+          xcodebuild archive -project NameTags.xcodeproj -scheme NameTags -configuration Release \
+            -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/app.xcarchive" \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" > "$RUNNER_TEMP/archive.log" 2>&1 || true
+          grep -E "error:|\*\* ARCHIVE" "$RUNNER_TEMP/archive.log" | head -40 || true
+          grep -q "ARCHIVE SUCCEEDED" "$RUNNER_TEMP/archive.log"
+      - name: Export, cloud-sign and upload to TestFlight
+        if: github.event_name == 'push' || inputs.upload
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+        run: |
+          KEY="$RUNNER_TEMP/AuthKey_$ASC_KEY_ID.p8"; printf '%s\n' "$ASC_PRIVATE_KEY" > "$KEY"; trap 'rm -f "$KEY"' EXIT
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/app.xcarchive" -exportOptionsPlist ExportOptions.plist \
+            -exportPath "$RUNNER_TEMP/export" -allowProvisioningUpdates -authenticationKeyPath "$KEY" \
+            -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" > "$RUNNER_TEMP/export.log" 2>&1 || true
+          grep -E "error|EXPORT|Upload|Uploaded|uploaded" "$RUNNER_TEMP/export.log" | sed "s#$RUNNER_TEMP/##" | tail -n 25 || true
+          grep -qE "EXPORT SUCCEEDED|Upload succeeded|Uploaded" "$RUNNER_TEMP/export.log"
+          echo "uploaded build $BUILD_NUMBER to TestFlight" >> "$GITHUB_STEP_SUMMARY"

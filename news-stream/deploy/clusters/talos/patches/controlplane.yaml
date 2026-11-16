@@ -1,0 +1,68 @@
+# The three control nodes (yyc-ai/refactor DESIGN 15.2 N1, input I4; deploy-workflows 4.1): the API server trusts
+# GitHub Actions' OIDC tokens for DE0CH/YYC's yyc-ai.yml (deploy-workflows 4.1's rules, in Talos's own
+# KubeAuthenticationConfig) and for talos-nodes.yml (the node work, README "Node work"), each workflow only with its
+# own environment, so a token maps to `gha:yyc-ai` or `gha:talos-nodes`; 127.0.0.1 in its SANs for the deploy tunnel,
+# etcd on network `yyc`; Talos API access from pods in namespace talos-ops (the etcd snapshot CronJob, the node-work
+# Jobs); the scheduler packs nodes (MostAllocated: the Descheduler's HighNodeUtilization needs it). No workloads on
+# control nodes (Talos's default taint; they are ARM, the workloads x86).
+apiVersion: v1alpha1
+kind: KubeAuthenticationConfig
+configuration:
+  anonymous:
+    enabled: true
+    conditions: [{path: /livez}, {path: /readyz}, {path: /healthz}]
+  jwt:
+    - issuer:
+        url: https://token.actions.githubusercontent.com
+        audiences: [yyc-cluster]
+      claimValidationRules:
+        - {expression: "claims.repository_id == '1409834116'", message: "repo"}
+        - {expression: "claims.ref == 'refs/heads/main'", message: "main only"}
+        # one environment per workflow: yyc-ai.yml deploys YYC AI (gha:yyc-ai), talos-nodes.yml does the node work
+        # (gha:talos-nodes, RBAC in ../node-work.yaml), talos-cluster.yml applies this folder (gha:talos-cluster,
+        # ../cluster-access.yaml), yyc-apps.yml deploys the news stream, mail merge and AI watch (gha:yyc-apps,
+        # ../apps-access.yaml); a workflow can never take another's name
+        - expression: >-
+            (claims.environment == 'yyc-ai' &&
+             claims.job_workflow_ref.startsWith('DE0CH/YYC/.github/workflows/yyc-ai.yml@refs/heads/main')) ||
+            (claims.environment == 'talos-nodes' &&
+             claims.job_workflow_ref.startsWith('DE0CH/YYC/.github/workflows/talos-nodes.yml@refs/heads/main')) ||
+            (claims.environment == 'talos-cluster' &&
+             claims.job_workflow_ref.startsWith('DE0CH/YYC/.github/workflows/talos-cluster.yml@refs/heads/main')) ||
+            (claims.environment == 'yyc-apps' &&
+             claims.job_workflow_ref.startsWith('DE0CH/YYC/.github/workflows/yyc-apps.yml@refs/heads/main'))
+          message: "workflow and environment"
+      claimMappings:
+        username: {expression: "'gha:' + claims.environment"}
+---
+apiVersion: v1alpha1
+kind: KubeAPIServerConfig
+certExtraSANs: [127.0.0.1, 10.0.0.21, 10.0.0.22, 10.0.0.23]
+---
+cluster:
+  etcd:
+    advertisedSubnets: [10.0.0.0/16]
+---
+# Talos API access from Kubernetes (README "etcd snapshots", "Node work"): a talos.dev/v1alpha1 ServiceAccount in
+# talos-ops gets a talosconfig Secret with its roles: os:etcd:backup for the snapshot CronJob, os:admin for the
+# node-work Jobs (talosctl upgrade and upgrade-k8s need admin). Only namespace talos-ops; only these two roles.
+apiVersion: v1alpha1
+kind: KubeTalosAPIAccessConfig
+allowedRoles: [os:etcd:backup, os:admin]
+allowedKubernetesNamespaces: [talos-ops]
+---
+# Pack nodes (the Talos plan "Staying packed"; DESIGN 15.7): the scheduler puts a pod on the fullest node that fits,
+# and the Descheduler (../descheduler.yaml, HighNodeUtilization) empties nearly empty nodes at 04:00 HKT.
+apiVersion: v1alpha1
+kind: KubeSchedulerConfig
+config:
+  profiles:
+    - schedulerName: default-scheduler
+      pluginConfig:
+        - name: NodeResourcesFit
+          args:
+            scoringStrategy:
+              type: MostAllocated
+              resources:
+                - {name: cpu, weight: 1}
+                - {name: memory, weight: 1}

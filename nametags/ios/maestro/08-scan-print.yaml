@@ -1,0 +1,36 @@
+# 掃描 → the guest's tag → printed at once. The simulator has no camera: -scanCode feeds the QR's content (the full
+# register URL) into the scanner; the stub answers /api/checkin with guest g2 and keeps the PNG it gets.
+appId: dev.de0ch.yycnametags
+name: scan and print
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+    arguments:
+      apiBase: "http://127.0.0.1:8787"
+      testToken: "test-token"
+      scanCode: "https://register.yyc-internal.com/r/Vq3xT9bL2mPa7sKd4nWc1e"
+- extendedWaitUntil:
+    visible: "共 6 位嘉賓"
+    timeout: 30000
+- takeScreenshot: 08-list-scan-button
+- tapOn: { id: "scanButton" }
+- extendedWaitUntil:
+    visible: { id: "tagPreview" }
+    timeout: 15000
+- assertVisible: ".*Mei Ling WONG.*"
+- extendedWaitUntil:
+    visible: { id: "printStatus", text: "已排隊.*|打印中|已打印" }
+    timeout: 10000
+- takeScreenshot: 08-scan-printing
+- extendedWaitUntil:
+    visible: { id: "printStatus", text: "已打印" }
+    timeout: 30000
+- assertVisible: "再印一張"
+- assertVisible: { id: "scanNext" }
+- assertNotVisible: { id: "scanError" }
+- takeScreenshot: 08-scan-printed
+- tapOn: { id: "closeScan" }
+- extendedWaitUntil:
+    visible: "共 6 位嘉賓"
+    timeout: 10000

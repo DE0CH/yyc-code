@@ -1,0 +1,17 @@
+# SealedSecret made by infra/seal.py from the store `yyc` (map: infra/secrets.txt). Don't edit: re-seal.
+# cert: infra/sealed-secrets-talos.pem sha256:81f61330757d262c
+---
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: etcd-backup-s3
+  namespace: talos-ops
+spec:
+  encryptedData:
+    ACCESS_KEY_ID: AgBATOFzmNVqKyDUrD9wqSAiMSAuFSD8rowXm4uQzISXXJt/XASwB94azdUe+PnKCHUP3SUwXab3fScYpqgWUpMKmgFpWMr7FgoGVvcuElb7rDWcKRb8sRj4ttv7eWxsAl+vlJ+HbE39yDTVaEUVbJq0djzDonpiKQ5bTBCG6+bwlpPpT6Nb6XMzlNelU+4U+067Vb48TYdnJHeNnbirAqUaHgai5oRLYJqqOzdSlhv3Ce3URdASJX/NwJH+B8dyEqSd45JQrKAhbnaqflzKvG89HoYu/wkQ0GXWjtsnlNxhF1dMJHxK49lGbUZmbwbYDZ13DBlcJEG0wG2kcdEzXmsbF+oA3jIJi0orp8gNvgQ6TmI5hFD1yDoaJvqxlLJYswSqXKqLMAzckeOGvuUCltHLw5h1TRROkxQJKsCnJ2ehNGtn0OetHdB/dmfD0aGqqs4uqwD1jhh0m1Suwar1gSiHFVKttK8x8EgixT06dZbBsVNUB5+aJaNwMJACYwy9eYcqMEAQ7OYwtOu7ItjEK20qw8R4OSsWWtHkBTqDmUxwX8x+a4w0FdtOty4WGunpc1IY2olrlACvA3/4afA7szpDPkesRnDZ42cCAfESUbVQeUP/+Ufu5rz1mUOuIQ1kHY23Za6ZGq645k/XZoZ6QIUeL8D099nnojKT+am+dxzjlYoinY5AeGg07j1DvQCpJvUX/sVdRBUUa3eyokcNiJsWWnzsgA==
+    ACCESS_SECRET_KEY: AgB1dRIWIfk2It+oJYR5qVX51ZXEYsgRCnaHDF6lJ0l67l0Ccl1YWWIw8z6xuEY2WCl17u4Yy8wWbeBUTvb9GYv0Pa2u9Cat8NkN26Cli+pSSMd3AtD2Nual1FkWzAf//8374MJawHbHUFQC30MzMPTfJObADEfpIf8iRJmzv+AxB/yiHW1Z41VFX2zj4vT1Y8S8haJ0D4/w/B6sWvgpWc6WBAvHWUtxpdK65LkJMJmO6JjPwhA7kIcDkwnjPOq3vNXFskxoWLO/3gzBLcuWX5yp5dtBRDmHK//v6LW4CcgMnKqzNruqMQsgVBbH6uyPkW0MjAf3IIk5JXtHYr7BoGN4w4EbKpOtUYA11hg0Tv+FySfFz5o9frcZUFA3e2n49RgRqjsrQia4SqjFqlarI6wuRSEfhb1xdVrUIf0FuT1yyz+bbLDlMHoRTKp5VwzSPqQ68k/T4zgoPqpQ8/O1l+LioIYqOjr02soRBo/a1Nt2aHhBKrrPn8T3mxggc6mPc83w/xiSSEMdaESpW92sHOhfwZZLvCboCrWFkjG1Fm9h4DkUIi16pkDQvQNIULDOR1WdeY/EodJH/Pp/og8WCT1Qz20fswH5YTQXY15kagF0jjELDg3no8S68IRhtwumjTStQ6UuUG4eGJI/GcxEqYqp8Nmh31vurfEs/V0vKambOBuLsuTy7ae/qZnCqmRzERGKxMrT9XRu00HKr9aX5fg2693pmv5roYYo0l+5nB9BoZGlydIolgAy
+  template:
+    metadata:
+      name: etcd-backup-s3
+      namespace: talos-ops
+    type: Opaque

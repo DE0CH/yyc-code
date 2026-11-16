@@ -1,0 +1,366 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Social Search Report</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+HK:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#EEF1F4;--surface:#fff;--ink:#1B2430;--muted:#5F6B7A;--line:#D7DDE4;--bar:#1F2A44;--bar-ink:#E9EEF6;--accent:#2F6FDB;--code:#F2F4F7}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121722;--surface:#1A2130;--ink:#E6EAF0;--muted:#93A0B2;--line:#2A3344;--bar:#0E1424;--bar-ink:#E6EAF0;--accent:#6E9BEA;--code:#141A27}}
+:root[data-theme="dark"]{--bg:#121722;--surface:#1A2130;--ink:#E6EAF0;--muted:#93A0B2;--line:#2A3344;--bar:#0E1424;--bar-ink:#E6EAF0;--accent:#6E9BEA;--code:#141A27}
+*{box-sizing:border-box} html,body{margin:0;background:var(--bg);color:var(--ink)}
+body{font:16px/1.65 "Noto Sans HK",system-ui,sans-serif}
+header{background:var(--bar);color:var(--bar-ink);padding:18px 16px} header .in{max-width:1180px;margin:0 auto}
+header h1{margin:0;font-size:20px} header p{margin:4px 0 0;color:#9FB0C8;font-size:14px}
+nav.toc{display:flex;flex-wrap:wrap;gap:8px;padding:12px 16px;max-width:1180px;margin:0 auto}
+nav.toc a{font-size:14px;padding:4px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink);text-decoration:none}
+main{max-width:1180px;margin:0 auto;padding:0 16px 40px}
+.part{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:6px 18px 14px;margin-bottom:18px;overflow-wrap:anywhere}
+.part h1{font-size:22px;margin:16px 0 8px;scroll-margin-top:12px} .part h2{font-size:18px;margin:22px 0 6px;border-top:1px solid var(--line);padding-top:14px} .part h3{font-size:16px;margin:16px 0 4px}
+.part p,.part li{max-width:78ch} ul,ol{padding-left:22px} li{margin:3px 0}
+code{font-size:13px;background:var(--code);padding:1px 4px;border-radius:4px;overflow-wrap:anywhere}
+a{color:var(--accent)} sup.ref a{text-decoration:none;font-size:11px;padding:0 2px}
+.refs ol{font-size:13px;color:var(--muted)} .refs li span{display:block;overflow-wrap:anywhere;font-size:12px}
+@media (min-width:1000px){.wrap{display:grid;grid-template-columns:230px 1fr;gap:20px;max-width:1180px;margin:0 auto;padding:16px} nav.toc{flex-direction:column;position:sticky;top:16px;align-self:start;padding:0} main{padding:0} nav.toc a{border-radius:8px}}
+</style></head><body>
+<header><div class="in"><h1>YYC news stream: social search, WisersOne, and how the clone works</h1><p>2026-10-13 · compiled by Claude for Deyao</p></div></header>
+<div class="wrap"><nav class="toc"><a href="#social">Daily social search & cost</a><a href="#wisers">WisersOne</a><a href="#mechanism">How the clone scrapes & searches</a><a href="#refs">Sources</a></nav>
+<main><section class="part"><h1 id="social">Daily social-platform search (Galbot first)</h1>
+<p>Built on 2026-10-13 and pushed to DE0CH/YYC main (commit 66b20dd). The server deploys main by itself within 5 minutes.</p>
+<h2>What changed</h2>
+<ul>
+<li><strong>Every stream's social search now runs once a day.</strong> It previously ran hourly on 小紅書 and 抖音 and every 3 hours elsewhere. The timer still fires hourly, but it only searches a platform and query whose last search is 24 hours old. A failed search is retried after 3 hours. Failed searches are not billed.</li>
+<li><strong>Facebook keyword search for Galbot</strong>, through AnyAPI (<code>facebook.search_posts</code>). TikHub has no Facebook endpoints. AnyAPI was one of the three services that found STEM Work's Galbot post in the 2026-10-12 test, without us following that page.</li>
+<li><strong>Facebook results are filtered.</strong> Facebook's search matches loosely: a live test of 銀河通用 on 2026-10-13 returned 21 posts, almost all about 銀河 (galaxies, Star Wars, anime). So only posts that contain one of the Galbot stream's 17 keywords are kept.</li>
+<li><strong>Results and run now, by script (Deyao only; the website is read-only, 2026-10-14):</strong> <code>infra/control.py social STREAM</code> shows each platform's last search with its post count and any error, a log of every run with its request count and cost at list price, and the newest posts. <code>tikhub_fetch.py --run --now STREAM</code> runs all of the stream's queries on every platform now; only one search runs at a time.</li>
+<li>Posts still flow into the stream itself: each one is filed under the stream whose query found it, and the AI relevance check decides whether it stays.</li>
+</ul>
+<h2>Projected cost (list prices, 2026-10-13)</h2>
+<ul>
+<li><strong>TikHub:</strong> USD 0.01 per search on 小紅書, 抖音, 快手 and 微信公眾號; 0.002 on YouTube, Threads and Instagram; 0.001 on the other 9 platforms. That is <strong>USD 0.055 per query</strong> across the 16 platforms.</li>
+<li><strong>AnyAPI Facebook search:</strong> <strong>USD 0.03 per search</strong>, up to 20 posts, when its first source answers. If that source fails, AnyAPI fails over to a backup that charges up to <strong>USD 0.0661</strong> per search. AnyAPI's published figures: from USD 0.03, failover maximum USD 0.0661, median response 17 s.</li>
+<li><strong>Daily schedule, all 6 streams:</strong> 14 queries on TikHub (USD 0.77) plus Galbot's 3 Facebook searches (USD 0.09) = <strong>USD 0.86 a day, USD 25.80 per 30 days</strong>. If every Facebook search hit the backup, it would be USD 0.968 a day (USD 29.04 per 30 days).</li>
+<li><strong>Galbot alone:</strong> 3 queries × USD 0.055 + 3 × USD 0.03 = <strong>USD 0.255 a day, USD 7.65 per 30 days</strong>. One button run costs the same USD 0.255 (up to USD 0.363).</li>
+<li><strong>Before this change</strong> the hourly TikHub schedule would have cost USD 10.64 a day (USD 319.20 per 30 days) once funded.</li>
+<li>AI tagging of the new posts runs on the existing OpenRouter key <code>yyc-stream</code> (USD 20/month cap).</li>
+</ul>
+<h2>What it needs before results come in</h2>
+<ol>
+<li><strong>A TikHub balance.</strong> Every TikHub search on 2026-10-13 answered HTTP 402 "Insufficient balance". Most search endpoints refuse TikHub's free daily credit.</li>
+<li><strong>A YYC AnyAPI account and key.</strong> The 2026-10-13 test used a free trial key: about USD 0.05 of credit, no account, expires on 2026-10-20. Its credit was spent on one search. The production key goes in the server's <code>/etc/yyc-stream/app.env</code> as <code>ANYAPI_API_KEY</code>, on an account used only for YYC, so that AnyAPI's dashboard is the expense evidence.</li>
+<li>Until then, the page shows each platform's error (402 for TikHub, "ANYAPI_API_KEY is not set" for Facebook) and costs nothing.</li>
+</ol></section><section class="part"><h1 id="wisers">WisersOne (慧科 Wisers)</h1>
+<p>Researched 2026-10-13 from public pages only; nobody has logged in yet.</p>
+<h2>Key points for YYC</h2>
+<ul>
+<li><strong>What it is:</strong> WisersOne, from Wisers Information Limited (慧科訊業), is Hong Kong's long-standing media-monitoring database: print, web, TV/radio and social media, with full text from 1998.</li>
+<li><strong>Search billing:</strong> the colleague says searches are billed or limited. No public Wisers page mentions a per-search charge or a search quota. The quotas that the public manuals describe apply to monitoring (articles collected), not to search. So the limit is probably in YYC's contract, which isn't public. The account's own pages will show it once we can log in, and until then we treat every search as costly.</li>
+<li><strong>One user at a time:</strong> the terms allow use "on any single personal computer terminal at any one time", and the login errors include "User over limit". Logging in with the colleague's account can therefore end her session or be refused while she is using it, so a login from our side has to be agreed with her and timed.</li>
+<li><strong>Login fields:</strong> Group ID (客戶組別), Username (用戶名稱) and Password, plus an image captcha at login. The captcha is solved at login time (2Captcha), so it can't be collected in advance.</li>
+<li><strong>Automation without scraping:</strong> WisersOne can e-mail real-time keyword alerts and export up to 100,000 monitoring records to Excel. Wisers also sells a separate Data Feed API, with no public price. Alerts e-mailed to bot@deyaochen.com would feed the clone without any searches.</li>
+</ul>
+<h2>1. Company and coverage</h2>
+<ul>
+<li>Wisers was founded in Hong Kong in 1998 with technology from CUHK. It claims more than 3,000 customers. <sup class="ref"><a href="#ref-1" title="wisers.com">1</a></sup></li>
+<li>WisersOne is "an AI-powered SaaS platform for PR, marketing &amp; corporate communications… across print, digital &amp; social media." Product lines under WisersOne: WiseSearch, WiseMonitor, WiseBI, WisersAnalytics. <sup class="ref"><a href="#ref-2" title="wisers.com">2</a></sup></li>
+<li>Source counts (the figures differ by page and year):<ul>
+<li>Print: 2,000+ mainstream media in Greater China plus 900+ from overseas. Websites, forums, blogs and news apps are crawled by 1,000+ servers and updated every 15 minutes. Covers 300+ TV/broadcast programmes, Weibo (it calls its access "highest access to whole business portal of Sina Weibo"), WeChat official accounts, YouTube/Youku/Bilibili/Douyin, and Toutiao/Baijiahao and other self-media. Covers "95% mainstream media in Hong Kong and Taiwan", 180+ mainland cities and 20+ countries. <sup class="ref"><a href="#ref-3" title="wisers.com">3</a></sup></li>
+<li>WiseMonitor: "85 billion omni-media big data", "2500+ News/Websites", 20+ countries. <sup class="ref"><a href="#ref-4" title="wisers.com">4</a></sup></li>
+<li>HK government Smart LAB listing: "over 80 billion of historical data and 570,000 sources", covering print, social media, websites and forums. <sup class="ref"><a href="#ref-5" title="smartlab.gov.hk">5</a></sup></li>
+<li>Listen2hk (Wisers' HK social site): "over 790,000 data sources… Facebook, Instagram, YouTube, Telegram, Twitter and forums, blogs, print". <sup class="ref"><a href="#ref-6" title="listen2hk.com">6</a></sup></li>
+<li>WiseSearch: 500+ Greater China newspapers, magazines, weeklies, websites and newswires; "數百億條數據" (tens of billions of records) since 1998. <sup class="ref"><a href="#ref-7" title="wisers.com">7</a></sup></li>
+</ul>
+</li>
+<li>Archive depth: full text from 1998 onward. Sources: <sup class="ref"><a href="#ref-8" title="lib.polyu.edu.hk">8</a></sup> and <sup class="ref"><a href="#ref-9" title="libguides.lib.hkmu.edu.hk">9</a></sup></li>
+<li>Social platforms:<ul>
+<li><strong>Facebook, Instagram, YouTube: confirmed.</strong> The WiseSocial/KOL module lists "Instagram, Facebook, YouTube, WeChat, Weibo"  <sup class="ref"><a href="#ref-10" title="wisersone.com">10</a></sup> . Wisers' own reports cite Facebook, Instagram, YouTube, Telegram, Twitter and discussion boards  <sup class="ref"><a href="#ref-11" title="wisers.com">11</a></sup> .</li>
+<li><strong>X/Twitter and Telegram: named</strong> in Wisers' own reports and on Listen2hk (links above).</li>
+<li><strong>LIHKG and discuss.com.hk: shown</strong> as sources in the Listen2hk feeds  <sup class="ref"><a href="#ref-12" title="listen2hk.com">12</a></sup> .</li>
+<li><strong>Threads and Xiaohongshu: unknown.</strong> No Wisers page found names either one. The Threads hits found belong to competitors (QSearch, K-Matrix).</li>
+<li>The search filter's media types are: online media, Weibo, WeChat, print, APP, forum, blog, short video/livestreaming, long video, radio/TV, e-commerce, customer review, others. "Media types that are not opened [for the GID] are not displayed", so what a user sees depends on their contract. <sup class="ref"><a href="#ref-13" title="library.hksyu.edu">13</a></sup></li>
+</ul>
+</li>
+<li>Languages: the platform UI is in English, Traditional Chinese and Simplified Chinese (the login page has an EN/繁/简 switch, from the login bundle). WiseMonitor claims "130+语种" (languages) with AI pre-translation. <sup class="ref"><a href="#ref-14" title="wisers.com.cn">14</a></sup></li>
+</ul>
+<h2>2. Products and login</h2>
+<ul>
+<li><strong>The login a HK PR person uses is the Wisers Centralized Login at <code>https://login.wisers.net/?clang=en-zh&amp;fromUrl=https%3A%2F%2Fwww.wisersone.com&amp;product=wiseone</code>.</strong> The "Login" button on wisers.com links there  <sup class="ref"><a href="#ref-2" title="wisers.com">2</a></sup> . After login the user is redirected to www.wisersone.com. The manual says "Login address: www.wisersone.com or wisers.one… Enter into the system via the group name, user name and password provided by Wisers or administrator" (manual PDF above). After logging in, a 3x3 grid switches between the subscribed modules: WiseSearch (search), WiseObserver (browse), WiseMonitor/Media Center (monitoring), WiseBI.</li>
+<li>The page is a JavaScript single-page app with no server-rendered <code>&lt;form&gt;</code>. The fields were read from its JS bundle (<code>/main.6350e294d6b1db69318d.chunk.js</code> plus the lazy chunks):<ol>
+<li><strong>Group ID</strong>: UI label "Group ID" (客戶組別); request key <code>groupId</code>.</li>
+<li><strong>Username</strong>: UI label "Username" (用戶名稱); request key <code>userId</code>. In the code the variable is <code>username</code>.</li>
+<li><strong>Password</strong>: request key <code>password</code>.</li>
+<li><strong>Captcha</strong>: an image captcha. It is fetched by <code>POST /api/getCaptcha</code>, which returns <code>{id, image}</code>, and checked by <code>POST /api/verifyCaptcha {id, code}</code> before login. It is <strong>shown unless the browser has a saved password for that group in localStorage</strong> (<code>hideCaptcha = hasCachePassword || type===&lt;wechat-bind&gt;</code>). A fresh browser therefore always gets a captcha. Error 13242 means "captcha error".</li>
+<li><strong>Remember Me</strong>: checkbox, request key <code>rememberMe</code>, checked by default.
+- Alternative: <strong>WeChat login</strong> by QR code (<code>/api/getUUIDAndQRCode</code>, <code>/api/listenUserScan</code>, <code>/api/loginByWechatScan</code>). This only works if the account was bound to WeChat beforehand.
+- <strong>IP login</strong> (<code>/api/loginByIp {groupId}</code>) exists for groups with IP-based access (<code>ipAccessType</code>). University libraries use this, e.g. HKBU's "on-campus access only".
+- The login call is <code>POST /api/login {groupId, userId, password, rememberMe}</code>. It returns <code>redirectPage</code>, and the user may be forced into WeChat binding (<code>forceWeChat</code>).</li>
+</ol>
+</li>
+<li>Legacy <strong>WiseNews</strong>: <code>https://wisenews.wisers.net/wisenews/index.do</code>. It is a plain server-rendered form: <code>POST /wisenews/login.do</code> with fields <code>groupId</code> (Group ID, maxlength 20), <code>userName</code> (User ID, maxlength 65), <code>password</code> (maxlength 20) and <code>rememberLogin</code> (checkbox, value 1). It has no captcha. It also has a "kick off" link (<code>/wisenews/kickoff.do</code>) that ends an existing session. WisersOne is "formerly WiseNews" (PolyU link above), so this is probably not what the colleague uses.</li>
+<li>Other hosts: <code>ws1.wisers.net</code> and <code>wisesearch.wisers.net</code> do not resolve. <code>www.wisers.net</code> fails TLS.</li>
+</ul>
+<h2>3. Billing and limits</h2>
+<ul>
+<li><strong>No public pricing.</strong> Smart LAB lists the pricing model as "Hybrid – base subscription fee + additional cost per user", with a free trial  <sup class="ref"><a href="#ref-5" title="smartlab.gov.hk">5</a></sup> . Sales go through annual subscriptions and tenders, e.g. University of Macau, 12 months  <sup class="ref"><a href="#ref-15" title="pct.admo.um.edu.mo">15</a></sup> . One price point found: Taiwan's Executive Yuan paid NT$840,000 for one year of news-clipping search in 2018  <sup class="ref"><a href="#ref-16" title="ezbid.tw">16</a></sup> .</li>
+<li><strong>Per-search charges or search quotas: none found.</strong> Search appears to be included in the subscription. Search allows up to 10 comma-separated keywords and up to 20 named media per query (HKSYU handbook).</li>
+<li><strong>Quotas apply to monitoring, not to search.</strong> "Quota is the total number of articles that can be entered on the platform" for monitoring items. There are three quotas (article volume, video-subtitle analysis, interaction updates). They work "like mobile phone traffic": top-ups can be bought, and deleting items does not free quota. At the cap the navigation tree locks and becomes read-only (HKSYU handbook §5.2.10.4). The number of monitoring items is capped per group (WisersOne manual).</li>
+<li><strong>Seat and session limits</strong> come from the login error codes in the bundle: <code>10009</code> "User over limit", <code>10010</code> "Up to limitation of Group ID access", <code>10006</code> "IP out of range", <code>20001</code> "Not allow to login". Repeated wrong passwords lock the account. WiseNews has a session "kick off" (above), which suggests one concurrent session per user. The exact numbers are in the customer's contract and are unknown.</li>
+<li><strong>Terms</strong> (WiseNews Terms of Use; the WisersOne terms are the customer agreement, which is not public): use is on "any single personal computer terminal at any one time for your sole and exclusive use". Users may make a single printout or download per item on an insubstantial basis, for research only, not for commercial exploitation or redistribution. Downloading, storing, reproducing etc. are prohibited "except as otherwise permitted in the General Terms". The user is responsible for the confidentiality of their ID and password. <sup class="ref"><a href="#ref-17" title="wisenews.wisers.net">17</a></sup></li>
+<li>No explicit "no scraping/robots" clause was found in public text. The single-terminal and no-redistribution terms make credential sharing and automated bulk extraction a contract risk.</li>
+</ul>
+<h2>4. Legitimate export, alert and API paths</h2>
+<ul>
+<li><strong>Excel download</strong>: up to 100,000 records per monitoring download, as EXCEL with chosen fields (HKSYU handbook §5.2.17). Charts export to PDF or Excel (manual).</li>
+<li><strong>Article actions</strong>: email, share (H5 page), print, download  <sup class="ref"><a href="#ref-18" title="hkbu.libguides.com">18</a></sup> .</li>
+<li><strong>Email alerts</strong>: the Alert Center does "real-time delivery of concerned news via e-mail" on keyword, sentiment and media filters (manual; <sup class="ref"><a href="#ref-19" title="wisers.com">19</a></sup>). Hot-list subscriptions and scheduled reports exist (Report Center).</li>
+<li><strong>API</strong>: wisers.com advertises "API Integration". Wisers' company deck lists a "Data Feed API – customized raw media data plus AI-processed structured data feed API, connecting to customer's big data platform" and "Cloud AI API services"  <sup class="ref"><a href="#ref-20" title="smartlab.gov.hk">20</a></sup> . It is sold separately; there are no public docs or prices.</li>
+<li>RSS: unknown; none mentioned anywhere.</li>
+</ul>
+<h2>5. Rate limits, IP and sessions</h2>
+<ul>
+<li>Group-level IP ranges can restrict logins (error 10006 and the IP-login mode).</li>
+<li>Per-user and per-group access limits exist (10009 and 10010).</li>
+<li>Login timeouts: 10003 and 40000.</li>
+<li>The login page loads Sensors Data analytics, which identifies <code>gid@uid</code>.</li>
+<li>No published API or request rate limits were found (unknown).</li>
+</ul></section><section class="part"><h1 id="mechanism">How the clone gets and searches data</h1>
+<p>Read from the code in <code>YYC/news-stream/</code> on 2026-10-13, before the daily-search change above. Section 1h and the Galbot section are updated for that change. The live TikHub status (HTTP 402 on every platform) is from the public feed.json on 2026-10-13.</p>
+<h2>Big picture</h2>
+<ul>
+<li>One Python process, <code>app.py</code>, polls every 5 minutes (<code>POLL_SECONDS</code>, app.py:28, loop at app.py:256). Each poll reads the HTTP sources directly and also reads the documents the separate jobs write (browser.json, instagram.json, tikhub.json, facebook.json; documents in Postgres, <code>corpus.file_get</code>).</li>
+<li>Two stores:<ul>
+<li><strong>stream_items + poll_seen</strong> (Postgres): the alert stream only, meaning items that matched a stream's keywords and passed the AI check, filed by HKT day, and every URL a poll has read.</li>
+<li><strong>posts</strong> (Postgres): every post any collector fetched, plus comments and forum replies stored as rows of their own. The dashboard, profiles, reports and agent all read this.</li>
+</ul>
+</li>
+<li>Every timer is defined in <code>infra/provision.sh</code>. The server pulls main every 5 min (provision.sh:361-366), so a push to main deploys.</li>
+</ul>
+<h2>1. Ingestion</h2>
+<h3>1a. Direct feeds and per-site parsers (sources.py)</h3>
+<ul>
+<li><strong>How it works:</strong> stdlib <code>urllib</code> with a Chrome User-Agent (sources.py:16-27). There is one parser per site: RSS, regex over HTML, or the site's own JSON API (hk01, TVB, NOW, 881903, LIHKG). Parsers are at sources.py:55-169, the list at sources.py:172-243.</li>
+<li><strong>Count:</strong> <code>SOURCES</code> has 68 entries. The README still says 48 because it predates the YouTube, Telegram and LIHKG additions.<ul>
+<li>16 YouTube channel pages (<code>/videos</code> and <code>/streams</code>), parsed from <code>ytInitialData</code>.</li>
+<li>4 Telegram public channel pages (<code>t.me/s/…</code>).</li>
+<li>LIHKG 時事台 newest threads (sources.py:242).</li>
+<li>Google News <code>site:discuss.com.hk</code> (sources.py:221).</li>
+<li>The rest are HK news, radio/TV and government feeds.</li>
+</ul>
+</li>
+<li><strong>Schedule:</strong> every 5 min, 12 threads in parallel, each source retried once (sources.py:480-499). Exceptions (<code>EVERY</code>, sources.py:473-474): the HKEJ daily pages run every 30 min and HKEJ instant news every 10 min.</li>
+<li><strong>Proxy:</strong> only HKEJ (5 entries) goes through <code>RESI_PROXY</code> = IPRoyal HK residential, sub-user <strong>yycstream</strong> (sources.py:181-185, 429). Everything else connects directly.</li>
+<li><strong>Streams:</strong> all of them, by keyword match.</li>
+</ul>
+<h3>1b. Extra media list (sources_extra.py)</h3>
+<ul>
+<li><strong>What it covers:</strong> 22 entries in <code>EXTRA</code> (sources_extra.py:265-301; the README says 23):<ul>
+<li>The Standard (sitemap), 香港仔 (e-paper API), 鳳凰網 港澳</li>
+<li>The magazines: 號外, Asia Times, 紫荊, 資本, 經濟一週, 經濟導報 ×2, iMoney ×2, 明週</li>
+<li>FSTB's LinkedIn, read through the free r.jina.ai reader (sources_extra.py:283-285)</li>
+<li>The 8 political columns that feed the POL stream</li>
+</ul>
+</li>
+<li><strong>Proxy:</strong> 號外 and the two HKEJ columns use yycstream.</li>
+<li><strong>Known gap (bug):</strong> each item carries <code>max_age_days</code> (10 or 40 days for magazines, sources.py:278-279), but <code>app.py</code> never reads it. The stream drops anything published more than 2 days ago (<code>MAX_AGE</code>, app.py:31, 203). So in practice the README's "a magazine's latest issue counts as current" doesn't happen for the stream. Those items still reach the corpus.</li>
+</ul>
+<h3>1c. Google News search</h3>
+<ul>
+<li><strong>How it works:</strong> one RSS feed per stream <code>news_queries</code> entry, <code>q=&lt;query&gt;+when:1d</code>, hl=zh-HK (sources.py:357-360, built at app.py:46). 14 queries today: CEHK 3, HKIC 4, FSHK 2, STABLE 2, GALBOT 3. Every 5 min, no proxy.</li>
+<li><strong>Link decoding:</strong> a matched item's news.google.com link is decoded to the publisher's URL with Google's batchexecute call (app.py:56-79).</li>
+<li><strong>Corpus:</strong> raw Google News results don't go in; only decoded items that matched a stream do (insights.py:234-235).</li>
+</ul>
+<h3>1d. Real-browser job (browser_fetch.py)</h3>
+<ul>
+<li><strong>Sites:</strong> 成報, 亞洲週刊, 明報月刊, all behind Cloudflare's managed challenge.</li>
+<li><strong>How it works:</strong> Patchright drives Google Chrome under Xvfb with a persistent profile and clicks the challenge checkbox (browser_fetch.py:21-37, 92-93). It writes browser.json. If that file is more than 2 h old, sources.py marks every site in it as failed (sources.py:282-299).</li>
+<li><strong>Schedule:</strong> <code>yyc-browser</code> timer, every 30 min (provision.sh:112-117).</li>
+<li><strong>Proxy:</strong> none (the server IP passes); <code>BROWSER_PROXY</code> is optional.</li>
+<li><strong>Limitation:</strong> 成報 lists have no dates, so the job keeps the newest 150 article IDs (browser_fetch.py:18, 66).</li>
+</ul>
+<h3>1e. 香港討論區 keyword search</h3>
+<ul>
+<li><strong>How it works:</strong> <code>discuss_search</code> reads the mobile site's search, newest first, one page per query (sources.py:249-274).</li>
+<li><strong>Queries:</strong> the streams' <code>discuss_queries</code>, 10 in total.</li>
+<li><strong>Schedule:</strong> every 30 min, inside the app loop (<code>DISCUSS_SECONDS</code>, app.py:29, 184-191).</li>
+<li><strong>Proxy:</strong> yycstream (the site bans datacenter IPs).</li>
+<li><strong>Limitation:</strong> results carry no dates, so threads more than 1,800 IDs (about 2 days) behind the newest are dropped (sources.py:246, 274).</li>
+</ul>
+<h3>1f. Facebook pages (fb_fetch.py)</h3>
+<ul>
+<li><strong>How it works:</strong> it replays Facebook's own logged-out GraphQL timeline request, <code>ProfileCometTimelineFeedRefetchQuery</code>, with curl_cffi impersonating Chrome (fb_fetch.py:244-268).<ul>
+<li>Each request asks for posts after the newest one already seen (<code>afterTime</code>) and pages back with the cursor, 3 posts per answer, up to 10 answers per page per run. Anything beyond that is saved as a gap and read on later runs (fb_fetch.py:44, 270-334).</li>
+<li>A browser session (Patchright) is captured on the same proxy every 6 h, or sooner when answers go stale (fb_fetch.py:40, 51-88, 285-293).</li>
+</ul>
+</li>
+<li><strong>Count:</strong> 147 followed pages in facebook_pages.json: 87 legislators, 26 media, 23 government, 7 parties, 4 commentators.</li>
+<li><strong>Schedule:</strong> CronJob <code>facebook</code> every 15 min; every page is checked on every run, reading back <code>OVERLAP_H</code> (3 h) before its newest post once an hour and once a day <code>DEEP_H</code> (26 h), so posts that appear behind a newer one come in; a post id already read is never filed again. Each run is limited to 300 s.</li>
+<li><strong>Proxy:</strong> IPRoyal sub-user <strong>yycfacebook</strong> (<code>FB_PROXY</code>), used for Facebook only.</li>
+<li><strong>Limitations:</strong><ul>
+<li>It follows a fixed page list only. Facebook keyword search is separate: AnyAPI, for Galbot only (section 1h).</li>
+<li>Matching against streams uses only the first 160 characters of the post text as the title (fb_fetch.py:342; see section 2).</li>
+</ul>
+</li>
+<li><strong>Doc mismatch:</strong> the README says both "Facebook pages … every 30 min" and, a few lines later, "so Facebook is not watched". The code and timer show it is watched. The <code>facebook_file</code> docstring still says "fb_apify.py (Apify)" (sources.py:346), which is stale.</li>
+</ul>
+<h3>1g. Instagram and Threads profiles (ig_fetch.py)</h3>
+<ul>
+<li><strong>How it works:</strong> fetches the logged-out profile page with curl_cffi and reads the 12 newest posts from <code>polaris_ordered_timeline_connection</code>. Post times come from the media-ID epoch (ig_fetch.py:28-54). The download stops right after the script that holds the posts, which saves bytes (ig_fetch.py:84-97). Threads profiles are parsed via <code>taken_at</code> (ig_fetch.py:57-81).</li>
+<li><strong>Count:</strong> 70 accounts: 69 Instagram and 1 Threads (passiontimes). 6 are checked hourly (am730hk, tang_earthquake, weather.hk, rthk.vnews, icable.news, passiontimes) and 64 every 3 h.</li>
+<li><strong>Schedule:</strong> <code>yyc-instagram</code> hourly (provision.sh:239-244).</li>
+<li><strong>Proxy:</strong> IPRoyal sub-user <strong>yycinstagram</strong> (<code>IG_PROXY</code>). The intervals are set to fit a USD 70/month proxy limit (ig_fetch.py:14-15).</li>
+<li><strong>Limitation:</strong> profiles only, no keyword search. Keyword search on Instagram goes through TikHub hashtags (section 1h).</li>
+</ul>
+<h3>1h. Social keyword search: TikHub + AnyAPI (tikhub_fetch.py, fb_search.py)</h3>
+<ul>
+<li><strong>How it works:</strong> one REST adapter per platform on api.tikhub.io, sorting newest first where the endpoint allows it. Facebook goes through AnyAPI's <code>facebook.search_posts</code> instead.</li>
+<li><strong>Platforms (17):</strong> 小紅書, 抖音, 微博, B站, 快手, 知乎, 西瓜視頻, 微信公眾號, TikTok, X, YouTube, Reddit, Threads, Lemon8, 皮皮蝦, Instagram hashtags, plus Facebook for streams with <code>facebook_search</code> (GALBOT only). 視頻號 is excluded because its results have no link.</li>
+<li><strong>Queries:</strong> each stream's <code>social_queries</code>, which defaults to its <code>news_queries</code>. Duplicates are removed, leaving 14 queries.</li>
+<li><strong>Schedule (since 2026-10-13):</strong> each platform and query once a day. The timer is still hourly and makes no requests when nothing is due. Failed searches are retried after 3 hours. The run-now button on /kmatrix/admin/social runs one stream at once.</li>
+<li><strong>Caps and filters:</strong><ul>
+<li>At most 10 posts per query, or 5 on the loose platforms X, Reddit, TikTok, YouTube, Threads and Lemon8, and 20 on Facebook. Posts that contain the query words are sorted first.</li>
+<li>Posts older than 3 days are dropped. Facebook posts must contain one of the stream's keywords.</li>
+<li>Instagram turns the query into a hashtag by stripping spaces and punctuation.</li>
+</ul>
+</li>
+<li><strong>Known gap:</strong> every TikHub endpoint answered HTTP 402 (no paid balance) on 2026-10-13, so this family brings in nothing until the account is funded. Facebook needs a YYC AnyAPI key on the server.</li>
+</ul>
+<h3>1i. Forum replies (replies_fetch.py)</h3>
+<ul>
+<li><strong>LIHKG:</strong> six boards (時事台, 政事台, 財經台, 上班台, 房屋台, 吹水台; replies_fetch.py:51), listed in latest-reply order, plus LIHKG threads the collectors filed in the last 2 days. Requests go direct, with LIHKG's own headers, at one per second. If LIHKG blocks the server, the job switches to yycstream for 26 h, capped at 60 MB/month (replies_fetch.py:6-12, 59).</li>
+<li><strong>香港討論區:</strong> five boards (news, finance, 時政文化, 突發報料, 立法會事務; replies_fetch.py:56), plus threads filed by discuss_search or Google News. Goes through yycstream on a sticky session and moves to a new session when it hits a reCAPTCHA. Runs hourly and is paced to <code>DISCUSS_MB_MONTH</code> = 450 MB (replies_fetch.py:13-19, 57, 63).</li>
+<li><strong>Schedule:</strong> the <code>yyc-replies</code> timer runs every 30 min (provision.sh:302-307).</li>
+<li><strong>Where replies go:</strong> each reply is a corpus row with its own timestamp (<code>corpus.add_comments</code>, corpus.py:208-233). Replies go to the corpus only, never to the alert stream.</li>
+</ul>
+<h3>1j. Comments (comments_fetch.py)</h3>
+<ul>
+<li><strong>YouTube:</strong> only the channels in sources.py (comments_fetch.py:213-214), via <code>youtubei/v1/next</code>, newest first. Top-level comments only, because YouTube sends no replies to logged-out clients. No proxy.</li>
+<li><strong>Facebook:</strong> comments on posts collected by fb_fetch, read with Facebook's own comment query plus replies to comments, over yycfacebook. The first check is at 1 h. Checks thin out with age and double after each check that finds nothing, with a final check near day 7 (comments_fetch.py:44-49, 85-98).</li>
+<li><strong>Instagram/Threads:</strong> each post page is read once, when the post is 6 h old, over yycinstagram (comments_fetch.py:52).</li>
+<li><strong>Window and schedule:</strong> posts are followed for 7 days. The timer runs at :15 and :45 (provision.sh:261-265).</li>
+<li><strong>Gap:</strong> posts found through TikHub never get comments fetched.</li>
+</ul>
+<h3>1k. Article-text cache (cache_fetch.py)</h3>
+<ul>
+<li><strong>What it does:</strong> for posts a profile tagged relevant in the last 3 days that have no text yet, it fetches the article body. It tries ld+json <code>articleBody</code> first, then the largest cluster of <code>&lt;p&gt;</code> paragraphs. Up to 300 pages per run, 4 requests/s (cache_fetch.py:1-38).</li>
+<li><strong>Proxy:</strong> HKEJ and discuss.com.hk use yycstream. The three Cloudflare sites are read in one browser pass. Social sites are skipped.</li>
+<li><strong>Schedule:</strong> <code>yyc-cache</code> every 30 min (provision.sh:154-159).</li>
+<li><strong>Limitation:</strong> the cached text improves the corpus and dashboard but is not used for stream matching, because matching happens before caching.</li>
+</ul>
+<h3>1l. K-Matrix WhatsApp watch (kmatrix/)</h3>
+<ul>
+<li><strong>How it works:</strong> <code>watch.py</code> opens Deyao's linked WhatsApp Web in Patchright under Xvfb and reads the three groups: K-Matrix &amp; YYC CEHK, HKIC and FSHK (kmatrix/compare.py:20).<ul>
+<li>It archives every alert, because the groups delete messages after 7 days.</li>
+<li><code>compare.py</code> gives each alert a verdict against the stream's items and the URLs read: HAVE, OTHER, DROPPED or MISSING, with our lag versus K-Matrix.</li>
+<li><code>kmatrix/watch.py show</code> prints the report on the server (no web page). <code>link.py</code> re-links WhatsApp via a QR when needed.</li>
+</ul>
+</li>
+<li><strong>Schedule:</strong> <code>yyc-kmatrix</code> every 30 min (provision.sh:198-203).</li>
+<li><strong>Not a data source:</strong> it only measures parity. There is no Galbot group, so Galbot is never compared.</li>
+</ul>
+<h2>2. Processing</h2>
+<ul>
+<li><strong>Stream matching:</strong> case-insensitive substring match of a stream's <code>keywords</code> against <strong>title + section</strong> only (app.py:84-92, 207).<ul>
+<li>POL has no keywords and takes every item from its 8 <code>source_ids</code>.</li>
+<li>Text beyond the title is not checked. For Facebook, Instagram and TikHub posts the title is the first 160 characters.</li>
+<li>For TikHub items the section is "platform · query" (tikhub_fetch.py:596). So an item found by the query "Galbot" always passes the keyword step, and the AI decides relevance.</li>
+</ul>
+</li>
+<li><strong>Dedupe:</strong><ul>
+<li>By URL across all polls (the <code>seen</code> set; app.py:199-201). A URL seen once is never judged again.</li>
+<li>By normalised headline (first 24 characters, suffixes removed) per stream, so Google News and the direct feed don't double up (app.py:95-97, 180, 206).</li>
+<li>In the corpus, <code>url</code> is UNIQUE. A re-seen post refreshes its engagement counts and fills in missing text or author (corpus.py:186-204).</li>
+</ul>
+</li>
+<li><strong>AI tagging:</strong> <code>ai.tag_posts</code> sends batches of 30 to OpenRouter with <strong>anthropic/claude-haiku-5.5</strong> (<code>MODEL</code>, ai.py:11).<ul>
+<li>It returns relevant (yes/no), one of K-Matrix's 5 sentiments and the 17 labels (ai.py:124-158). Irrelevant items are dropped from the stream (app.py:216-230).</li>
+<li>It is called on every poll for new stream matches. After each poll, <code>insights.run_custom</code> also tags admin-profile matches and the streams' new comment/reply rows from the last 2 days (insights.py:232-272). A thread's comments are tagged as one item per thread per day (insights.py:275-292).</li>
+<li>If tagging fails, items are kept untagged.</li>
+</ul>
+</li>
+<li><strong>SMART_MODEL anthropic/claude-sonnet-5.5</strong> (ai.py:12) handles summaries, themes, persona notes, the daily report summary and the agent.</li>
+<li><strong>Storage:</strong> Postgres with tables <code>posts</code>, <code>tags</code> (per profile and post) and <code>kv</code>.<ul>
+<li>Indexes exist only on day, author and thread (corpus.py:24-52). <strong>There is no FTS index.</strong></li>
+<li>Each post has a precomputed lowercase <code>hay</code> column (title + text + author + source). Comment rows use only their own text + author (corpus.py:161-166).</li>
+<li>Source type and region are derived by <code>classify</code> (corpus.py:87-139).</li>
+</ul>
+</li>
+</ul>
+<h2>3. Search</h2>
+<ul>
+<li><strong>Query language</strong> (query.py:1-11):<ul>
+<li>Whitespace means OR. AND, OR, NOT and parentheses work.</li>
+<li><code>"phrase"</code>, <code>NEARBY/n</code> (default 10 characters), <code>FindIn(title|content|author|source: …)</code>, <code>IncData(...)</code>/<code>ExcData(...)</code> (by source type, website, sid or platform) and <code>TopicSearchOnly</code> (titles only).</li>
+</ul>
+</li>
+<li><strong>Engine:</strong> compiled to SQL using <code>strpos(hay, term) &gt; 0</code>, i.e. plain substring matching (<code>query.to_sql</code>). NEARBY is the SQL function <code>near()</code> that <code>corpus.SCHEMA</code> creates. Measured 2026-10-13 on 229k posts: 90–330 ms a query (a scan of the date range). Every search is a scan of the date range, filtered only by the day index. There is no tokeniser and no relevance score.</li>
+<li><strong>Ranking:</strong> newest first (<code>ORDER BY coalesce(published, seen) DESC</code>, corpus.py:306). Hot topics group posts by thread URL or by 50% Jaccard similarity of title bigrams (insights.py:356-395) and sort by post count.</li>
+<li><strong>Time windows:</strong><ul>
+<li>Profile day range: today, 7, 30 or 90 days, or custom.</li>
+<li>Dashboard <code>/api/search</code>: whole corpus, default 7 days, at most 2,000 hits (web.py:397-403).</li>
+<li>Admin preview: default 30 days (web.py:471-477).</li>
+</ul>
+</li>
+<li><strong>What a profile searches:</strong><ul>
+<li>Stream profiles query <code>stream_query</code> = their keywords as quoted OR terms (query.py:253-260). The dashboard shows only <strong>tagged relevant</strong> posts (<code>insights.select</code> uses <code>tagged_ids</code>, insights.py:315-323). For streams that means what app.py tagged plus matching comments, not every corpus post containing a keyword.</li>
+<li>Custom admin profiles are matched over the whole corpus for their period (insights.py:258-259).</li>
+</ul>
+</li>
+<li><strong>Agent <code>/agent</code>:</strong> <code>agent.py</code> runs a tool loop on SMART_MODEL, at most 8 steps (agent.py:11, 149-164). Its tools:<ul>
+<li><code>search_posts</code>: a profile's tagged posts filtered by query, or a corpus-wide <code>match_ids</code> search; default 7 days, at most 150 posts.</li>
+<li><code>hot_topics</code>, <code>make_table</code> (CSV). (No volume, trend, author or source tools: README "Analyses and selection bias".)</li>
+<li>Answers must cite post URLs.</li>
+</ul>
+</li>
+</ul>
+<h2>4. Outputs</h2>
+<ul>
+<li><strong>Stream page <code>/</code></strong> plus <strong><code>/feed.json?date=YYYY-MM-DD</code></strong>: one day's archive across all streams, with each stream's item count and per-source status (app.py:306-325). Items are filed in half-hour slots (app.py:109-113).</li>
+<li><strong>Dashboard <code>/dashboard</code>:</strong> post listing, hot topics, themes, persona, plus Excel exports at <code>/api/export/{posts,hot_topics,themes}.xlsx</code>. Also <code>/post/&lt;id&gt;</code> (the cached copy) and <code>/kmatrix/admin</code> (Deyao only).</li>
+<li><strong>Daily reports</strong> (<code>reports.py daily --send --if-due</code>, run hourly at :05, provision.sh:324-328): at the report hour (default 09:00 HKT, for the previous day) each profile gets format1.html, format2.html, report.pdf, hot_topics.xlsx, posts.xlsx/.docx (in the Galbot sample's table layout) and summary.json, all under <code>/reports/</code>. Emails go only to profiles with recipients. Per the README the only recipient today is CEHK → bot@deyaochen.com.</li>
+<li><strong>Alerts</strong> (<code>reports.alert</code>, after every poll; reports.py:740+):<ul>
+<li>New posts tagged crisis or urgent.</li>
+<li>Negative bursts: 5 or more posts in 2 h with a sentiment index of −30 or lower.</li>
+<li>Sent only for profiles with <code>alerts</code> on and recipients set. Stream profiles default to <code>alerts: False</code> (insights.py:124-126).</li>
+</ul>
+</li>
+</ul>
+<h2>5. Costs the repo documents</h2>
+<ul>
+<li><strong>TikHub</strong> (tikhub_fetch.py:35-39; README):<ul>
+<li>USD 0.01 per search on 小紅書, 抖音, 快手 and 微信.</li>
+<li>USD 0.002 on YouTube, Threads and Instagram.</li>
+<li>USD 0.001 elsewhere.</li>
+<li>With 14 queries: USD 10.64 a day (USD 6.72 for 小紅書 + 抖音 hourly, USD 3.92 for the rest), about USD 319 a month before volume discounts.</li>
+</ul>
+</li>
+<li><strong>IPRoyal residential:</strong><ul>
+<li>The 香港討論區 replies budget is 450 MB/month, "≈ USD 3.15 a month at IPRoyal's USD 7/GB" (replies_fetch.py:29).</li>
+<li>Instagram intervals are set to fit a "USD 70/month proxy limit" (ig_fetch.py:14).</li>
+<li>Facebook: about 11 KB per check of a page with nothing new, 20–35 KB per new post (fb_fetch.py:7-9). Comment checks run about 25 KB each, for about 700 posts a day (comments_fetch.py:47).</li>
+<li>Apify was rejected at USD 0.007 per page per run (about USD 120/month for 12 pages; fb_fetch.py:19).</li>
+</ul>
+</li>
+<li><strong>OpenRouter:</strong><ul>
+<li>Key yyc-stream has a USD 20/month cap (README).</li>
+<li>Public on-demand AI calls stop at the daily cap, default USD 0.50 (insights.py:67; ai.py:38-45). The admin can set 0 to 20 (insights.py:94).</li>
+<li>Background tagging, themes and reports don't count toward that cap. Every call's cost is logged per day and per purpose (ai.py:28-35).</li>
+</ul>
+</li>
+<li><strong>Hosting:</strong> Hetzner cx23, with a €20 spend warning on the project (README). No per-GB figure is given for the yycfacebook or yycinstagram sub-users.</li>
+</ul>
+<h2>6. GALBOT stream specifically</h2>
+<p>From streams.json, the GALBOT stream has 17 keywords: Galbot/GALBOT/galbot, 銀河通用/银河通用, 銀河機械人/银河机器人, 銀河太空艙/银河太空舱, Galaxy General, 機械人店長/机器人店长, 機械人商店, 機械人零售店, robot shopkeeper, robot-run store, robot-operated store.</p>
+<p><strong>Where Galbot is actively searched</strong>
+- <strong>Google News:</strong> 3 queries, "銀河通用", "Galbot", "機械人店長 香港", each <code>when:1d</code>, zh-HK, every 5 min.
+- <strong>香港討論區 site search:</strong> 3 queries, "銀河通用", "Galbot", "機械人 便利店", every 30 min over yycstream.
+- <strong>TikHub + AnyAPI (since 2026-10-13):</strong> the same 3 news queries on 16 TikHub platforms and on Facebook, once a day, plus the run-now button. Instagram is searched by hashtag: #銀河通用, #galbot and #機械人店長香港. Nothing comes in until the TikHub balance is paid and the AnyAPI key is in place.</p>
+<p><strong>Where Galbot is caught only passively</strong> (a keyword appearing in an item already being collected)
+- The 90 entries in SOURCES + EXTRA (news sites, columns, the 16 YouTube and 4 Telegram channels, LIHKG 時事台 new threads), the 3 browser sites, the 147 Facebook pages and the 70 Instagram/Threads accounts, but only when a keyword appears in the <strong>title</strong> (or the first 160 characters of social text).
+- Forum replies and comments, matched on the reply or comment text from the last 2 days, then tagged for GALBOT (insights.py:260-261).</p>
+<p><strong>Not covered or weak</strong>
+- <strong>Facebook:</strong> keyword search for Galbot only, through AnyAPI (2026-10-13). None of the 147 followed pages is Galbot's own page or a robotics/retail page.
+- <strong>Instagram:</strong> no Galbot account among the 70 followed. TikHub hashtags are the only route.
+- <strong>Other platforms:</strong> no 今日頭條, LinkedIn or Telegram keyword search, and 視頻號 is excluded.
+- <strong>Titles that don't name Galbot:</strong> the 香港討論區 query "機械人 便利店" and similar Google News results only reach the stream if the title contains a GALBOT keyword. For example, "機械人 便利店" in a title does not match "機械人商店". The same goes for any article that names Galbot only in its body, since cached article text is not used for stream matching.
+- <strong>No K-Matrix comparison:</strong> K-Matrix's WhatsApp watch has no Galbot group.
+- <strong>No comments on TikHub posts:</strong> comments are never fetched for posts found through TikHub (小紅書 etc.).
+- <strong>No email delivery:</strong> per the README, CEHK is the only profile with a recipient, and alerts are off by default (insights.py:124-126), so GALBOT's reports are built under <code>/reports/</code> but not mailed. The live admin settings are in the server's profiles.json, which I didn't check.
+- <strong>Overlap with HKIC:</strong> 銀河通用 is also an HKIC keyword, so the same item can land in both streams.</p></section><section class="part refs" id="refs"><h1>Sources</h1><ol><li id="ref-1"><a href="https://www.wisers.com/aboutwisers/" target="_blank" rel="noopener">wisers.com</a> <span>https://www.wisers.com/aboutwisers/</span></li><li id="ref-2"><a href="https://www.wisers.com/" target="_blank" rel="noopener">wisers.com</a> <span>https://www.wisers.com/</span></li><li id="ref-3"><a href="https://www.wisers.com/media-partnership/" target="_blank" rel="noopener">wisers.com</a> <span>https://www.wisers.com/media-partnership/</span></li><li id="ref-4"><a href="https://www.wisers.com/wisemonitor/" target="_blank" rel="noopener">wisers.com</a> <span>https://www.wisers.com/wisemonitor/</span></li><li id="ref-5"><a href="https://www.smartlab.gov.hk/en/ai_solutions/a-0038" target="_blank" rel="noopener">smartlab.gov.hk</a> <span>https://www.smartlab.gov.hk/en/ai_solutions/a-0038</span></li><li id="ref-6"><a href="https://www.listen2hk.com/en-about-us" target="_blank" rel="noopener">listen2hk.com</a> <span>https://www.listen2hk.com/en-about-us</span></li><li id="ref-7"><a href="https://www.wisers.com/zh-hant/wisesearch/" target="_blank" rel="noopener">wisers.com</a> <span>https://www.wisers.com/zh-hant/wisesearch/</span></li><li id="ref-8"><a href="https://www.lib.polyu.edu.hk/databases/wisenews-%E9%9B%BB%E5%AD%90%E5%89%AA%E5%A0%B1-1998" target="_blank" rel="noopener">lib.polyu.edu.hk</a> <span>https://www.lib.polyu.edu.hk/databases/wisenews-電子剪報-1998</span></li><li id="ref-9"><a href="https://libguides.lib.hkmu.edu.hk/newsarticles/database-guide-wisersone" target="_blank" rel="noopener">libguides.lib.hkmu.edu.hk</a> <span>https://libguides.lib.hkmu.edu.hk/newsarticles/database-guide-wisersone</span></li><li id="ref-10"><a href="https://www.wisersone.com/public/manuals/WisersOne_UserGuide_en-zh.pdf" target="_blank" rel="noopener">wisersone.com</a> <span>https://www.wisersone.com/public/manuals/WisersOne_UserGuide_en-zh.pdf</span></li><li id="ref-11"><a href="https://www.wisers.com/blog/1201/big-data-report-on-covid-19-in-the-first-three-quarters-of-2020/" target="_blank" rel="noopener">wisers.com</a> <span>https://www.wisers.com/blog/1201/big-data-report-on-covid-19-in-the-first-three-quarters-of-2020/</span></li><li id="ref-12"><a href="https://www.listen2hk.com/en-home" target="_blank" rel="noopener">listen2hk.com</a> <span>https://www.listen2hk.com/en-home</span></li><li id="ref-13"><a href="https://library.hksyu.edu/lib/wp-content/uploads/2026/03/Media-Center-Userhandbook-Eng-3-1.pdf" target="_blank" rel="noopener">library.hksyu.edu</a> <span>https://library.hksyu.edu/lib/wp-content/uploads/2026/03/Media-Center-Userhandbook-Eng-3-1.pdf</span></li><li id="ref-14"><a href="http://www.wisers.com.cn/product/qqyqgljfx/20.html" target="_blank" rel="noopener">wisers.com.cn</a> <span>http://www.wisers.com.cn/product/qqyqgljfx/20.html</span></li><li id="ref-15"><a href="https://pct.admo.um.edu.mo/tender/216770/" target="_blank" rel="noopener">pct.admo.um.edu.mo</a> <span>https://pct.admo.um.edu.mo/tender/216770/</span></li><li id="ref-16"><a href="https://ezbid.tw/detail/3/eyis10607" target="_blank" rel="noopener">ezbid.tw</a> <span>https://ezbid.tw/detail/3/eyis10607</span></li><li id="ref-17"><a href="https://wisenews.wisers.net/WISENEWS-SHARED/ws/docs/terms.en.htm" target="_blank" rel="noopener">wisenews.wisers.net</a> <span>https://wisenews.wisers.net/WISENEWS-SHARED/ws/docs/terms.en.htm</span></li><li id="ref-18"><a href="https://hkbu.libguides.com/c.php?g=941319&amp;amp;p=6815441" target="_blank" rel="noopener">hkbu.libguides.com</a> <span>https://hkbu.libguides.com/c.php?g=941319&amp;amp;p=6815441</span></li><li id="ref-19"><a href="https://www.wisers.com/real-time-alerts/" target="_blank" rel="noopener">wisers.com</a> <span>https://www.wisers.com/real-time-alerts/</span></li><li id="ref-20"><a href="https://www.smartlab.gov.hk/image-file/smartlab/prod/assets/ai_solutions/20250508114805741392_Wisers%20Company%20Introduction_Presentation%20Deck.pdf" target="_blank" rel="noopener">smartlab.gov.hk</a> <span>https://www.smartlab.gov.hk/image-file/smartlab/prod/assets/ai_solutions/20250508114805741392_Wisers Company Introduction_Presentation Deck.pdf</span></li></ol></section></main></div>
+</body></html>

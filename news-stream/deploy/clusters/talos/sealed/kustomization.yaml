@@ -1,0 +1,9 @@
+# SealedSecrets of yyc-talos, sealed to infra/sealed-secrets-talos.pem (DESIGN 15.9) by
+# `infra/seal.py --cert infra/sealed-secrets-talos.pem NS/NAME` from the store `yyc` (lines in infra/secrets.txt);
+# seal.py lists each file here.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ghcr-pull-egress.yaml
+  - yyc-deploy-tunnel.yaml
+  - etcd-backup-s3.yaml

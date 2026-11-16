@@ -1,0 +1,257 @@
+/* 數據分析's own styles (scoped to .dash, the page's content under the bar), on the house style (house.css: tokens,
+   cells, badges, fields, the sentiment edge). White sheets on the grey ground, 1px rules, ink figures in Archivo; the
+   only hue is an article's sentiment (its mark, its row's left edge, the sentiment index's sign). Post lists are ruled
+   rows, each with its sentiment as a rule down its left edge and its time small and muted. Charts: square ink bars,
+   series told apart by line style, never by hue. */
+body:has(.dash) { overflow-x:hidden; }
+.dash .num, .dash .n, .dash td.c, .dash .tick, .dash .big { font-family:var(--num); font-variant-numeric:tabular-nums; }
+.dash svg.i { vertical-align:-3px; }
+/* plain buttons (theme rows, the expand chevron, the cloud's words, 作者分析): no chrome; cells keep theirs */
+.dash button:not(.chip, .btn, .go, .seg > button) { background:none; border:0; cursor:pointer; padding:0; font:inherit; color:inherit; }
+.dash h2 { font-size:16px; font-weight:700; line-height:1.35; margin:0; }
+.dash h3 { font-size:14px; font-weight:700; margin:0 0 8px; color:var(--muted); }
+
+/* period row: the bar's third ruled row (a .yyc-tier, shell.css: 44px + its baseline rule, on the bar's ground), right
+   under the sub-page tabs. The quick periods and the date range (.range, house.css) are two groups flush on its rules,
+   16px of plain ground apart; the range summary sits right-aligned on their baseline. On desktop it sticks under the bar.
+   On phones each group takes its own 44px line, the lines split by full-width 1px rules (painted as the row's
+   background, one band per 45px, the last being the row's baseline) */
+.dash .period { position:sticky; top:var(--bar-h); z-index:19; }
+/* the sub-page tabs' current bar sits just above their baseline rule here instead of covering it: the period row's
+   ink-filled quick period comes right under it and the two ink shapes would otherwise touch as one block */
+.page-dashboard .yyc-sub > button { margin-bottom:1px; }
+.page-dashboard .yyc-sub > button:hover { background:var(--ground); }
+.dash .period .seg button { font-family:var(--num); font-weight:600; }
+.dash .period .seg button[aria-pressed="true"] { font-weight:700; }
+/* border:0 again: house.css's field rule comes after .range and would put each input's own box back */
+.dash .dates input { border:0; max-width:160px; color:var(--ink); }
+.dash .period .note { display:flex; align-items:center; margin-left:auto; padding-left:16px; color:var(--muted); font-size:13px; white-space:nowrap; }
+@media (max-width:719px) {
+.dash .period { position:static; flex-wrap:wrap; gap:1px 0; padding-bottom:1px; border-bottom:0;
+  background:var(--panel) repeating-linear-gradient(transparent 0 44px, var(--rule) 44px 45px); }
+.dash .period > * { flex:1 0 100%; height:var(--ctl); }
+.dash .period .seg button, .dash .dates input { flex:1 1 0; max-width:none; }
+.dash .period .note { margin-left:0; padding-left:0; }
+}
+
+/* page */
+/* the sheets start on the bars' left edge (--gutter on desktop; full width on phones, their text on it), ragged right */
+.dash .wrap { max-width:1600px; padding:8px 0 40px; }
+/* the selection-bias note sits on the ground: the sheets' inner gutter, so its text lines up with theirs */
+.dash .wrap > .bias-note, .dash #view > .bias-note { padding:0 16px; }
+.dash #view.loading { opacity:.55; }
+.dash .sec { background:var(--panel); padding:16px; margin-bottom:8px; min-width:0; }
+.dash .sec > header { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; margin-bottom:12px; }
+.dash .sec > header h2 { margin-right:auto; }
+.dash .sub { color:var(--muted); font-size:13px; }
+.dash details.sub > summary { display:inline-flex; align-items:center; min-height:var(--ctl); }
+.dash .grid { display:grid; gap:8px; grid-template-columns:minmax(0,1fr); }
+.dash .grid > .sec { margin-bottom:0; }
+.dash .grid { margin-bottom:8px; }
+.dash .grid:last-child { margin-bottom:0; }
+.dash .stack > * + * { margin-top:8px; }
+.dash .btn { font-size:14px; }
+.dash .btn.ai[disabled] { border-color:var(--rule); color:var(--muted); }
+.dash .ai-cost { font-size:13px; color:var(--muted); white-space:nowrap; font-family:var(--num); }
+.dash .ai-note { display:block; flex-basis:100%; font-size:13px; color:var(--muted); margin-top:4px; }
+.dash .ai-note a { color:inherit; }
+.dash .empty { padding:28px 0; color:var(--muted); }
+/* an error: ink text after an SVG cross (no hue) */
+.dash .err { color:var(--ink); }
+.dash .err::before { content:""; display:inline-block; width:16px; height:16px; margin-right:6px; vertical-align:-3px; background:currentColor;
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.5' stroke-linecap='square'%3E%3Cpath d='M6 6l12 12M18 6 6 18'/%3E%3C/svg%3E") center / contain no-repeat;
+          mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.5' stroke-linecap='square'%3E%3Cpath d='M6 6l12 12M18 6 6 18'/%3E%3C/svg%3E") center / contain no-repeat; }
+
+/* stat cards (a topic, an author, the daily scores): one ruled grid of value plates sharing single rules (the cell
+   group below), the figure in Archivo; SPI spans the row and is told apart by its larger figure */
+.dash .scores { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); }
+.dash .score { padding:10px 12px; min-width:0; background:var(--panel); }
+.dash .score .k { display:flex; justify-content:space-between; align-items:baseline; gap:6px; font-size:13px; color:var(--muted); }
+.dash .score .k b { color:var(--ink); font-weight:700; font-size:14px; font-family:var(--num); }
+.dash .score .v { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 8px; margin-top:4px; }
+.dash .score .big { font-size:1.75rem; font-weight:700; line-height:1.1; }
+.dash .score .lv { font-size:13px; font-weight:600; white-space:nowrap; }
+.dash .score .ch { font-size:13px; color:var(--muted); display:inline-flex; align-items:center; gap:2px; font-family:var(--num); }
+.dash .score.spi { grid-column:1 / -1; }
+.dash .score.spi .big { font-size:2.5rem; }
+.dash .qnote { font-size:13px; color:var(--ink); background:var(--ground); padding:8px 10px; margin-top:6px; line-height:1.6; }
+.dash .daily { font-size:15px; line-height:1.7; }
+.dash .daily p { margin:0 0 6px; }
+.dash .daily ul { margin:0; padding-left:18px; }
+.dash .daily b { font-weight:700; }
+.dash .caret { display:inline-block; width:8px; height:1em; vertical-align:-2px; background:var(--muted); margin-left:2px; }
+.dash .ai-out { font-size:15px; line-height:1.7; border-top:1px solid var(--rule); margin-top:12px; padding-top:12px; overflow-wrap:anywhere; }
+.dash .ai-out a { text-underline-offset:3px; }
+.dash .ctx { display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px; margin-top:8px; font-size:14px; }
+.dash .ctx .read { display:inline-flex; align-items:center; gap:6px; min-height:var(--ctl); font-weight:600; text-decoration:underline; text-underline-offset:3px; }
+.dash .ctx .read[aria-expanded="true"] svg.i { transform:rotate(90deg); }
+.dash .ctx-list { margin-top:6px; border-top:1px solid var(--rule); }
+.dash .ctx-list .sub { margin:8px 0 4px; }
+.dash .ai-out table { border-collapse:collapse; font-size:13px; display:block; overflow-x:auto; }
+.dash .ai-out td, .dash .ai-out th { border:1px solid var(--rule); padding:4px 8px; }
+.dash .ai-out h1, .dash .ai-out h2, .dash .ai-out h3 { font-size:16px; color:var(--ink); margin:12px 0 4px; }
+
+/* charts (the SVG's own marks are set in -DashboardPage.tsx: ink bars, line styles) */
+.dash .chart { position:relative; width:100%; }
+.dash .chart svg { display:block; width:100%; overflow:visible; }
+.dash .chart text { font-size:12px; fill:var(--muted); font-family:var(--num); font-weight:500; }
+.dash .tip { position:fixed; z-index:20; pointer-events:none; padding:8px 10px; font-size:13px; max-width:260px; display:none; }
+.dash .tip .d { color:var(--muted); margin-bottom:4px; font-family:var(--num); font-weight:600; }
+.dash .tip .r { display:flex; align-items:center; gap:8px; }
+.dash .tip .r i, .dash .legend i { display:inline-block; flex:none; width:24px; height:0; border-top:3px solid var(--ink); }
+.dash .tip .r b { font-family:var(--num); font-size:14px; font-weight:700; }
+.dash .tip .h { color:var(--muted); font-size:12px; margin-top:4px; }
+/* a series' swatch (legend, tip): the line style the chart draws it in */
+.dash i.ln-dash { border-top-style:dashed; }
+.dash i.ln-muted { border-top-color:var(--muted); }
+.dash i.ln-bar { height:10px; width:10px; border:0; background:var(--ink); }
+.dash i.ln-pos { border-top-color:var(--sent-pos); }
+.dash i.ln-neg { border-top-color:var(--sent-neg); }
+
+/* tables: ruled rows on the sheet (no frame of their own), scrolling sideways on wide screens if they must; on phones
+   each row stacks its cells, rows split by one rule */
+.dash .tbox { overflow-x:auto; }
+.dash table.t { border-collapse:collapse; width:100%; font-size:14px; }
+.dash table.t th { text-align:left; font-weight:700; font-size:13px; color:var(--muted); background:var(--panel); padding:8px; vertical-align:bottom; line-height:1.3; border-bottom:1px solid var(--rule); position:sticky; top:0; }
+.dash table.t th.c { white-space:normal; min-width:64px; }  /* long English headers wrap so the table fits a desktop sheet */
+.dash table.t td { padding:8px; border-bottom:1px solid var(--rule); vertical-align:top; overflow-wrap:anywhere; }
+.dash table.t td.c, .dash table.t th.c { text-align:right; }
+.dash table.t td.c { white-space:nowrap; }
+.dash table.t td:not(.c) { min-width:7em; }  /* text cells wrap long words but never down to a letter a line */
+.dash table.t td.c { font-weight:600; }
+.dash table.t td.title { min-width:240px; max-width:440px; }
+/* a clickable row (tr.go): not house.css's .go button */
+.dash table.t tr.go, .dash table.t tr.go:hover { display:table-row; min-height:0; padding:0; gap:0; border:0; background:none; color:inherit;
+  font:inherit; line-height:inherit; white-space:normal; text-decoration:none; cursor:pointer; }
+.dash table.t tr.go:hover td { background:var(--ground); }
+.dash table.t td.title .lnk { font-weight:600; text-decoration:none; }
+.dash table.t tr.go:hover td.title .lnk { text-decoration:underline; text-underline-offset:3px; }
+/* desktop: tighter cells and narrower text minimums, so the widest table (熱門話題, 16 columns) fits a 1440px screen without
+   scrolling sideways */
+@media (min-width:1100px) {
+.dash table.t th, .dash table.t td { padding-left:6px; padding-right:6px; }
+.dash table.t th { font-size:12px; }
+.dash table.t td:not(.c, .title) { min-width:4.5em; }
+.dash table.t td.title { min-width:200px; }
+.dash table.t th.c { min-width:52px; }
+}
+.dash .clip2 { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+@media (max-width:719px) {
+.dash .tbox { overflow:visible; }
+.dash table.t, .dash table.t tbody, .dash table.t tr, .dash table.t td { display:block; width:100%; }
+.dash table.t thead { display:none; }
+.dash table.t tr { border:0; border-top:1px solid var(--rule); padding:10px 0; margin:0; background:var(--panel); display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:6px 10px; }
+.dash table.t td, .dash table.t td.c { border:0; padding:0; text-align:left !important; font-size:14px; min-width:0; overflow-wrap:anywhere; white-space:normal; }
+.dash table.t td::before { content:attr(data-h); display:block; color:var(--muted); font-size:12px; font-weight:400; line-height:1.3; font-family:var(--cjk); overflow-wrap:break-word; }
+.dash table.t td.title { order:-1; grid-column:1 / -1; max-width:none; min-width:0; font-size:15px; margin-bottom:4px; }
+.dash table.t td.title::before { display:none; }
+.dash table.t td.mhide { display:none; }
+.dash table.t tr.go, .dash table.t tr.go:hover { display:grid; border:0; border-top:1px solid var(--rule); padding:10px 0; gap:6px 10px; background:var(--panel); }
+.dash table.t tbody > tr:first-child { border-top:0; }
+.dash table.t tr.go:hover td { background:none; }
+.dash table.t tr.go:hover { background:var(--ground); }
+.dash .chip.zero[aria-pressed="false"] { display:none; }
+}
+
+/* sentiment + labels: the mark carries the hue (house.css), the word stays ink; labels are ink marks, no hue */
+.dash .face { display:inline-flex; align-items:center; gap:4px; white-space:nowrap; color:var(--ink); }
+.dash .tag { display:inline-flex; align-items:center; gap:4px; font-size:13px; color:var(--muted); white-space:nowrap; }
+.dash .tag.cited { color:var(--ink); font-weight:700; border:1px solid var(--ink); padding:0 6px; }
+.dash .tag.thin { border:1px dashed var(--muted); padding:0 6px; }
+/* a stacked split: flat blocks in the sentiment hues, 2px panel gaps */
+.dash .split { display:flex; height:var(--edge-w); overflow:hidden; background:var(--rule); gap:2px; }
+.dash .split i { display:block; height:100%; }
+
+/* groups of cells (a filter row, a search form, the author chips, a post's links, the pager, the stat cards): one block
+   whose members share single rules. Each member draws a 1px --rule ring (a box-shadow, not a border) and members sit
+   1px apart, so neighbours' rings coincide as one line, across wrapped lines too, and a short last line stays ragged
+   (no empty ruled cells). The block pads 1px to keep its outer ring inside. A pressed member changes fill only; a
+   focused field's ring turns ink, lifted over its neighbours'. Groups are apart by plain ground */
+.dash :is(.frow, .chk, .pbody .links, .pager, .scores) { gap:1px; padding:1px; }
+.dash :is(.frow, .chk, .pbody .links, .pager) > *, .dash .scores > * { border:0; box-shadow:0 0 0 1px var(--rule); }
+.dash .frow > :is(label, input, select):focus-within, .dash :is(.frow, .chk, .pbody .links, .pager) > :focus-visible { position:relative; z-index:1; outline:0; box-shadow:0 0 0 1px var(--ink); }
+
+/* filters */
+.dash .filters { display:flex; flex-direction:column; gap:8px; }
+.dash .frow { display:flex; flex-wrap:wrap; align-items:stretch; }
+.dash .search { display:flex; align-items:center; gap:8px; padding:0 12px; background:var(--panel); min-height:var(--ctl); flex:1 1 260px; min-width:0; }
+.dash #ain { flex:0 1 160px; }
+@media (max-width:719px) { .dash #ain { flex-grow:1; } }
+.dash .search input { border:0; background:transparent; flex:1; min-width:0; min-height:calc(var(--ctl) - 2px); padding:0; outline:none; }
+.dash .chip { font-size:14px; padding:0 10px; }
+.dash .chip .n { font-size:13px; font-weight:600; color:var(--muted); }
+.dash .chip[aria-pressed="true"] .n { color:inherit; }
+.dash .chip.zero:not([aria-pressed="true"]) { color:var(--muted); }
+.dash select.sel { flex:1 1 200px; max-width:100%; min-width:0; }  /* the three share a line on desktop, one a line on phones */
+.dash input.txt { min-width:0; }
+.dash .fsum { font-size:13px; color:var(--muted); }
+
+/* posts: ruled rows; the post's sentiment is the .sm rule down its left edge (house.css; none yet = dashed muted); the
+   post opened from an item page (?post=) carries a 3px ink state marker along its top edge (over the rule) and a bold title */
+.dash .post { position:relative; display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:start; }
+.dash .post + .post { border-top:1px solid var(--rule); }
+.dash .post.here::after { content:""; position:absolute; inset:-1px 0 auto; border-top:3px solid var(--ink); pointer-events:none; }
+.dash .post > a.pl { display:block; text-align:left; padding:0 0 0 14px; text-decoration:none; color:inherit; min-width:0; }
+.dash .post > a.pl > span { display:block; }
+.dash .post > a.pl > .mt { display:flex; }
+.dash .post > a.pl:hover .tt { text-decoration:underline; text-underline-offset:3px; }
+.dash .post.here .tt { font-weight:700; }
+.dash .post .tt { font-weight:500; line-height:1.45; overflow-wrap:anywhere; padding-top:10px; }
+.dash .post .mt { display:flex; flex-wrap:wrap; gap:2px 10px; font-size:13px; color:var(--muted); margin-top:2px; padding-bottom:10px; align-items:center; }
+.dash .post .mt .n { font-size:.875rem; color:var(--muted); }
+.dash .post .mt > * { min-width:0; overflow-wrap:anywhere; }  /* one long outlet/board/author name wraps, no sideways scroll */
+.dash .post .mt .tag { white-space:normal; overflow-wrap:anywhere; }
+.dash .post > button.exp { width:var(--ctl); height:var(--ctl); display:grid; place-items:center; color:var(--muted); margin-top:2px; }
+.dash .post > button.exp:hover { background:var(--ground); color:var(--ink); }
+.dash .post[aria-expanded="true"] > button.exp { color:var(--ink); }
+.dash .post[aria-expanded="true"] > button.exp svg.i { transform:rotate(90deg); }
+.dash .post[aria-expanded="true"] > a.pl .tt { text-decoration:underline; text-underline-offset:3px; }
+.dash .post > .pbody { grid-column:1 / -1; min-width:0; }
+.dash .pbody { padding:4px 0 12px 14px; }
+.dash .pbody .txt { white-space:pre-wrap; font-size:15px; line-height:1.7; background:var(--ground); padding:12px; max-height:420px; overflow:auto; overflow-wrap:anywhere; }
+.dash .pbody .links { display:flex; flex-wrap:wrap; margin-top:8px; font-size:14px; }
+.dash .pbody .links > a, .dash .pbody .links > button { display:inline-flex; align-items:center; gap:6px; min-height:var(--ctl); padding:0 12px;
+  background:var(--panel); color:var(--ink); font-size:14px; text-decoration:none; white-space:nowrap; }
+.dash .pbody .links > a:hover, .dash .pbody .links > button:hover { background:var(--ground); }
+.dash .pager { display:flex; align-items:stretch; margin-top:12px; font-size:14px; color:var(--muted); }
+.dash .pager .n { display:inline-flex; align-items:center; padding:0 12px; font-weight:600; color:var(--ink); background:var(--panel); }
+
+/* lists */
+.dash .kvl { display:flex; flex-direction:column; }
+.dash .kvl > div { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:6px 0; border-bottom:1px solid var(--rule); font-size:14px; }
+.dash .kvl > div span:first-child { min-width:0; overflow-wrap:anywhere; }
+.dash .kvl > div .n { font-weight:600; }
+.dash .theme { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:6px 12px; width:100%; min-height:var(--ctl); text-align:left; padding:10px 0; border-bottom:1px solid var(--rule); }
+.dash .theme:hover .nm { text-decoration:underline; text-underline-offset:3px; }
+.dash .theme .n { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:0 10px; font-size:13px; color:var(--muted); }
+.dash .theme .split { grid-column:1 / -1; }
+.dash .lede { font-size:16px; line-height:1.75; margin:0; }
+.dash .lede .n { font-size:1.25rem; font-weight:700; }
+.dash .cols { display:grid; grid-template-columns:minmax(0,1fr); gap:16px; }
+.dash .col h3 { font-size:14px; color:var(--ink); border-bottom:1px solid var(--rule); padding-bottom:4px; }
+.dash .mrow { display:grid; grid-template-columns:72px minmax(0,1fr); gap:0 10px; align-items:baseline; padding:6px 0; border-bottom:1px solid var(--rule); font-size:14px; }
+.dash .mrow .n { text-align:right; font-weight:700; font-size:1.125rem; }
+.dash .legend { display:flex; flex-wrap:wrap; gap:4px 16px; font-size:13px; color:var(--muted); margin-bottom:8px; }
+.dash .legend span { display:inline-flex; align-items:center; gap:8px; }
+.dash .cloud { display:flex; flex-wrap:wrap; justify-content:flex-start; align-items:baseline; gap:2px 12px; padding:6px 0; line-height:1.25; }
+.dash .cloud button { color:var(--ink); overflow-wrap:anywhere; }
+.dash .cloud button:hover { text-decoration:underline; text-underline-offset:3px; }
+/* touch: each word keeps its place and size but is tapped in a 44px tall box (the padding is taken back by the margin) */
+@media (pointer:coarse) { .dash .cloud > button[data-term] { padding-top:14px; padding-bottom:14px; margin-top:-14px; margin-bottom:-14px; } }
+.dash .chk { display:flex; flex-wrap:wrap; }
+.dash .chk .chip { white-space:normal; overflow-wrap:anywhere; }
+@media (min-width:720px) {
+.dash .wrap { padding:16px var(--gutter) 48px; }
+.dash .wrap > .bias-note, .dash #view > .bias-note { padding:0 20px; }
+.dash .sec { padding:16px 20px; }
+.dash .scores { grid-template-columns:repeat(4, minmax(0,1fr)); }
+.dash .scores.s2 { grid-template-columns:repeat(2, minmax(0,1fr)); }
+.dash .cols { grid-template-columns:repeat(3, minmax(0,1fr)); gap:24px; }
+.dash .g2 { grid-template-columns:repeat(2, minmax(0,1fr)); }
+}
+
+@media (min-width:1100px) {
+.dash .gsum { grid-template-columns:minmax(0,1.65fr) minmax(0,1fr); align-items:start; }
+.dash .g3 { grid-template-columns:repeat(3, minmax(0,1fr)); }
+.dash .gpost { grid-template-columns:minmax(0,1fr) 300px; align-items:start; }
+}

@@ -1,0 +1,62 @@
+# WhatsApp alerts (whatsapp_alerts.py run, README "WhatsApp"): every stream item to its stream's WhatsApp group, sent by
+# a linked device of YYC's WhatsApp number (whatsapp/gateway.js, Baileys, a child process of the sender). One copy
+# connects at a time (two connections of one linked device replace each other), handed over without re-linking: the
+# device's keys are in Postgres (table whatsapp_auth); the new pod is ready at once and waits on the Postgres lock
+# 'yyc whatsapp' while the old one, on SIGTERM, stops sending, closes its connection and lets go of the lock. Items
+# filed meanwhile wait in stream_items (the cursor is kv whatsapp_sent), so a rollout loses none. A copy whose lock's
+# connection was cut and the lock taken by another closes its connection within seconds (podlock.py,
+# tests/test_worker_locks.py).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: whatsapp
+  namespace: yyc
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels: {app: whatsapp}
+  strategy: {type: RollingUpdate, rollingUpdate: {maxSurge: 1, maxUnavailable: 0}}
+  template:
+    metadata:
+      labels: {app: whatsapp}
+    spec:
+      securityContext: {runAsUser: 10001, runAsGroup: 10001, fsGroup: 10001}
+      imagePullSecrets: [{name: ghcr-pull}]
+      terminationGracePeriodSeconds: 120  # the drain: the gateway call in hand (60 s timeout) + closing the gateway (20 s, then kill)
+      containers:
+        - name: whatsapp
+          image: yyc-news-stream
+          command: [python, /app/whatsapp_alerts.py, run]
+          # app-env: DISCORD_WEBHOOK (notify.py: the device unlinked or the number banned)
+          envFrom: [{secretRef: {name: app-env}}]
+          env:
+            - {name: DATABASE_URL, valueFrom: {secretKeyRef: {name: db-app, key: uri}}}
+            - {name: DB_POOL_MAX, value: "4"}
+          readinessProbe: {exec: {command: [test, -f, /tmp/whatsapp-started]}, periodSeconds: 2}
+          livenessProbe:
+            exec: {command: [sh, -c, "test -n \"$(find /tmp/whatsapp-alive -mmin -2)\""]}
+            initialDelaySeconds: 60
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 50m
+              memory: 256Mi
+              ephemeral-storage: 50Mi
+            limits:
+              cpu: '1'
+              memory: 256Mi
+              ephemeral-storage: 1Gi
+      priorityClassName: serving
+---
+# a singleton is never evicted: a node move goes through cluster/drain.sh (its own rolling update, new pod first,
+# lock handover), so a bare `kubectl drain` waits here instead of cutting it (tests/test_rollouts.py Disruptions)
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: whatsapp
+  namespace: yyc
+spec:
+  maxUnavailable: 0
+  selector:
+    matchLabels: {app: whatsapp}

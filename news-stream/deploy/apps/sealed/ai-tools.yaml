@@ -1,0 +1,18 @@
+# SealedSecret made by infra/seal.py from the store `yyc` (map: infra/secrets.txt). Don't edit: re-seal.
+---
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: ai-tools
+  namespace: yyc
+spec:
+  encryptedData:
+    ANYAPI_API_KEY: AgAXTQ+HnHnzmIbOjPpF3847gH6LYOPnDTwYmAQWo4qGoO6O9dVSHcSfzRgSPQhBznst0owfkz8IC0DcUAVBM2s3yKWW5C5VDmXRxG/8I4QqFQrEg3rTDcmQBI7KFPZvQMFHLKf4/CUOp0AQtgO4BsVRIOjbX0EXt50V45q7ypSmTozhkeFbPGnwLL3vS0lteATWLivvLCw0igL1o/+uH1Y2Tj9bmkIZ9xvGKVSKkbZjKiA8iS6CB1b6dL/LqTBDpmi6CUZkVpdOD9orpHNPZX4JfbGQ5mQjKZylcH84GnLqlzXuwpwTeKTWI47JLrHoyZCqIxw+wEC5MO1k3nascOOn9ef5e7Bfa4QIUV8+sWcF/9ux9PCQuKGdqS20sWHswVeL3cfysYk2kc6X1uiUuvm5eiqU6q1zWzoZSVsBM9r5WALIhGeGNhW/xVKvSoPLMKtviF7ggG/wHuRLhWinAtXmgMct6ttswdxY3rdHpVp/Mb0YL6/hntHuMaEy66+MycQSmCW9pWO/wTyHBL1XU87LyPhM6P2/ZxeJvNfBNe7TbUXoa9cwgH9vvF408J++8pE0fGc6e+T7kBHUNDMGU2kPKwcNXuHL4AutXYbVVWAWnxNBicroDeRNAnDJUU0qBJPtyV2Tpxl4P0N/utZwYD8zmhq5ubOVFdpzW+/5d7wGE6/fj+GO5f1n3jQhB0vPiuJ4MmS/SSKv9d5lHPoj8vxi5sp+BydLKDNSwPolK5PYXqow3vTigbrmkQqxF2iakfLlfziFy9pBZQ==
+    EXA_API_KEY: AgC2uqVv1ISR4HIcNGDFHpAqSrQV+Rni2GpOejv7P/8qBlA5iKgNF/nG6HmjFs7XM9u+WpTdcdwBQVP92DQ9jYhslQKbNPK5JTq/lD2thYtMx+OmpywuXrcP9ZQFlnyBAQNZxMbXEydyGlJ72Mrch8nGiiOeiKSNVrPL9yRTG1Iy8+RaLgNPaAAhlw0suEAo8kdtZ4X7H5S6TthvIXe9nhFKXoI+xnAtN+q9V8D6fxhxDaE3xLzib91FmJxCkEA92QvULY/WHFct90zvNQFARcq3/tHQdQoWcaG+4jl6eRyvMWSiUnoDfDZ5WWDKgN0rDU0LG20/oXKtJ1QKqvBmAQgYY4ievtAXVogS/R46bzbsgar1FWIU/VLR9x+uV5TnG3MXicTTCwuSLGpXR5jiXFFYw7SktWyQZ0yepxI0vXg+1M5SmIyikPvPJyXKbNelnZILBhnOWr+ga5JFPqXghuB1PNzGNeFo8qMBEbK2Eywaa0Asccqy09sXVXNcnecjwHRRqhhnPgiKYDMKVYU3GTqAwXJBoSmXlQ0cTZu2c4tbZeUZUWpSg989rQpQj5a8Q+UdTUM3MruIvYEccOM8zPMD4WKRsZ2YBOzBf2o9sU2oDWdFT17hqP/noKO/goFHMxL2v+j3KuswYLCufAwoLr9LU6rM8RJlSB8gDoI7d33FUQL8Si5htS+lNHmiq1Vizf6UbhoZVtAb7ThP5iQYWRG5uCLNK2N7hIZ76SWp/9Csu0mSmLo=
+  template:
+    metadata:
+      annotations:
+        kustomize.toolkit.fluxcd.io/prune: disabled
+      name: ai-tools
+      namespace: yyc
+    type: Opaque

@@ -1,0 +1,8 @@
+# The gateway node yyc-talos-gw1 (README "The gateway node").
+# Its own pool: YYC AI's pods select pool=apps (and prefer fsn1), so a pool=apps gateway, the one fsn1 node, would draw
+# them onto this small node. hermit-gateway selects hermit.yyc/gateway=true (gateway-net.sh) and network yyc.
+apiVersion: v1alpha1
+kind: KubeNodeConfig
+labels:
+  yyc.hetzner/network: "yyc"
+  pool: gateway
