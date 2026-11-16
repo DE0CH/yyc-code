@@ -22,7 +22,9 @@ jobs:
     runs-on: xcode-27
     timeout-minutes: 60
     env:
-      BUILD_NUMBER: ${{ github.run_number }}0${{ github.run_attempt }}
+      # the leading 1: run numbers started again at 1 when the workflow moved here, and TestFlight takes only a
+      # build number above the last one (701, DE0CH/YYC's run 7)
+      BUILD_NUMBER: 1${{ github.run_number }}0${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@v4
       - name: Xcode and a simulator matching Deyao's iPhone
