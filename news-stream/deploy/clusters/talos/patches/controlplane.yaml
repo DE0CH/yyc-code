@@ -1,8 +1,8 @@
 # The three control nodes (yyc-ai/refactor DESIGN 15.2 N1, input I4; deploy-workflows 4.1): the API server trusts
 # GitHub Actions' OIDC tokens for yyc-ai.yml (deploy-workflows 4.1's rules, in Talos's own
 # KubeAuthenticationConfig) and for talos-nodes.yml (the node work, README "Node work"), each workflow only with its
-# own environment, so a token maps to `gha:yyc-ai` or `gha:talos-nodes`; the workflows of DE0CH/YYC (repository id
-# 1409834116) and of DE0CH/yyc-code (1459689480), where they are moving; 127.0.0.1 in its SANs for the deploy tunnel,
+# own environment, so a token maps to `gha:yyc-ai` or `gha:talos-nodes`; only the workflows of DE0CH/yyc-code
+# (repository id 1459689480); 127.0.0.1 in its SANs for the deploy tunnel,
 # etcd on network `yyc`; Talos API access from pods in namespace talos-ops (the etcd snapshot CronJob, the node-work
 # Jobs); the scheduler packs nodes (MostAllocated: the Descheduler's HighNodeUtilization needs it). No workloads on
 # control nodes (Talos's default taint; they are ARM, the workloads x86).
@@ -17,7 +17,7 @@ configuration:
         url: https://token.actions.githubusercontent.com
         audiences: [yyc-cluster]
       claimValidationRules:
-        - {expression: "claims.repository_id == '1409834116' || claims.repository_id == '1459689480'", message: "repo"}
+        - {expression: "claims.repository_id == '1459689480'", message: "repo"}
         - {expression: "claims.ref == 'refs/heads/main'", message: "main only"}
         # one environment per workflow: yyc-ai.yml deploys YYC AI (gha:yyc-ai), talos-nodes.yml does the node work
         # (gha:talos-nodes, RBAC in ../node-work.yaml), talos-cluster.yml applies this folder (gha:talos-cluster,
@@ -25,17 +25,13 @@ configuration:
         # ../apps-access.yaml); a workflow can never take another's name
         - expression: >-
             (claims.environment == 'yyc-ai' &&
-             (claims.job_workflow_ref.startsWith('DE0CH/YYC/.github/workflows/yyc-ai.yml@refs/heads/main') ||
-              claims.job_workflow_ref.startsWith('DE0CH/yyc-code/.github/workflows/yyc-ai.yml@refs/heads/main'))) ||
+             claims.job_workflow_ref.startsWith('DE0CH/yyc-code/.github/workflows/yyc-ai.yml@refs/heads/main')) ||
             (claims.environment == 'talos-nodes' &&
-             (claims.job_workflow_ref.startsWith('DE0CH/YYC/.github/workflows/talos-nodes.yml@refs/heads/main') ||
-              claims.job_workflow_ref.startsWith('DE0CH/yyc-code/.github/workflows/talos-nodes.yml@refs/heads/main'))) ||
+             claims.job_workflow_ref.startsWith('DE0CH/yyc-code/.github/workflows/talos-nodes.yml@refs/heads/main')) ||
             (claims.environment == 'talos-cluster' &&
-             (claims.job_workflow_ref.startsWith('DE0CH/YYC/.github/workflows/talos-cluster.yml@refs/heads/main') ||
-              claims.job_workflow_ref.startsWith('DE0CH/yyc-code/.github/workflows/talos-cluster.yml@refs/heads/main'))) ||
+             claims.job_workflow_ref.startsWith('DE0CH/yyc-code/.github/workflows/talos-cluster.yml@refs/heads/main')) ||
             (claims.environment == 'yyc-apps' &&
-             (claims.job_workflow_ref.startsWith('DE0CH/YYC/.github/workflows/yyc-apps.yml@refs/heads/main') ||
-              claims.job_workflow_ref.startsWith('DE0CH/yyc-code/.github/workflows/yyc-apps.yml@refs/heads/main')))
+             claims.job_workflow_ref.startsWith('DE0CH/yyc-code/.github/workflows/yyc-apps.yml@refs/heads/main'))
           message: "workflow and environment"
       claimMappings:
         username: {expression: "'gha:' + claims.environment"}
