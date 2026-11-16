@@ -2162,7 +2162,7 @@ SAAS_NAMES = ("yyc.deyaochen.com", "yyc-beta.deyaochen.com", "mailmerge.deyaoche
 SAAS_TARGET = "customers.yyc-internal.com"
 DOH = "https://cloudflare-dns.com/dns-query?type=CNAME&name="
 # YYC's Cloudflare account as code is applied by the GitHub workflow cloudflare.yml, which posts a failed run to Discord
-TOFU_RUNS = "https://github.com/DE0CH/YYC/actions/workflows/cloudflare.yml"
+TOFU_RUNS = "https://github.com/DE0CH/yyc-code/actions/workflows/cloudflare.yml"
 
 
 def _cname(name):

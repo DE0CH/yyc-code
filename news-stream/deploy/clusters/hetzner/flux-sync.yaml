@@ -1,4 +1,4 @@
-# Flux on the Hetzner cluster (applied once by cluster/cluster.sh flux; from then on Flux follows DE0CH/YYC main):
+# Flux on the Hetzner cluster (applied once by cluster/cluster.sh flux; from then on Flux follows DE0CH/yyc-code main):
 #   yyc-apps  ./news-stream/deploy/clusters/hetzner  (the apps base + this cluster's StorageClass and state)
 #   yyc-aiwatch ./ai-watch/deploy                     (YYC AI watch, namespace aiwatch; its own folder)
 #   yyc-apps-secrets, yyc-aiwatch-secrets  the SealedSecrets in */sealed/, FENCED (below); nothing here decrypts anything.
@@ -12,7 +12,7 @@ metadata:
 spec:
   interval: 1m
   timeout: 3m                # the clone of the whole repo (73 MB packed, 2026-10-28) outgrew the default 60 s
-  url: ssh://git@github.com/DE0CH/YYC.git
+  url: ssh://git@github.com/DE0CH/yyc-code.git
   ref:
     branch: main
   secretRef:

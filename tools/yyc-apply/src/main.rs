@@ -1,4 +1,4 @@
-//! yyc-apply: how a push to DE0CH/YYC reaches the cluster (deploy-workflows.md 6; tools/yyc-apply/README.md).
+//! yyc-apply: how a push to DE0CH/yyc-code reaches the cluster (deploy-workflows.md 6; tools/yyc-apply/README.md).
 //! Drives kubectl (server-side apply, dry runs) and kustomize; owns the inventory, the deletion gate, the order and
 //! the waits. Knows nothing about YYC AI beyond its flags.
 

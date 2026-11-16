@@ -3,12 +3,12 @@
 # Idempotent: re-run it to re-apply the setup or rotate secrets. Prints no secret values.
 #
 #   YYC_HETZNER_API   the project's Read & Write API token
-#   SECRETS           a folder (mode 700) with: admin + admin.pub (SSH), deploy (read-only deploy key of DE0CH/YYC),
+#   SECRETS           a folder (mode 700) with: admin + admin.pub (SSH), deploy (read-only deploy key of DE0CH/yyc-code),
 #                     tunnel-token (now deploy/cloudflare, tofu), stream.env (OPENROUTER_API=…, RESI_PROXY=…, TIKHUB_API=…, ANYAPI_API_KEY=…)
 #
 # The server: Ubuntu 24.04, cx23 in fsn1, a firewall allowing only SSH in (the page is served through the
 # Cloudflare tunnel, outbound only). systemd runs the poller (yyc-poller), two web instances (yyc-web@8081/8082)
-# behind nginx, cloudflared, and a 5-minute timer that pulls DE0CH/YYC main and, when news-stream/ changed, restarts
+# behind nginx, cloudflared, and a 5-minute timer that pulls DE0CH/yyc-code main and, when news-stream/ changed, restarts
 # the poller and rolls the web instances one at a time: pushing to main deploys without downtime. A 30-minute timer
 # runs the browser job for the Cloudflare-walled sites (Google Chrome + Patchright under Xvfb).
 set -euo pipefail
@@ -56,7 +56,7 @@ dpkg -s fonts-noto-cjk >/dev/null 2>&1 || apt-get install -yq fonts-noto-cjk
 /opt/yyc-venv/bin/pip install -q --upgrade patchright curl_cffi pillow openpyxl python-docx 'gunicorn==23.0.0'
 id yyc >/dev/null 2>&1 || useradd --system --create-home --home-dir /var/lib/yyc yyc
 export GIT_SSH_COMMAND="ssh -i /etc/yyc-stream/deploy -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/etc/yyc-stream/known_hosts"
-[ -d /opt/yyc/.git ] || git clone -q git@github.com:DE0CH/YYC.git /opt/yyc
+[ -d /opt/yyc/.git ] || git clone -q git@github.com:DE0CH/yyc-code.git /opt/yyc
 git -C /opt/yyc fetch -q origin main && git -C /opt/yyc reset -q --hard origin/main
 install -d -o yyc -g yyc -m 700 /var/lib/yyc/data
 cp /etc/yyc-stream/stream.env /etc/yyc-stream/app.env && chown root:yyc /etc/yyc-stream/app.env && chmod 640 /etc/yyc-stream/app.env
@@ -366,7 +366,7 @@ EOF
 
 cat > /usr/local/bin/yyc-update <<'EOF'
 #!/bin/sh
-# follow DE0CH/YYC main (the checkout is disposable: reset, never merge); restart the app when news-stream/
+# follow DE0CH/yyc-code main (the checkout is disposable: reset, never merge); restart the app when news-stream/
 # changed. One run at a time (a manual run and the timer once raced and left a half-updated tree).
 exec 9>/run/yyc-update.lock
 flock -w 120 9 || exit 1
@@ -395,7 +395,7 @@ EOF
 chmod 755 /usr/local/bin/yyc-update
 cat > /etc/systemd/system/yyc-update.service <<'EOF'
 [Unit]
-Description=pull DE0CH/YYC and roll the stream's services on change
+Description=pull DE0CH/yyc-code and roll the stream's services on change
 [Service]
 Type=oneshot
 ExecStart=/usr/local/bin/yyc-update
@@ -403,7 +403,7 @@ TimeoutStartSec=1200
 EOF
 cat > /etc/systemd/system/yyc-update.timer <<'EOF'
 [Unit]
-Description=pull DE0CH/YYC every 5 minutes
+Description=pull DE0CH/yyc-code every 5 minutes
 [Timer]
 OnBootSec=2min
 OnUnitActiveSec=5min

@@ -114,8 +114,8 @@ S = {
      url="https://www.ofca.gov.hk/en/consumer_focus/guide/hot_topics/sim_registration/"),
  "yyc-volume": dict(title="YYC news stream database: stream_items per stream and day (query run on the yyc cluster)", author="Claude for Deyao", publisher="YYC news stream (first-party data)", date="2026-10-16", kind="accessed-only", type="First-party",
      url="https://newswatch.yyc-internal.com/"),
- "yyc-telegram": dict(title="news-stream/README.md, Telegram channels and Telegram marks; telegram_alerts.py", author="Deyao / Claude", publisher="DE0CH/YYC repository", date="2026-10-15", kind="updated", type="First-party",
-     url="https://github.com/DE0CH/YYC/blob/main/news-stream/README.md"),
+ "yyc-telegram": dict(title="news-stream/README.md, Telegram channels and Telegram marks; telegram_alerts.py", author="Deyao / Claude", publisher="DE0CH/yyc-code repository", date="2026-10-15", kind="updated", type="First-party",
+     url="https://github.com/DE0CH/yyc-code/blob/main/news-stream/README.md"),
  "yyc-kmatrix": dict(title="K-Matrix watch archive (kmatrix/archive.json on the yyc cluster): 201 alerts in the three K-Matrix & YYC groups", author="Claude for Deyao", publisher="YYC news stream (first-party data)", date="2026-10-16", kind="accessed-only", type="First-party",
-     url="https://github.com/DE0CH/YYC/tree/main/news-stream/kmatrix"),
+     url="https://github.com/DE0CH/yyc-code/tree/main/news-stream/kmatrix"),
 }

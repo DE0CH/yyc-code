@@ -1,4 +1,4 @@
-# YYC name tags — design (DE0CH/YYC `nametags/`)
+# YYC name tags — design (DE0CH/yyc-code `nametags/`)
 
 Staff search the event's guest list on an iPhone, tap a guest, see the name tag, press Print; the tag comes out of
 the NIIMBOT M3 (75×50 mm labels) next to Deyao's MacBook. Decisions (Deyao, 2026-10-29): list → tap → preview page

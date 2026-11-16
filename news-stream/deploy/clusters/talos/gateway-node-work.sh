@@ -8,9 +8,9 @@
 #   hermit-admin.sh gateway-maintenance --node-work news-stream/deploy/clusters/talos/gateway-node-work.sh
 #
 # --node: the gateway node (default: the one node labelled hermit.yyc/gateway=true, read with kubectl; yyc-talos-gw1).
-# Env: GH_TOKEN with Actions write on DE0CH/YYC; KUBECONFIG when --node is not given.
+# Env: GH_TOKEN with Actions write on DE0CH/yyc-code; KUBECONFIG when --node is not given.
 set -euo pipefail
-REPO=DE0CH/YYC
+REPO=DE0CH/yyc-code
 k8s='' node=''
 while [ $# -gt 0 ]; do
   case "$1" in

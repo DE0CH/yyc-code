@@ -14,7 +14,7 @@
 #                CronJobs start (each keeps the suspend it has in ../apps)
 #
 # Env: SECRETS (cluster.sh), OLD_SSH = root@<a node of OLD that has the files and NEW's kubeconfig>, FROM/TO = overlay names,
-# REPO = a clone of DE0CH/YYC (default: this one). Runs kubectl on OLD over ssh and on NEW via cluster.sh ssh; the
+# REPO = a clone of DE0CH/yyc-code (default: this one). Runs kubectl on OLD over ssh and on NEW via cluster.sh ssh; the
 # file copies run on OLD, straight to NEW's API over the private network (/root/hk3s/kubeconfig from cluster.sh).
 set -euo pipefail
 : "${SECRETS:?}" "${OLD_SSH:?}"

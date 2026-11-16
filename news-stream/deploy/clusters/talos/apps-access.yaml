@@ -1,6 +1,6 @@
 # Who applies the YYC apps on yyc-talos (plan yyc-ai/refactor/talos-apps-move.md, step P3), as yyc-ai-access.yaml does
 # for YYC AI: the apps' namespaces and cluster-level objects, and the rights of `gha:yyc-apps`, the user the control
-# nodes' authenticator maps a GitHub OIDC token of DE0CH/YYC main, environment yyc-apps, workflow yyc-apps.yml to
+# nodes' authenticator maps a GitHub OIDC token of DE0CH/yyc-code main, environment yyc-apps, workflow yyc-apps.yml to
 # (a rule in patches/controlplane.yaml). The workflow (.github/workflows/yyc-apps.yml) applies ./apps (namespaces yyc,
 # mailmerge; inventory yyc-deploy/inventory-yyc-apps), ./aiwatch (namespace aiwatch; inventory
 # yyc-deploy/inventory-yyc-aiwatch), ./feishu-index (namespace feishu-index; inventory yyc-deploy/inventory-yyc-feishu-index)

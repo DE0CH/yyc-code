@@ -1,6 +1,6 @@
 # Who the deploy workflow is on yyc-talos (yyc-ai/refactor deploy-workflows 4.2 and 12.3, DESIGN 15.3): YYC AI's
 # namespaces and the rights of `gha:yyc-ai`, the user the control nodes' authenticator maps a GitHub OIDC token of
-# DE0CH/YYC main, environment yyc-ai, workflow yyc-ai.yml to (patches/controlplane.yaml). Cluster-level on purpose
+# DE0CH/yyc-code main, environment yyc-ai, workflow yyc-ai.yml to (patches/controlplane.yaml). Cluster-level on purpose
 # (this folder, the cluster's own apply): a yyc-ai commit can neither widen its own rights nor relabel a namespace;
 # `yyc-apply check` (item 9) fails a render that leaves them, item 12 a Namespace or RBAC outside yyc-ai/yyc-ai-fabric.
 # The fence (`yyc-deploy/sealed-secrets-applier`) is ./sealed-secrets.yaml; the connector of tunnel yyc-deploy is

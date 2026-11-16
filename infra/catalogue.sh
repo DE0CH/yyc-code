@@ -31,7 +31,7 @@ case "${1:-}" in
     norm=$(umask 077; mktemp); trap 'rm -f "$norm"' EXIT
     jq . "$file" > "$norm"; file=$norm
     "${CLAUDE_ENV:-/workspace}/scripts/store-put.py" yyc "YYC_CATALOGUE_JSON=file:$file" --explain \
-      "YYC_CATALOGUE_JSON=YYC's access catalogue (who may use every YYC app, and the admins): JSON users/admins. Sealed into yyc-ai/catalogue and yyc/yyc-catalogue, and the Actions secret of the same name (DE0CH/YYC infra/catalogue.sh)"
+      "YYC_CATALOGUE_JSON=YYC's access catalogue (who may use every YYC app, and the admins): JSON users/admins. Sealed into yyc-ai/catalogue and yyc/yyc-catalogue, and the Actions secret of the same name (DE0CH/yyc-code infra/catalogue.sh)"
     python3 "$here/seal.py" yyc-ai/catalogue --stdin catalogue.json < "$file"
     python3 "$here/seal.py" yyc/yyc-catalogue@talos --stdin config.json < "$file"
     # on ONE line: the runner masks every line of a secret by itself, and a line "{" or "]," would turn those into ***

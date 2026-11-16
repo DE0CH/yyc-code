@@ -175,7 +175,7 @@ store `yyc`): `YYC_CF_ACCESS_EDGE_TOKEN`, the Google sign-in client `YYC_CF_GOOG
 State: R2 bucket `yyc-tofu-state` on YYC's account (backend in `tofu/main.tf`, lockfile locking; token `yyc-tofu-state`).
 Outputs (tunnel tokens, service token, Access audiences): `tofu output` there with the R2 key; the tokens are copied into
 the store `yyc` (`YYC_CF_*_TUNNEL_TOKEN`, `YYC_MCP_OIDC_CLIENT_*`) and sealed from there. A failed run, and the first
-good one after it, go to Discord; runs: https://github.com/DE0CH/YYC/actions/workflows/cloudflare.yml (re-run there, or
+good one after it, go to Discord; runs: https://github.com/DE0CH/yyc-code/actions/workflows/cloudflare.yml (re-run there, or
 `gh workflow run cloudflare.yml`). Before a push that deletes or replaces something, plan against the live state
 locally (`AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY` = the R2 key, `TF_VAR_*` as in the workflow, `tofu plan`).
 

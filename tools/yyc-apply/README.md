@@ -1,6 +1,6 @@
 # yyc-apply
 
-How a push to DE0CH/YYC reaches the cluster: the applier behind `.github/workflows/yyc-ai.yml` (design:
+How a push to DE0CH/yyc-code reaches the cluster: the applier behind `.github/workflows/yyc-ai.yml` (design:
 `yyc-ai/refactor/deploy-workflows.md` 5-6 and 12, spec-platform 13, DESIGN 15.3). It targets the new Talos cluster
 `yyc-talos`, which started empty: there is no hand-over from Flux, so the inventory starts empty too. Rust, one binary, used by the workflow and from a
 session. It drives `kubectl` (server-side apply, server-side dry runs, `rollout status`) and `kustomize build`
