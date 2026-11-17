@@ -9,9 +9,9 @@ posts.text_via / text_via_url, which the item page shows):
   - Reuters (no paywall; its DataDome bot wall answers every plain client 401 with an interstitial "device check"):
     Reuters' own content API (/pf/api/v3/content/fetch/article-by-id-or-url-v1, the JSON its pages are built from,
     ~20 KB against ~480 KB for the page) read with a DataDome cookie that CapSolver solves (DatadomeSliderTask: the
-    interstitial and the slider captcha), through YYC's ISP IP (ISP_PROXY, flat rate; Deyao 2026-11-17: a solver before
-    residential traffic) or, without it, the residential proxy sub-user yycstream (RESI_PROXY, GB exit) on one sticky IP,
-    for the solve and the reads, with the User-Agent CapSolver requires. The poller's Reuters source reads its sitemaps
+    interstitial and the slider captcha), through YYC's residential proxy sub-user yycstream (RESI_PROXY, GB exit) on one
+    sticky IP for the solve and the reads, with the User-Agent CapSolver requires (the ISP IP was tried first on
+    17 Nov 2026: CapSolver can't load the captcha through it). The poller's Reuters source reads its sitemaps
     the same way (reuters_page: DataDome guards them too since 30 Oct 2026). The cookie, the proxy session and
     the User-Agent are kept in kv (paywall:datadome) and reused across pages, threads and runs; a new solve only when
     Reuters answers 401/403 again (a ban of the IP, "t":"bv", takes a new proxy session). text_via 'solver'.
@@ -283,65 +283,53 @@ def isp_turn(route):
 
 def _dd_get(url, accept, referer=None):
     """GET a reuters.com URL with the solved DataDome session (kv paywall:datadome) → (session, response) for the
-    first answer that is not DataDome's (200, 404 …). The route is YYC's ISP IP when ISP_PROXY is set (flat rate,
-    Deyao 2026-11-17: a solver before residential traffic), its lock held for the reads and the solve (CapSolver
-    connects through the same proxy, and the ISP IP takes one client at a time: the session is closed before it); else
-    yycstream on a sticky GB IP (a banned IP takes a new session). referer: the page the solver is told the challenge
-    came from (an API read: its article's URL). Raises Blocked when it can't be read."""
-    route = "isp" if isp_proxy() else "resi"
-    with isp_turn(route):
-        st = _dd_state()
-        if st.get("route", "resi") != route:  # a cookie is bound to the IP it was solved on
-            st = {}
-        for attempt in range(DD_SOLVES + 1):
-            if not st.get("sid"):
-                st = {"sid": "".join(random.choices(string.ascii_lowercase + string.digits, k=8)), "route": route}
-            px = isp_proxy() if route == "isp" else proxy_url(st["sid"])
-            s = _session(px, DD_IMPERSONATE, **({"isp": True} if route == "isp" else {}))
-            if st.get("cookie"):
-                s.cookies.set("datadome", st["cookie"], domain=".reuters.com")
-            try:
-                h = {"User-Agent": DD_UA, "Accept": accept, "Accept-Language": "en-GB,en;q=0.9"}
-                r = s.get(url, headers=dict(h, **(NO_KEEPALIVE if route == "isp" else {})), timeout=TIMEOUT)
-            except resi.ProxyOut:
-                raise  # out of traffic (resi.py: one record, kv proxy_out): a pause for the readers, not a failed try
-            except Exception as e:
-                raise Blocked(f"reuters via the {route} route: {e!r}"[:300])
-            ch = dd_challenge(r.text, referer or url) if r.status_code in (401, 403) else None
-            if ch is None:
-                got = s.cookies.get("datadome", domain=".reuters.com")  # DataDome renews its cookie as it goes
-                if got and got != st.get("cookie"):
-                    st["cookie"] = got
-                    corpus.kv_set("paywall:datadome", st)
-                return s, r
-            if attempt == DD_SOLVES:
-                break
-            if route == "isp":  # CapSolver can't load the captcha through the ISP IP ("load captcha page error: request
-                # timeout, please change the proxy", 17 Nov 2026: the IP takes one connection at a time) and a solve
-                # held the ISP lock for minutes: no solve there, the read fails at once
-                raise Blocked("reuters: DataDome asks a captcha, and CapSolver can't solve it through the ISP IP")
-            s.close()
-            with corpus.lock("paywall:datadome"):  # one solve at a time across threads and pods
-                now = _dd_state()
-                if now.get("cookie") and now.get("cookie") != st.get("cookie") and now.get("route", "resi") == route:
-                    st = now  # another reader solved meanwhile
-                    continue
-                curl, banned = ch
-                if banned:
-                    if route == "isp":  # one fixed IP: no other to take
-                        raise Blocked("reuters: DataDome banned the ISP IP")
-                    st = {}  # this IP is banned: a new sticky IP
-                    continue
-                try:
-                    st = {"sid": st["sid"], "route": route, "cookie": solve_datadome(curl, px, "reuters"),
-                          "at": datetime.now(HKT).isoformat(timespec="seconds")}
-                except Blocked as e:
-                    print("reuters solve:", e, flush=True)
-                    if getattr(e, "limit", False):  # the solver's balance: no point trying again now (a safety stop)
-                        raise
-                    st = {} if route == "resi" else {"sid": st["sid"], "route": route}
-                    continue
+    first answer that is not DataDome's (200, 404 …), on yycstream's sticky GB IP (a banned IP takes a new session).
+    The cluster's IP gets Akamai's hard 403, and CapSolver can't load the captcha through the ISP IP (one connection
+    at a time; 17 Nov 2026), so Reuters is yycstream's (Deyao, 2026-11-17). referer: the page the solver is told the
+    challenge came from (an API read: its article's URL). Raises Blocked when it can't be read."""
+    st = _dd_state()
+    for attempt in range(DD_SOLVES + 1):
+        if not st.get("sid"):
+            st = {"sid": "".join(random.choices(string.ascii_lowercase + string.digits, k=8))}
+        px = proxy_url(st["sid"])
+        s = _session(px, DD_IMPERSONATE)
+        if st.get("cookie"):
+            s.cookies.set("datadome", st["cookie"], domain=".reuters.com")
+        try:
+            r = s.get(url, headers={"User-Agent": DD_UA, "Accept": accept, "Accept-Language": "en-GB,en;q=0.9"},
+                      timeout=TIMEOUT)
+        except resi.ProxyOut:
+            raise  # out of traffic (resi.py: one record, kv proxy_out): a pause for the readers, not a failed try
+        except Exception as e:
+            raise Blocked(f"reuters via the proxy: {e!r}"[:300])
+        ch = dd_challenge(r.text, referer or url) if r.status_code in (401, 403) else None
+        if ch is None:
+            got = s.cookies.get("datadome", domain=".reuters.com")  # DataDome renews its cookie as it goes
+            if got and got != st.get("cookie"):
+                st["cookie"] = got
                 corpus.kv_set("paywall:datadome", st)
+            return s, r
+        if attempt == DD_SOLVES:
+            break
+        with corpus.lock("paywall:datadome"):  # one solve at a time across threads and pods
+            now = _dd_state()
+            if now.get("cookie") and now.get("cookie") != st.get("cookie"):  # another reader solved meanwhile
+                st = now
+                continue
+            curl, banned = ch
+            if banned:  # this IP is banned: a new sticky IP
+                st = {}
+                continue
+            try:
+                st = {"sid": st["sid"], "cookie": solve_datadome(curl, px, "reuters"),
+                      "at": datetime.now(HKT).isoformat(timespec="seconds")}
+            except Blocked as e:
+                print("reuters solve:", e, flush=True)
+                if getattr(e, "limit", False):  # the solver's balance: no point trying again now (a safety stop)
+                    raise
+                st = {}
+                continue
+            corpus.kv_set("paywall:datadome", st)
     raise Blocked("reuters: DataDome kept answering")
 
 
@@ -383,7 +371,7 @@ def reuters_page(url):
 
 def reuters_read(url):
     """sources.READERS's reader for sid reuters → (text, route)"""
-    return reuters_page(url), "isp" if isp_proxy() else "yycstream"
+    return reuters_page(url), "yycstream"
 
 
 # ---- Bloomberg: the page's own data ----
@@ -511,6 +499,10 @@ def archive_text(page):
 # paywall:archive:isp and paywall:archive:resi (with the proxy's sticky session id).
 ROUTES = {"direct": "paywall:archive", "isp": "paywall:archive:isp", "resi": "paywall:archive:resi"}
 NO_KEEPALIVE = {"Connection": "close"}  # the ISP IP's one client: no tunnel left open between two lock holds
+# the ISP IP refusing a second client ("CONNECT tunnel failed, response 403": another job's connection still open after
+# its lock was released, 17 Nov 2026 ended a run on all four mirrors): wait and try the same mirror again
+TUNNEL_REFUSED = re.compile(r"Tunnel connection failed: 403|CONNECT tunnel failed, response 403")
+ISP_REFUSED, ISP_REFUSED_WAIT = 3, 5.0
 
 
 def lookup_route():
@@ -606,13 +598,21 @@ def archive_get(path, s=None, route="direct"):
     last = None
     for m in MIRRORS:
         url = f"https://{m}{path}"
-        try:
-            with isp_turn(route):
-                r = s.get(url, timeout=(15, 60), **kw)
-        except resi.ProxyOut:
-            raise  # out of traffic: every mirror would say the same
-        except Exception as e:  # the mirror doesn't answer from this IP: the next one
-            last = e
+        r = None
+        for i in range(ISP_REFUSED + 1):
+            try:
+                with isp_turn(route):
+                    r = s.get(url, timeout=(15, 60), **kw)
+                break
+            except resi.ProxyOut:
+                raise  # out of traffic: every mirror would say the same
+            except Exception as e:  # the mirror doesn't answer from this IP: the next one
+                last = e
+                if route == "isp" and i < ISP_REFUSED and TUNNEL_REFUSED.search(repr(e)):
+                    time.sleep(ISP_REFUSED_WAIT)  # another client's connection still holds the ISP IP: wait, again
+                    continue
+                break
+        if r is None:
             continue
         if captcha_page(r):
             if not os.environ.get("TWOCAPTCHA_API"):  # no solver key (TWOCAPTCHA_API unset): no

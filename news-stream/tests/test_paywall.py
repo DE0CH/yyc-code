@@ -226,43 +226,17 @@ class Reuters(unittest.TestCase):
         self.assertEqual(len(self.tasks), 1)  # the ban was not sent to the solver
         self.assertNotEqual(FakeSession.made[0].proxy, FakeSession.made[1].proxy)
 
-    def test_on_the_isp_ip(self):
-        """with ISP_PROXY (Deyao, 2026-11-17: a solver before residential traffic): the reads on YYC's ISP IP, under its
-        lock, no kept-alive tunnel, with a cookie solved earlier; a captcha there is no solve (CapSolver can't load it
-        through the ISP IP, and a solve held the lock for minutes): Blocked at once"""
-        held = Held()
-        corpus.kv_set("paywall:datadome", {"sid": "abc", "route": "isp", "cookie": "SOLVED123"})
-
+    def test_reuters_stays_on_yycstream_with_an_isp_ip(self):
+        """17 Nov 2026: CapSolver can't load DataDome's captcha through the ISP IP (one connection at a time) and the
+        cluster's IP gets Akamai's 403: with ISP_PROXY set the solve and the reads still go out on yycstream (Deyao)"""
         def script(s, url):
-            self.assertTrue(held.on, "a read outside the ISP lock")
             return Resp(200, R_JSON) if s.cookies.get("datadome") == "SOLVED123" else Resp(401, DD_PAGE)
-        import sites_fetch
         with mock.patch.dict(os.environ, {"ISP_PROXY": "http://u:p@isp.test:12323"}), \
-                mock.patch.object(sites_fetch, "isp_lock", held), \
-                mock.patch.object(paywall, "_session", lambda proxy=None, imp="chrome", isp=False: FakeSession(script, proxy)), \
+                mock.patch.object(paywall, "_session", lambda proxy=None, imp="chrome": FakeSession(script, proxy)), \
                 mock.patch.object(paywall, "_post", self.capsolver), mock.patch.object(paywall.time, "sleep", lambda s: None):
-            text = paywall.reuters(RURL)
-            self.assertTrue(text.startswith("BEIJING"))
-            self.assertTrue(all(fs.proxy == "http://u:p@isp.test:12323" for fs in FakeSession.made))
-            self.assertTrue(all(h.get("Connection") == "close" for fs in FakeSession.made for h in fs.headers))
-            corpus.kv_set("paywall:datadome", None)
-            with self.assertRaises(paywall.Blocked):
-                paywall.reuters(RURL)
-        self.assertEqual(self.tasks, [])
-        self.assertFalse(held.on)
-
-    def test_a_banned_isp_ip_is_blocked(self):
-        """one fixed IP: a DataDome ban is not sent to the solver and no other IP is taken (residential needs Deyao)"""
-        import sites_fetch
-        with mock.patch.dict(os.environ, {"ISP_PROXY": "http://u:p@isp.test:12323"}), \
-                mock.patch.object(sites_fetch, "isp_lock", Held()), \
-                mock.patch.object(paywall, "_session", lambda proxy=None, imp="chrome", isp=False:
-                                  FakeSession(lambda s, u: Resp(401, DD_BANNED), proxy)), \
-                mock.patch.object(paywall, "_post", self.capsolver):
-            with self.assertRaises(paywall.Blocked):
-                paywall.reuters(RURL)
-        self.assertEqual(self.tasks, [])
-        self.assertEqual(len(FakeSession.made), 1)
+            self.assertTrue(paywall.reuters(RURL).startswith("BEIJING"))
+        self.assertTrue(all("geo.iproyal.com" in fs.proxy for fs in FakeSession.made))
+        self.assertTrue(self.tasks[0]["proxy"].startswith("http:geo.iproyal.com:12321:yycstream:"))
 
     def test_the_source_reads_its_sitemaps_through_the_solved_session(self):
         """the poller's Reuters source: DataDome answers its sitemaps 401 since 30 Oct 2026; every page (the news
@@ -552,6 +526,29 @@ class Archive(unittest.TestCase):
             self.assertEqual(paywall.archive_run(), {"submitted": 1})
         self.assertEqual(set(made), {("http://u:p@isp.test:12323", True)})
         self.assertTrue(any("/newest/" in u for u in seen) and any("/submit/" in u for u in seen))
+
+    def test_isp_ip_refusing_a_second_client_is_waited_for(self):
+        """the ISP IP answers "CONNECT tunnel failed, response 403" while another job's connection is still open (17 Nov
+        2026: a run ended on all four mirrors): the same mirror is tried again after a pause"""
+        self.excerpt_post("https://www.ft.com/content/busy")
+        tries, slept = [], []
+
+        class S:
+            cookies = Cookies()
+
+            def get(self, url, timeout=None, headers=None):
+                tries.append(url.split("/")[2])
+                if len(tries) <= 2:
+                    raise ConnectionError("Failed to perform, curl: (7) CONNECT tunnel failed, response 403.")
+                return Resp(200, SNAP, "https://archive.ph/2026/https://www.ft.com/content/busy")
+        import sites_fetch
+        with mock.patch.dict(os.environ, {"ISP_PROXY": "http://u:p@isp.test:12323"}), \
+                mock.patch.object(sites_fetch, "isp_lock", Held()), \
+                mock.patch.object(paywall, "_session", lambda *a, **k: S()), \
+                mock.patch.object(paywall.time, "sleep", lambda s: slept.append(s)):
+            self.assertEqual(paywall.archive_run(), {"archived": 1})
+        self.assertEqual(tries, ["archive.ph"] * 3)
+        self.assertIn(paywall.ISP_REFUSED_WAIT, slept)
 
     def test_cookies_kept_by_an_earlier_version_dont_stop_a_run(self):
         """the 06:17 UTC run of 15 Oct died on kv paywall:archive written before the cookies were kept per mirror
