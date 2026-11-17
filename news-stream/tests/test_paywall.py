@@ -227,10 +227,11 @@ class Reuters(unittest.TestCase):
         self.assertNotEqual(FakeSession.made[0].proxy, FakeSession.made[1].proxy)
 
     def test_on_the_isp_ip(self):
-        """with ISP_PROXY (Deyao, 2026-11-17: a solver before residential traffic): the solve and the reads on YYC's
-        ISP IP, under its lock (one client at a time; CapSolver connects through it during the solve), no kept-alive
-        tunnel"""
+        """with ISP_PROXY (Deyao, 2026-11-17: a solver before residential traffic): the reads on YYC's ISP IP, under its
+        lock, no kept-alive tunnel, with a cookie solved earlier; a captcha there is no solve (CapSolver can't load it
+        through the ISP IP, and a solve held the lock for minutes): Blocked at once"""
         held = Held()
+        corpus.kv_set("paywall:datadome", {"sid": "abc", "route": "isp", "cookie": "SOLVED123"})
 
         def script(s, url):
             self.assertTrue(held.on, "a read outside the ISP lock")
@@ -241,11 +242,13 @@ class Reuters(unittest.TestCase):
                 mock.patch.object(paywall, "_session", lambda proxy=None, imp="chrome", isp=False: FakeSession(script, proxy)), \
                 mock.patch.object(paywall, "_post", self.capsolver), mock.patch.object(paywall.time, "sleep", lambda s: None):
             text = paywall.reuters(RURL)
-        self.assertTrue(text.startswith("BEIJING"))
-        self.assertEqual(self.tasks[0]["proxy"], "http:isp.test:12323:u:p")
-        self.assertTrue(all(fs.proxy == "http://u:p@isp.test:12323" for fs in FakeSession.made))
-        self.assertTrue(all(h.get("Connection") == "close" for fs in FakeSession.made for h in fs.headers))
-        self.assertEqual(corpus.kv_get("paywall:datadome")["route"], "isp")
+            self.assertTrue(text.startswith("BEIJING"))
+            self.assertTrue(all(fs.proxy == "http://u:p@isp.test:12323" for fs in FakeSession.made))
+            self.assertTrue(all(h.get("Connection") == "close" for fs in FakeSession.made for h in fs.headers))
+            corpus.kv_set("paywall:datadome", None)
+            with self.assertRaises(paywall.Blocked):
+                paywall.reuters(RURL)
+        self.assertEqual(self.tasks, [])
         self.assertFalse(held.on)
 
     def test_a_banned_isp_ip_is_blocked(self):

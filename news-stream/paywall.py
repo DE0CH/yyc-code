@@ -316,7 +316,11 @@ def _dd_get(url, accept, referer=None):
                 return s, r
             if attempt == DD_SOLVES:
                 break
-            s.close()  # the ISP IP's one connection: CapSolver's comes next
+            if route == "isp":  # CapSolver can't load the captcha through the ISP IP ("load captcha page error: request
+                # timeout, please change the proxy", 17 Nov 2026: the IP takes one connection at a time) and a solve
+                # held the ISP lock for minutes: no solve there, the read fails at once
+                raise Blocked("reuters: DataDome asks a captcha, and CapSolver can't solve it through the ISP IP")
+            s.close()
             with corpus.lock("paywall:datadome"):  # one solve at a time across threads and pods
                 now = _dd_state()
                 if now.get("cookie") and now.get("cookie") != st.get("cookie") and now.get("route", "resi") == route:
