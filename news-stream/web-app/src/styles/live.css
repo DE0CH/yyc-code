@@ -100,6 +100,13 @@ html.live-doc.live-phone, html.live-doc.live-phone body { overflow-x:hidden; ove
 .lp .st .src { margin-left:auto; }
 .lp .st .bk { width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }  /* Systems: two buckets a line */
 .lp .st .bk.why { color:var(--bad); }
+.lp .st.cols { display:flex; }  /* Systems in two columns when one doesn't hold every line */
+.lp .st .col { flex:none; overflow:hidden; }
+.lp .st .col + .col { margin-left:6px; padding-left:6px; border-left:1px solid var(--rule); }
+.lp .st .col > .sec:first-child { margin-top:0; border-top:0; }
+.lp .st .pc { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }  /* Systems' compact form: a provider's cell */
+.lp .st .pc.why { color:var(--bad); } .lp .st .pc.dim { color:var(--mut); }
+.lp .st .pc > span { color:var(--ink); }
 .lp .st .tag { margin-left:0; }
 /* Jarvis 4: one fixed cell per session, columns sharing one rule; line 1 its state and name, line 2 how long and what runs */
 .lp .js { display:grid; grid-auto-flow:column; font-family:"Fusion Pixel 10","Noto Emoji",monospace; font-size:10px; line-height:14px; }

@@ -427,31 +427,37 @@ const WISERS_STATE: Record<string, string> = { held: "logged in", logged_out: "l
 /** a box narrower than this (a phone) shows each part of a Systems line on its own row; wider, they share one */
 const SYS_NARROW = 600;
 type Part = { k?: string; n: ReactNode };
-/** one line of the Systems panel, its fixed height, and how early it gives way when the panel is full (0: never;
- * red and amber lines are always 0). The panel's box is known in px, so its lines are chosen to fit it (Deyao,
- * 2026-11-12: Postgres, WiseSearch and object storage fell off the bottom of the screen) */
-type Item = { key: string; node: ReactNode; h: number; drop: number };
+/** one line of the Systems panel and its fixed height. The panel's box is known in px and every line is shown: the
+ * lines are laid out to fit it (Deyao, 2026-11-12: Postgres, WiseSearch and object storage fell off the bottom of the
+ * screen; 2026-11-17: "no overflow" means every line fits, never a link to the rest) */
+type Item = { key: string; node: ReactNode; h: number };
 const ROW_PX = 14, SEC_PX = 18;  // live.css .st .row (14px) and .st .sec (16px + 2px margin)
-const row = (key: string, k: string | undefined, children: ReactNode, drop = 1, title?: string): Item =>
-  ({ key, node: <R key={key} k={k} title={title}>{children}</R>, h: ROW_PX, drop: k === "why" || k === "warnc" ? 0 : drop });
-const sec = (key: string, children: ReactNode): Item => ({ key, node: <Sec key={key}>{children}</Sec>, h: SEC_PX, drop: 0 });
+const COL_MIN = 440, COL_GAP = 13;  // a column of the Systems panel at least this wide; between two: live.css .col + .col (6 + 1 + 6)
+const PC_W = 270;  // a provider's cell in the compact form (its name and first figure)
+const row = (key: string, k: string | undefined, children: ReactNode, title?: string): Item =>
+  ({ key, node: <R key={key} k={k} title={title}>{children}</R>, h: ROW_PX });
+const sec = (key: string, children: ReactNode): Item => ({ key, node: <Sec key={key}>{children}</Sec>, h: SEC_PX });
+const height = (xs: Item[]) => xs.reduce((t, x) => t + x.h, 0);
 
-/** the items that fit `px`: the most droppable go first (the last of them first), and a closing line says how many
- * are on the monitor page instead */
-export function fitItems(items: Item[], px: number): Item[] {
-  let total = items.reduce((t, x) => t + x.h, 0);
-  if (total <= px) return items;
-  const out = [...items];
-  let gone = 0;
-  while (total + ROW_PX > px) {
-    let at = -1;
-    out.forEach((x, i) => { if (x.drop > 0 && (at < 0 || x.drop >= out[at].drop)) at = i; });
-    if (at < 0) break;
-    total -= out[at].h;
-    out.splice(at, 1);
-    gone++;
+/** the lines in at most `n` columns of `px` each, in order, a column ending before a heading rather than under it;
+ * null when they don't fit */
+export function flow(items: Item[], n: number, px: number): Item[][] | null {
+  const cols: Item[][] = [[]];
+  let h = 0;
+  for (const x of items) {
+    let col = cols[cols.length - 1];
+    if (h + x.h > px) {
+      if (cols.length >= n) return null;
+      const carry = col.length > 1 && col[col.length - 1].h === SEC_PX ? [col.pop()!] : [];
+      col = [...carry];
+      cols.push(col);
+      h = height(col);
+      if (h + x.h > px) return null;
+    }
+    col.push(x);
+    h += x.h;
   }
-  return gone ? [...out, row("more", "dim", <a href="/app/monitor" target="_blank" rel="noopener noreferrer">{gone} more {gone === 1 ? "line" : "lines"} on the monitor page</a>, 0)] : out;
+  return cols;
 }
 
 /** parts → lines: wide, each group's parts on one line (joined by "; "), the line red/amber when any part is; narrow,
@@ -504,33 +510,42 @@ function storageItems(st: J, now: number, w: number): Item[] {
   if (st.error) return [row("os", "why", <>Object storage: can't read: {st.error}</>)];
   const bs = [...((st.buckets || []) as J[])].sort((a, b) => (b.error ? 1 : 0) - (a.error ? 1 : 0) || (b.bytes || 0) - (a.bytes || 0));
   const per = Math.max(1, Math.floor((w - 8) / 306)), out: Item[] = [
-    row("os", st.refresh_error ? "warnc" : undefined, <><span>Object storage: <b>{gib(st.bytes)}</b> in {count(st.objects)} objects, {bs.length} buckets</span><span className="src dim">Hetzner's bucket stats, {when(st.computed_at, now)}</span></>, 1, st.refresh_error || undefined)];
+    row("os", st.refresh_error ? "warnc" : undefined, <><span>Object storage: <b>{gib(st.bytes)}</b> in {count(st.objects)} objects, {bs.length} buckets</span><span className="src dim">Hetzner's bucket stats, {when(st.computed_at, now)}</span></>, st.refresh_error || undefined)];
   for (let i = 0; i < bs.length; i += per) {
     const p = bs.slice(i, i + per);
-    out.push({ ...row(`bk${i}`, undefined, p.map(b => <span key={b.name} className={"bk" + (b.error ? " why" : "")}>{b.name} {b.error ? "can't read" : <><b>{gib(b.bytes)}</b>, {count(b.objects)} objects</>}</span>), 4),
-      drop: p.some(b => b.error) ? 0 : 4 });
+    out.push(row(`bk${i}`, undefined, p.map(b => <span key={b.name} className={"bk" + (b.error ? " why" : "")}>{b.name} {b.error ? "can't read" : <><b>{gib(b.bytes)}</b>, {count(b.objects)} objects</>}</span>)));
   }
   return out;
 }
 
 /** the sandbox hosts: one line each; when they don't all fit, the healthy AWS hosts share one line (a booting, failing or
  * unreachable host and the gateway keep their own) */
-function hostItems(hosts: J[], fold: boolean): Item[] {
-  const one = (x: J, i: number) => row(`h${i}`, x.status === "booting" ? "infoc" : !x.reachable ? "why" : undefined, <>
-    <span className="pn">{x.gateway ? "gateway" : x.kind === "aws" ? "AWS host" : x.kind}</span><span className="c2">{x.name}</span>
-    <span>{x.status}{x.reachable || x.status === "booting" ? "" : ", not answering"}</span>
-    {!x.gateway && <span className="num">{x.sandboxes}{x.slots != null ? ` of ${x.slots}` : ""} sandboxes</span>}
-    <span className="num dim">load {x.load1 ?? "–"} / {x.cpus} CPU, {x.mem_free_gib ?? "–"} of {x.mem_total_gib ?? "–"} GiB free</span></>, 2);
+function hostItems(hosts: J[], fold: boolean, narrow = false): Item[] {
+  // narrow (a phone, a column): the load and memory on a line of their own under the host
+  const one = (x: J, i: number) => {
+    const k = x.status === "booting" ? "infoc" : !x.reachable ? "why" : undefined;
+    const load = <span className="num dim">load {x.load1 ?? "–"} / {x.cpus} CPU, {x.mem_free_gib ?? "–"} of {x.mem_total_gib ?? "–"} GiB free</span>;
+    const head = <>
+      <span className="pn">{x.gateway ? "gateway" : x.kind === "aws" ? "AWS host" : x.kind}</span><span className="c2">{x.name}</span>
+      <span>{x.status}{x.reachable || x.status === "booting" ? "" : ", not answering"}</span>
+      {!x.gateway && <span className="num">{x.sandboxes}{x.slots != null ? ` of ${x.slots}` : ""} sandboxes</span>}</>;
+    return narrow ? [row(`h${i}`, k, head), row(`h${i}l`, k, <><span className="ind" />{load}</>)] : [row(`h${i}`, k, <>{head}{load}</>)];
+  };
   const healthy = (x: J) => !x.gateway && x.status === "active" && x.reachable;
-  if (!fold || hosts.filter(healthy).length < 2) return hosts.map(one);
+  if (!fold || hosts.filter(healthy).length < 2) return hosts.flatMap(one);
   const ok = hosts.filter(healthy), sb = ok.reduce((t, x) => t + (x.sandboxes || 0), 0), sl = ok.reduce((t, x) => t + (x.slots || 0), 0);
-  return [...hosts.map((x, i) => [x, i] as const).filter(([x]) => !healthy(x)).map(([x, i]) => one(x, i)),
-    row("hok", undefined, <><span className="pn">AWS hosts</span><span className="c2">{ok.length} active</span><span className="num">{sb} of {sl} sandboxes</span>
-      <span className="num dim">{ok.map(x => x.name).join(", ")}</span></>, 1)];
+  return [...hosts.map((x, i) => [x, i] as const).filter(([x]) => !healthy(x)).flatMap(([x, i]) => one(x, i)),
+    ...(narrow ? [row("hok", undefined, <><span className="pn">AWS hosts</span><span className="c2">{ok.length} active</span><span className="num">{sb} of {sl} sandboxes</span></>),
+      row("hokn", undefined, <><span className="ind" /><span className="num dim">{ok.map(x => x.name).join(", ")}</span></>)]
+      : [row("hok", undefined, <><span className="pn">AWS hosts</span><span className="c2">{ok.length} active</span><span className="num">{sb} of {sl} sandboxes</span>
+      <span className="num dim">{ok.map(x => x.name).join(", ")}</span></>)])];
 }
 
 /** panel 10: the providers' balances (their own figures, with the source), stops, pods, hosts, nodes, Postgres, the
- * WiseSearch relay, the object storage buckets; only the lines that fit its box (fitItems) */
+ * WiseSearch relay, the object storage buckets. Every line is shown (Deyao, 2026-11-17: "it should just fit"): the
+ * first layout that fits the box wins: one column, two columns (a wide box), then the same with the healthy hosts on
+ * one line, then the compact form (several providers a line, the healthy cluster checks on one line, Postgres, WiseSearch and
+ * object storage a line each; then without the headings) */
 function SysPanel({ box, sys, now }: { box: Box; sys: LiveSys | null; now: number }) {
   const hh = (sys?.health || null) as J | null, ai = (sys?.ai || {}) as J;
   const stops = (hh?.stops || []) as J[];
@@ -539,38 +554,102 @@ function SysPanel({ box, sys, now }: { box: Box; sys: LiveSys | null; now: numbe
   const nodeErr = hh && !Array.isArray(hh.nodes) ? (hh.nodes as J | undefined)?.error : null;
   const notReady = nodes.filter(n => !n.ready || n.pressure?.length || n.unschedulable);
   const hosts = (ai.hosts || []) as J[], svc = (ai.service || []) as J[];
-  const narrow = box.w < SYS_NARROW, px = box.h - HEADER - 2 - 4;  // the box less its header, rules and padding
-  const items = (fold: boolean): Item[] => !hh ? [row("x", "dim", sys ? "no health data yet" : "Loading…")] : hh.error ? [row("x", "why", hh.error)] : [
-    ...stops.map((x, i) => row(`stop${i}`, "why", <>{x.name}: {x.tag || "requests failing"}{x.error ? `, ${x.error}` : ""}{x.since ? `, since ${clock(x.since)}` : ""}</>)),
-    sec("s1", <>Providers' own figures, balances as of {clock(hh.balances_at)}</>),
-    ...((hh.providers || []) as J[]).flatMap(p => {
-      const figs = (p.figs || []) as [string, string][];
-      const bad = p.status !== "ok", rest = figs.length > 1 && figs[1][0] === "today" ? 2 : 1;
-      return [row(`p${p.id}`, bad ? (p.status === "error" ? "why" : "dim") : undefined, <><span className="pn" data-provider={p.id}>{p.name}</span>
-          {bad ? <span>{p.status === "not_connected" ? "not connected" : "error"}: {s_(p.error)}</span>
-            : figs.length ? <span>{figs[0][0]} <b>{figs[0][1]}</b>{rest === 2 ? <>, today <b>{figs[1][1]}</b></> : null}</span> : null}
-          <span className="src dim">{srcShort(p.source)}</span></>, 1, s_(p.source) || undefined),
-        ...(bad ? [] : figs.slice(rest).map(([l, v], i) => row(`p${p.id}-${i}`, undefined, <><span className={narrow ? "ind" : "pn"} /><span>{l} <b>{v}</b></span></>, 3)))];
-    }),
-    sec("s2", "Cluster, news stream, YYC AI"),
-    row("nodes", nodeErr || notReady.length ? "why" : undefined, <>nodes: {nodeErr ? `can't read: ${nodeErr}` : `${nodes.length - notReady.length} of ${nodes.length} ready`}
-      {notReady.map(n => `; ${n.name}${n.ready ? "" : " not ready"}${n.pressure?.length ? " " + n.pressure.join(", ") : ""}${n.unschedulable ? " cordoned" : ""}`).join("")}</>),
-    row("deps", (deps.short || []).length ? "why" : undefined, <>news stream Deployments: {deps.ok ?? "–"} of {deps.n ?? "–"} with every pod ready{(deps.short || []).length ? "; short: " + deps.short.join(", ") : ""}</>),
-    row("cj", (cj.failed || []).length ? "why" : (cj.late || []).length ? "warnc" : undefined, <>CronJobs: {cj.n ?? "–"} on, {cj.running ?? 0} running{(cj.late || []).length ? "; late: " + cj.late.join(", ") : ""}{(cj.failed || []).length ? "; last run failed: " + cj.failed.join(", ") : ""}{cj.off ? `, ${cj.off} off` : ""}</>),
-    row("pods", svc.some(x => x.state === "problem") ? "why" : svc.some(x => x.state === "warming") ? "infoc" : undefined, <>YYC AI pods: {svc.length ? svc.map(x => `${x.name} ${x.ready}/${x.desired}${x.restarts ? ` (${x.restarts} restarts)` : ""}`).join(", ") : ai.error ? "snapshot unreadable" : "–"}</>),
-    ...hostItems(hosts, fold),
-    ...(!hosts.length && !ai.error ? [row("nohosts", "dim", "no sandbox hosts")] : []),
-    sec("s3", "Postgres, WiseSearch, object storage"),
-    ...pgItems(pg, now, narrow),
-    ...wisersItems((hh.wisers || {}) as J, now, narrow),
-    ...storageItems((hh.storage || {}) as J, now, box.w),
-  ];
-  const all = items(false), sum = all.reduce((t, x) => t + x.h, 0);
-  const shown = fitItems(sum <= px ? all : items(true), px);
+  const providers = (hh?.providers || []) as J[], wisers = (hh?.wisers || {}) as J, storage = (hh?.storage || {}) as J;
+  const px = box.h - HEADER - 2 - 4;  // the box less its header, rules and padding
+  const inner = box.w - 2 - 8;        // less its rules and padding
+  const ncol = Math.max(1, Math.floor((inner + COL_GAP) / (COL_MIN + COL_GAP)));
+  const colW = Math.floor((inner - (ncol - 1) * COL_GAP) / ncol);
+  const stopRows = () => stops.map((x, i) => row(`stop${i}`, "why", <>{x.name}: {x.tag || "requests failing"}{x.error ? `, ${x.error}` : ""}{x.since ? `, since ${clock(x.since)}` : ""}</>));
+  const nodesRow = () => row("nodes", nodeErr || notReady.length ? "why" : undefined, <>nodes: {nodeErr ? `can't read: ${nodeErr}` : `${nodes.length - notReady.length} of ${nodes.length} ready`}
+    {notReady.map(n => `; ${n.name}${n.ready ? "" : " not ready"}${n.pressure?.length ? " " + n.pressure.join(", ") : ""}${n.unschedulable ? " cordoned" : ""}`).join("")}</>);
+  const depsRow = () => row("deps", (deps.short || []).length ? "why" : undefined, <>news stream Deployments: {deps.ok ?? "–"} of {deps.n ?? "–"} with every pod ready{(deps.short || []).length ? "; short: " + deps.short.join(", ") : ""}</>);
+  const cjK = (cj.failed || []).length ? "why" : (cj.late || []).length ? "warnc" : undefined;
+  const cjRow = () => row("cj", cjK, <>CronJobs: {cj.n ?? "–"} on, {cj.running ?? 0} running{(cj.late || []).length ? "; late: " + cj.late.join(", ") : ""}{(cj.failed || []).length ? "; last run failed: " + cj.failed.join(", ") : ""}{cj.off ? `, ${cj.off} off` : ""}</>);
+  const podsK = svc.some(x => x.state === "problem") ? "why" : svc.some(x => x.state === "warming") ? "infoc" : undefined;
+  const podsRow = () => row("pods", podsK, <>YYC AI pods: {svc.length ? svc.map(x => `${x.name} ${x.ready}/${x.desired}${x.restarts ? ` (${x.restarts} restarts)` : ""}`).join(", ") : ai.error ? "snapshot unreadable" : "–"}</>);
+  const noHosts = () => (!hosts.length && !ai.error ? [row("nohosts", "dim", "no sandbox hosts")] : []);
+  /** every line, for a column `w` px wide (the box's width less nothing: as SYS_NARROW and storageItems count it) */
+  const full = (w: number, fold: boolean): Item[] => {
+    const narrow = w < SYS_NARROW;
+    return [
+      ...stopRows(),
+      sec("s1", <>Providers' own figures, balances as of {clock(hh!.balances_at)}</>),
+      ...providers.flatMap(p => {
+        const figs = (p.figs || []) as [string, string][];
+        const bad = p.status !== "ok", rest = figs.length > 1 && figs[1][0] === "today" ? 2 : 1;
+        return [row(`p${p.id}`, bad ? (p.status === "error" ? "why" : "dim") : undefined, <><span className="pn" data-provider={p.id}>{p.name}</span>
+            {bad ? <span>{p.status === "not_connected" ? "not connected" : "error"}: {s_(p.error)}</span>
+              : figs.length ? <span>{figs[0][0]} <b>{figs[0][1]}</b>{rest === 2 ? <>, today <b>{figs[1][1]}</b></> : null}</span> : null}
+            <span className="src dim">{srcShort(p.source)}</span></>, s_(p.source) || undefined),
+          ...(bad ? [] : figs.slice(rest).map(([l, v], i) => row(`p${p.id}-${i}`, undefined, <><span className={narrow ? "ind" : "pn"} /><span>{l} <b>{v}</b></span></>)))];
+      }),
+      sec("s2", "Cluster, news stream, YYC AI"),
+      nodesRow(), depsRow(), cjRow(), podsRow(),
+      ...hostItems(hosts, fold, narrow),
+      ...noHosts(),
+      sec("s3", "Postgres, WiseSearch, object storage"),
+      ...pgItems(pg, now, narrow),
+      ...wisersItems(wisers, now, narrow),
+      ...storageItems(storage, now, w),
+    ];
+  };
+  /** the compact form: each provider's first figure in a cell, several a line; the healthy cluster checks on one line
+   * (a check with a problem keeps its own); Postgres, WiseSearch and object storage a line each (a problem in red) */
+  const compact = (w: number, heads: boolean): Item[] => {
+    const per = Math.max(1, Math.floor((w + 6) / (PC_W + 6))), cw = Math.floor((w - (per - 1) * 6) / per);
+    const cells = providers.map(p => {
+      const figs = (p.figs || []) as [string, string][], bad = p.status !== "ok";
+      return <span key={p.id} className={"pc" + (bad ? (p.status === "error" ? " why" : " dim") : "")} style={{ width: cw }} title={s_(p.source) || undefined}>
+        <span data-provider={p.id}>{s_(p.name)?.split(" (")[0]}</span> {bad ? (p.status === "not_connected" ? "not connected" : `error: ${s_(p.error)}`)
+          : figs.length ? <>{figs[0][0]} <b>{figs[0][1]}</b></> : null}</span>;
+    });
+    const provRows: Item[] = [];
+    for (let i = 0; i < cells.length; i += per) provRows.push(row(`pc${i}`, undefined, cells.slice(i, i + per)));
+    const ok: string[] = [], probs: Item[] = [];
+    if (nodeErr || notReady.length) probs.push(nodesRow()); else ok.push(`nodes ${nodes.length} of ${nodes.length} ready`);
+    if ((deps.short || []).length) probs.push(depsRow()); else ok.push(`Deployments ${deps.ok ?? "–"} of ${deps.n ?? "–"}`);
+    if (cjK) probs.push(cjRow()); else ok.push(`CronJobs ${cj.n ?? "–"} on, ${cj.running ?? 0} running`);
+    if (podsK || !svc.length) probs.push(podsRow());
+    else ok.push(`YYC AI pods ${svc.reduce((t, x) => t + (x.ready || 0), 0)} of ${svc.reduce((t, x) => t + (x.desired || 0), 0)} ready`);
+    const c = (pg.connections || {}) as J, sp = (pg.space || {}) as J, pp = ((pg.archive || {}) as J).problems as string[] || [];
+    const low = typeof sp.free_bytes === "number" && sp.free_bytes < sp.floor_bytes, busy = c.max && c.total >= 0.8 * c.max;
+    const pgRow = pg.error ? row("pg", "why", <>Postgres: can't read: {pg.error}</>)
+      : row("pg", low || busy || pp.length ? "why" : undefined, <span>Postgres: <b>{c.total ?? "–"}</b> of {c.max ?? "–"} connections, <b>{pg.tps ?? "–"}</b> transactions/s, <b>{gib(sp.free_bytes)}</b> free{low ? ` (alert under ${gib(sp.floor_bytes)})` : ""}{pp.length ? "; WAL archive: " + pp.join("; ") : ""}</span>);
+    const bad = ((storage.buckets || []) as J[]).filter(b => b.error).map(b => b.name);
+    return [
+      ...stopRows(),
+      ...(heads ? [sec("s1", <>Providers, balances as of {clock(hh!.balances_at)}</>)] : []),
+      ...provRows,
+      ...(heads ? [sec("s2", "Cluster, news stream, YYC AI")] : []),
+      ...(ok.length ? [row("ok", undefined, ok.join(" · "))] : []), ...probs,
+      ...hostItems(hosts, true, true),
+      ...noHosts(),
+      ...(heads ? [sec("s3", "Postgres, WiseSearch, object storage")] : []),
+      pgRow,
+      ...wisersItems(wisers, now, true).slice(0, 1),
+      ...storageItems(storage, now, w).slice(0, 1),
+      ...(bad.length ? [row("bkbad", "why", <>buckets that can't be read: {bad.join(", ")}</>)] : []),
+    ];
+  };
+  let cols: Item[][] | null = null, cw = inner;
+  if (!hh || hh.error) cols = [[!hh ? row("x", "dim", sys ? "no health data yet" : "Loading…") : row("x", "why", s_(hh.error))]];
+  else {
+    const tries: [number, () => Item[]][] = [[1, () => full(box.w, false)]];
+    if (ncol > 1) tries.push([ncol, () => full(colW + 8, false)]);
+    tries.push([1, () => full(box.w, true)]);
+    if (ncol > 1) tries.push([ncol, () => full(colW + 8, true)]);
+    tries.push([ncol, () => compact(colW, true)], [ncol, () => compact(colW, false)]);
+    for (const [n, f] of tries) {
+      cols = flow(f(), n, px);
+      if (cols) { cw = n > 1 ? colW : inner; break; }
+    }
+    cols ||= [compact(colW, false)];  // nothing fits: the compact form, its last lines under the box (tests keep this from happening)
+  }
   return (
     <section className="lp" data-panel="sys" aria-label={PANEL_NAMES.sys} style={{ left: box.x, top: box.y, width: box.w, height: box.h }}>
       <h2 style={{ height: HEADER }}><span>{PANEL_NAMES.sys}</span><span className="hr"><Age at={sys?.at} now={now} /></span></h2>
-      <div className="st">{shown.map(x => x.node)}</div>
+      {cols.length === 1 ? <div className="st">{cols[0].map(x => x.node)}</div>
+        : <div className="st cols">{cols.map((c, i) => <div key={i} className="col" style={{ width: cw }}>{c.map(x => x.node)}</div>)}</div>}
     </section>
   );
 }

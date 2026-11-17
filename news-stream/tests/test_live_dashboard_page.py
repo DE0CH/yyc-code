@@ -158,7 +158,16 @@ def ai_fixtures():
             "services_month": [{"name": "EC2", "usd": 1128.80}, {"name": "Tax", "usd": 206.22}, {"name": "EC2 other (disks, traffic)", "usd": 101.61}],
             "running_types": [{"type": "m7i.xlarge", "n": 12}, {"type": "m7i.2xlarge", "n": 2}, {"type": "t3.large", "n": 1}],
             "source": "provider API (Cost Explorer GetCostAndUsage: UnblendedCost per UTC day and service, read every 6 h at "
-                      "USD 0.01 a request; EC2 DescribeInstances in eu-central-1); AWS completes a day's cost up to 24 h after it ends"}]
+                      "USD 0.01 a request; EC2 DescribeInstances in eu-central-1); AWS completes a day's cost up to 24 h after it ends"},
+           # the rest of production's providers (2026-11-17: eleven, the right display was 4 lines short with them)
+           {"id": "capsolver", "name": "CapSolver", "status": "ok", "balance_usd": 4.213, "source": "provider API (getBalance)"},
+           {"id": "2captcha", "name": "2Captcha", "status": "ok", "balance_usd": 7.882, "source": "provider API (getBalance)"},
+           {"id": "hetzner", "name": "Hetzner Cloud (project yyc)", "status": "ok", "servers": [{}] * 9, "currency": "EUR",
+            "list_monthly_net": 412.66, "source": "provider API (servers, pricing)"},
+           {"id": "cloudflare", "name": "Cloudflare (account YYC)", "status": "ok", "plan": "Workers Paid", "overage_usd": 0.42,
+            "source": "provider API (GraphQL analytics)"},
+           {"id": "exa", "name": "Exa (the data API's web search; free tier)", "status": "ok", "exa_charged_month_usd": 0.0123,
+            "calls_month": 37, "source": "provider API (usage)"}]
     health = {"balances_at": z(120), "providers": [{"id": p["id"], "name": p["name"], "status": p["status"], "figs": monitor.provider_line(p),
                                                     "source": p.get("source"), "error": p.get("error")} for p in bal],
               "stops": [], "deployments": {"n": 12, "ok": 11, "short": ["wisers 0/1"]},
@@ -364,10 +373,13 @@ class LivePage(unittest.TestCase):
 
     def test_3_cards(self):
         ctx, page = open_page(self.br, "/app/live", 1440, 830)
-        # the one-window box is too small for every Systems line: the ones that fit, problems first, the rest counted
+        # the one-window box is too small for every Systems line in full: the compact form, every provider and check
+        # still there, problems in red, never a link to the rest (Deyao, 2026-11-17: "it should just fit")
         sp = page.locator(".lp[data-panel=sys]")
-        self.assertIn("more lines on the monitor page", sp.inner_text())
-        for x in ("Postgres space", "AnyAPI", "Deployments", "CronJobs"):
+        self.assertNotIn("more line", sp.inner_text())
+        self.assertEqual(sp.locator("a").count(), 0)
+        self.assertEqual(sp.locator(".pc.why", has_text="AnyAPI").count(), 1)
+        for x in ("Postgres:", "Deployments", "CronJobs"):
             self.assertEqual(sp.locator(".row.why", has_text=x).count(), 1, x)
         t = lambda p: page.inner_text(f".lp[data-panel={p}]")  # noqa: E731
         self.assertIn("Ingested headline 29", t("ingest"))
@@ -547,40 +559,59 @@ class LivePage(unittest.TestCase):
         ctx.close()
 
     def test_7_systems_lines_fit(self):
-        """Deyao, 2026-11-17 ("add aws usage tracking …, make sure it doesn't overflow"): in every layout the Systems
-        panel's lines end inside its box (none below its bottom edge), no part of a line is cut at the right edge, and
-        AWS's figures are shown whole (no ellipsis) wherever their line is shown"""
+        """Deyao, 2026-11-17 ("add aws usage tracking …, make sure it doesn't overflow"; then "it doesn't mean you should
+        have a link to show there's more text!!! it should just fit"): with production's eleven providers, in every
+        layout every Systems line is shown (each provider, Postgres, WiseSearch, object storage; no "more lines" link),
+        none ends below the box or past its right edge, no part of a line but the last is cut, and AWS's figures are
+        whole (no ellipsis) wherever they are shown"""
+        names = ("OpenRouter", "TikHub", "IPRoyal", "AnyAPI", "AWS", "CapSolver", "2Captcha", "Hetzner Cloud", "Cloudflare", "Exa")
         for path, w, h in (("/app/live?half=right", 1920, 1080), ("/app/live", 1440, 830), ("/app/live", 390, 844)):
             ctx, page = open_page(self.br, path, w, h)
             page.wait_for_selector(".lp[data-panel=sys] [data-provider=aws]", timeout=20000)
             got = page.evaluate("""() => {
                 const p = document.querySelector('.lp[data-panel=sys]'), st = p.querySelector('.st');
-                const box = p.getBoundingClientRect(), out = { below: [], cut: [], aws: [], spill: st.scrollHeight - st.clientHeight };
-                let aws = false;
-                for (const r of st.children) {
-                    const rr = r.getBoundingClientRect(), text = r.innerText.replace(/\\s+/g, ' ').slice(0, 60);
-                    if (rr.bottom > box.bottom + 0.5) out.below.push(text);
-                    if (!r.classList.contains('row')) { aws = false; continue; }
-                    const kids = [...r.children], named = r.querySelector('.pn');
-                    if (named && named.textContent) aws = named.dataset.provider === 'aws';
-                    else if (!named) aws = false;
-                    // every part but the last is fixed: it must end inside the row; the last one shrinks with an ellipsis
-                    kids.slice(0, -1).forEach(k => { if (k.getBoundingClientRect().right > rr.right + 0.5) out.cut.push(text); });
-                    if (aws) {
-                        const fig = named.textContent ? kids[1] : kids[kids.length - 1];
-                        out.aws.push({ text, whole: fig.scrollWidth <= fig.clientWidth && fig.getBoundingClientRect().right <= rr.right + 0.5 });
+                const box = p.getBoundingClientRect(), out = { below: [], cut: [], aws: [], spill: st.scrollHeight - st.clientHeight,
+                                                              cols: st.querySelectorAll(':scope > .col').length || 1 };
+                for (const col of (st.querySelector(':scope > .col') ? st.querySelectorAll(':scope > .col') : [st])) {
+                    let aws = false;
+                    for (const r of col.children) {
+                        const rr = r.getBoundingClientRect(), text = r.innerText.replace(/\\s+/g, ' ').slice(0, 60);
+                        if (rr.bottom > box.bottom + 0.5 || rr.right > box.right + 0.5) out.below.push(text);
+                        if (!r.classList.contains('row')) { aws = false; continue; }
+                        const kids = [...r.children], named = r.querySelector('.pn, .ind');
+                        // every part but the last is fixed: it must end inside the row; the last one shrinks with an ellipsis
+                        kids.slice(0, -1).forEach(k => { if (k.getBoundingClientRect().right > rr.right + 0.5) out.cut.push(text); });
+                        const cell = r.querySelector('.pc [data-provider=aws]');  // the compact form: AWS's cell
+                        if (cell) {
+                            const c = cell.parentElement;
+                            out.aws.push({ text: c.innerText, whole: c.scrollWidth <= c.clientWidth && c.getBoundingClientRect().right <= rr.right + 0.5 });
+                            continue;
+                        }
+                        if (named && named.textContent) aws = named.dataset.provider === 'aws';
+                        else if (!named) aws = false;
+                        if (aws) {
+                            const fig = named.textContent ? kids[1] : kids[kids.length - 1];
+                            out.aws.push({ text, whole: fig.scrollWidth <= fig.clientWidth && fig.getBoundingClientRect().right <= rr.right + 0.5 });
+                        }
                     }
                 }
                 return out;
             }""")
+            text = page.inner_text(".lp[data-panel=sys]")
             page.screenshot(path=os.path.join(SHOTS, f"systems-aws-{w}x{h}.png"), full_page=w == 390)
             self.assertEqual(got["below"], [], (w, h))
             self.assertLessEqual(got["spill"], 0, (w, h))
             self.assertEqual(got["cut"], [], (w, h))
-            self.assertTrue(got["aws"] and got["aws"][0]["text"].startswith("AWS (account yyc)"), (w, h, got["aws"]))
+            self.assertNotIn("more line", text, (w, h))
+            self.assertEqual(page.locator(".lp[data-panel=sys] a").count(), 0, (w, h))
+            for x in names + ("Postgres", "WiseSearch", "Object storage", "nodes", "CronJobs", "Deployments", "YYC AI pods", "gateway"):
+                self.assertIn(x, text, (w, h, x))
+            self.assertTrue(got["aws"] and got["aws"][0]["text"].startswith("AWS"), (w, h, got["aws"]))
             self.assertEqual([x["text"] for x in got["aws"] if not x["whole"]], [], (w, h))
-            if w == 1920:  # the right display has room for all three
+            if w == 1920:  # the right display: every line in full (two columns), AWS's three among them
                 self.assertEqual(len(got["aws"]), 3, got["aws"])
+                for x in ("by service EC2 1,128.80", "running now 12 × m7i.xlarge", "yyc-extra-8", "longest open transaction"):
+                    self.assertIn(x, text)
             ctx.close()
 
 
