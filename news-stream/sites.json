@@ -1450,7 +1450,8 @@
   "type": "News",
   "region": "Macau",
   "lang": "en",
-  "catalogue": "旅遊學院"
+  "catalogue": "旅遊學院",
+  "tls_noverify": true
  },
  {
   "id": "mo_bankofchina_notices",
@@ -1668,13 +1669,14 @@
  {
   "id": "mo_plataformamedia_3",
   "name": "澳門平台",
-  "url": "https://www.plataformamedia.com/wp-json/wp/v2/posts?per_page=20",
-  "kind": "wp_json",
+  "url": "https://www.plataformamedia.com/zh-hant/",
+  "kind": "listing",
   "type": "Newspaper",
   "region": "Macau",
   "lang": "zh-Hant",
-  "proxy": "hk",
-  "catalogue": "澳門平台"
+  "catalogue": "澳門平台",
+  "href": "^https://www\\.plataformamedia\\.com/zh-hant/(?P<time>\\d{4}/\\d{2}/\\d{2})/[^/?#]+/$",
+  "min_title": 8
  },
  {
   "id": "mo_macauca",
@@ -5697,8 +5699,8 @@
  {
   "id": "hk_avinteractive",
   "name": "AV Magazine",
-  "url": "https://www.avinteractive.com/wp-json/wp/v2/posts?per_page=20&_fields=link,date_gmt,title",
-  "kind": "wp_json",
+  "url": "https://www.avinteractive.com/feed/",
+  "kind": "rss",
   "type": "Magazine",
   "region": "HK",
   "catalogue": "AV Magazine"
@@ -6008,7 +6010,7 @@
  {
   "id": "hk_bsomes",
   "name": "Building Services Operation and Maintenance Executives Society",
-  "url": "https://bsomes.org.hk/wp-json/wp/v2/posts?per_page=20&_fields=link,date_gmt,title",
+  "url": "https://www.bsomes.org.hk/wp-json/wp/v2/posts?per_page=20&_fields=link,date_gmt,title",
   "kind": "wp_json",
   "type": "News",
   "region": "HK",
@@ -7637,7 +7639,8 @@
   "kind": "wp_json",
   "type": "News",
   "region": "HK",
-  "catalogue": "VeriMedia"
+  "catalogue": "VeriMedia",
+  "browser": true
  },
  {
   "id": "hk_statigr_am",
@@ -7946,7 +7949,8 @@
   "kind": "rss",
   "type": "Magazine",
   "region": "HK",
-  "catalogue": "indie TV"
+  "catalogue": "indie TV",
+  "browser": true
  },
  {
   "id": "hk_icompasstech",
@@ -9249,11 +9253,12 @@
  {
   "id": "hk_liberal",
   "name": "自由黨",
-  "url": "http://liberal.org.hk/tc.feed?type=rss",
-  "kind": "rss",
+  "url": "https://www.liberal.org.hk/category/%E6%96%B0%E8%81%9E%E7%A8%BF",
+  "kind": "regex",
   "type": "Official",
   "region": "HK",
-  "catalogue": "自由黨"
+  "catalogue": "自由黨",
+  "pattern": ">(?P<time>\\d{4}年\\d{1,2}月\\d{1,2}日)<(?:(?!年\\d{1,2}月\\d{1,2}日<).){0,4000}?>(?P<title>[^<>]{8,300})<(?:(?!年\\d{1,2}月\\d{1,2}日<).){0,4000}?href=\\\"(?P<url>https://www\\.liberal\\.org\\.hk/articles/[^\\\"]+)\\\""
  },
  {
   "id": "hk_artomity_art",
@@ -9810,11 +9815,13 @@
  {
   "id": "hk_hkppa",
   "name": "香港攝影記者協會",
-  "url": "https://hkppa.net/wp-json/wp/v2/posts?per_page=20&_fields=link,date_gmt,title",
-  "kind": "wp_json",
+  "url": "https://hkppa.net/?section=articles",
+  "kind": "regex",
   "type": "News",
   "region": "HK",
-  "catalogue": "香港攝影記者協會"
+  "catalogue": "香港攝影記者協會",
+  "pattern": "href=\"(?P<url>/\\?slug=%[^\"]+)\"><time>(?P<time>[^<]+)</time><h2>(?P<title>[^<]+)</h2>",
+  "proxy": "isp"
  },
  {
   "id": "hk_dbs",
@@ -10439,8 +10446,8 @@
   "id": "hk_internet",
   "name": "香港網絡",
   "catalogue": "香港網絡",
-  "url": "https://internet.com.hk/wp-json/wp/v2/posts?per_page=20&_fields=link,date_gmt,title",
-  "kind": "wp_json",
+  "url": "https://internet.com.hk/rss/",
+  "kind": "rss",
   "type": "News",
   "region": "HK"
  },
@@ -10488,7 +10495,8 @@
   "url": "https://www.hkmj.org/rss.xml",
   "kind": "rss",
   "type": "Magazine",
-  "region": "HK"
+  "region": "HK",
+  "browser": true
  },
  {
   "id": "hk_hkwma",
@@ -12819,7 +12827,8 @@
   "url": "https://franchise.com.hk/wp-json/wp/v2/posts?per_page=20&_fields=link,date_gmt,title",
   "kind": "wp_json",
   "type": "News",
-  "region": "HK"
+  "region": "HK",
+  "tls_noverify": true
  },
  {
   "id": "hk_ava_hkbu",
@@ -14713,7 +14722,7 @@
   "id": "hk_asiabriefing",
   "name": "Asia Briefing",
   "catalogue": "Asia Briefing",
-  "url": "https://www.asiabriefing.com/news/",
+  "url": "https://www.asiabriefing.com/",
   "kind": "listing",
   "href": "^https://www\\.(asiabriefing|china-briefing|aseanbriefing|india-briefing|vietnam-briefing|silkroadbriefing)\\.com/news/.+",
   "type": "News",
@@ -15019,7 +15028,8 @@
   "href": "^/news/\\d+/[a-z0-9-]+$",
   "type": "News",
   "region": "HK",
-  "lang": "en"
+  "lang": "en",
+  "browser": true
  },
  {
   "id": "hk_headline4hk",
@@ -17393,12 +17403,12 @@
   "id": "hk_fhs",
   "name": "瑞士鐘錶工業聯合會",
   "catalogue": "瑞士鐘錶工業聯合會",
-  "url": "https://www.fhs.swiss/eng/homepage.html",
-  "kind": "regex",
-  "pattern": "href=\"(?P<url>\\d{4}_\\d\\d_\\d\\d_[^\"]+\\.html)\"[^>]*>\\s*(?P<title>[^<]{15,})",
+  "url": "https://www.fhs.swiss/eng/news",
+  "kind": "listing",
   "type": "Official",
   "region": "HK",
-  "lang": "en"
+  "lang": "en",
+  "href": "^/eng/news/[a-z0-9-]+$"
  },
  {
   "id": "hk_vsa",
@@ -18666,7 +18676,8 @@
   "time_format": "%d/%m/%Y",
   "type": "Blog",
   "region": "HK",
-  "lang": "zh-Hant"
+  "lang": "zh-Hant",
+  "tls_noverify": true
  },
  {
   "id": "hk_patreon_pazu",
@@ -20079,11 +20090,13 @@
   "id": "hk_chinamoneynetwork",
   "name": "中國金融投資網(英文)",
   "catalogue": "中國金融投資網(英文)",
-  "url": "https://www.chinamoneynetwork.com/feed",
-  "kind": "rss",
+  "url": "https://www.chinamoneynetwork.com/",
+  "kind": "listing",
   "type": "News",
   "region": "HK",
-  "lang": "en"
+  "lang": "en",
+  "href": "^https://www\\.chinamoneynetwork\\.com/(?P<time>\\d{4}/\\d{2}/\\d{2})/[^/?#]+$",
+  "proxy": "isp"
  },
  {
   "id": "hk_jmc_hksyu_ourvoice",
@@ -20563,7 +20576,8 @@
   "base": "https://www.investhk.gov.hk",
   "type": "Official",
   "region": "HK",
-  "lang": "zh-Hant"
+  "lang": "zh-Hant",
+  "tls_noverify": true
  },
  {
   "id": "hk_hkfemc_news",
