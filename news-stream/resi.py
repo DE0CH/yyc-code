@@ -383,16 +383,21 @@ def wire(r):
     return n or len(getattr(r, "content", b"") or b"") + OVERHEAD
 
 
-def session(proxy=None, impersonate="chrome", label=None):
+def session(proxy=None, impersonate="chrome", label=None, isp=False):
     """a curl_cffi Session that counts every proxied request (session-wide `proxy`, or a request's own proxies=)
     under its URL's site (or `label`). A stream=True response is counted by the caller (resi.count), since its
-    body is read later."""
+    body is read later. isp=True: `proxy` is YYC's ISP IP (flat rate): its bytes go to count_isp, not yycstream's"""
     from curl_cffi import requests
 
     class Counting(requests.Session):
         def request(self, method, url, *a, **k):
             proxied = bool(k.get("proxies") or self.proxies)
             t0 = time.time()
+            if isp:
+                r = super().request(method, url, *a, **k)
+                if not k.get("stream"):
+                    count_isp(wire(r))
+                return r
             try:
                 r = super().request(method, url, *a, **k)
             except Exception as e:
@@ -410,9 +415,10 @@ def session(proxy=None, impersonate="chrome", label=None):
     return Counting(impersonate=impersonate, proxies={"http": proxy, "https": proxy} if proxy else None)
 
 
-def count_browser(ctx, label):
+def count_browser(ctx, label, isp=False):
     """count a Playwright browser context's (or browser's page) traffic through the proxy under `label`: every
-    finished request's sizes (headers + body, as the browser reports them) → a function that writes the total"""
+    finished request's sizes (headers + body, as the browser reports them) → a function that writes the total
+    (isp=True: the ISP IP's count, count_isp)"""
     got = [0]
 
     def done(req):
@@ -425,6 +431,6 @@ def count_browser(ctx, label):
     ctx.on("requestfinished", done)
 
     def flush():
-        count(got[0], label)
+        count_isp(got[0]) if isp else count(got[0], label)
         got[0] = 0
     return flush

@@ -21,8 +21,10 @@ dropped and made again), every network call stubbed (the page shapes are the liv
 5. The archive job: an excerpt post takes the newest archive.today snapshot's text (text_via 'archive' + the
    snapshot URL) when longer; with no snapshot the page is submitted once and looked up again later, given up after
    ARCHIVE_LOOKS; archive.today's captcha is solved once (2Captcha) and the run carries on; a mirror that doesn't
-   answer a connection is skipped for the next (archive.is, …). Lookups go out from the
-   cluster's IP, submissions through the residential proxy (archive.today captures nothing a datacenter IP submits). The snapshot extractor
+   answer a connection is skipped for the next (archive.is, …). With ISP_PROXY lookups and submissions go out on YYC's
+   ISP IP (archive.today answers no datacenter IP since ~8 Nov 2026), each request under the ISP lock with no
+   kept-alive tunnel; without it lookups go out from the cluster's IP, submissions through the residential proxy
+   (archive.today captures nothing a datacenter IP submits). The snapshot extractor
    reads the snapshot's <div style=…> paragraphs.
 6. Where the text came from is saved (fulltext_fetch.save: page / feed / excerpt) and shown on the item page
    (/api/item text_via, text_via_label, text_via_url).
@@ -116,11 +118,40 @@ class FakeSession:
     made = []
 
     def __init__(self, script, proxy):
-        self.script, self.proxy, self.cookies = script, proxy, Cookies()
+        self.script, self.proxy, self.cookies, self.headers = script, proxy, Cookies(), []
         FakeSession.made.append(self)
 
     def get(self, url, headers=None, timeout=None):
+        self.headers.append(headers or {})
         return self.script(self, url)
+
+    def close(self):
+        pass
+
+
+class Held:
+    """sites_fetch.isp_lock's stand-in: records whether a block holds it"""
+    def __init__(self):
+        self.on, self.times = False, 0
+
+    def __call__(self, wait=None):
+        held = self
+
+        class L:
+            def __enter__(self):
+                assert not held.on, "the ISP lock taken twice"
+                held.on, held.times = True, held.times + 1
+
+            def __exit__(self, *a):
+                held.on = False
+        return L()
+
+
+SITEMAP = ('<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" '
+           'xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">'
+           '<url><loc>https://www.reuters.com/world/china/china-exports-2026-11-17/</loc><news:news><news:publication_date>'
+           '2026-11-17T05:00:00Z</news:publication_date><news:title>China exports rise</news:title></news:news></url>'
+           '</urlset>')
 
 
 class Reuters(unittest.TestCase):
@@ -194,6 +225,60 @@ class Reuters(unittest.TestCase):
         self.assertTrue(text.startswith("BEIJING"))
         self.assertEqual(len(self.tasks), 1)  # the ban was not sent to the solver
         self.assertNotEqual(FakeSession.made[0].proxy, FakeSession.made[1].proxy)
+
+    def test_on_the_isp_ip(self):
+        """with ISP_PROXY (Deyao, 2026-11-17: a solver before residential traffic): the solve and the reads on YYC's
+        ISP IP, under its lock (one client at a time; CapSolver connects through it during the solve), no kept-alive
+        tunnel"""
+        held = Held()
+
+        def script(s, url):
+            self.assertTrue(held.on, "a read outside the ISP lock")
+            return Resp(200, R_JSON) if s.cookies.get("datadome") == "SOLVED123" else Resp(401, DD_PAGE)
+        import sites_fetch
+        with mock.patch.dict(os.environ, {"ISP_PROXY": "http://u:p@isp.test:12323"}), \
+                mock.patch.object(sites_fetch, "isp_lock", held), \
+                mock.patch.object(paywall, "_session", lambda proxy=None, imp="chrome", isp=False: FakeSession(script, proxy)), \
+                mock.patch.object(paywall, "_post", self.capsolver), mock.patch.object(paywall.time, "sleep", lambda s: None):
+            text = paywall.reuters(RURL)
+        self.assertTrue(text.startswith("BEIJING"))
+        self.assertEqual(self.tasks[0]["proxy"], "http:isp.test:12323:u:p")
+        self.assertTrue(all(fs.proxy == "http://u:p@isp.test:12323" for fs in FakeSession.made))
+        self.assertTrue(all(h.get("Connection") == "close" for fs in FakeSession.made for h in fs.headers))
+        self.assertEqual(corpus.kv_get("paywall:datadome")["route"], "isp")
+        self.assertFalse(held.on)
+
+    def test_a_banned_isp_ip_is_blocked(self):
+        """one fixed IP: a DataDome ban is not sent to the solver and no other IP is taken (residential needs Deyao)"""
+        import sites_fetch
+        with mock.patch.dict(os.environ, {"ISP_PROXY": "http://u:p@isp.test:12323"}), \
+                mock.patch.object(sites_fetch, "isp_lock", Held()), \
+                mock.patch.object(paywall, "_session", lambda proxy=None, imp="chrome", isp=False:
+                                  FakeSession(lambda s, u: Resp(401, DD_BANNED), proxy)), \
+                mock.patch.object(paywall, "_post", self.capsolver):
+            with self.assertRaises(paywall.Blocked):
+                paywall.reuters(RURL)
+        self.assertEqual(self.tasks, [])
+        self.assertEqual(len(FakeSession.made), 1)
+
+    def test_the_source_reads_its_sitemaps_through_the_solved_session(self):
+        """the poller's Reuters source: DataDome answers its sitemaps 401 since 30 Oct 2026; every page (the news
+        sitemap, its second page, the full sitemap) is read with the solved cookie"""
+        import sources, sources_extra
+        asked = []
+
+        def script(s, url):
+            asked.append(url)
+            return Resp(200, SITEMAP) if s.cookies.get("datadome") == "SOLVED123" else Resp(401, DD_PAGE)
+        spec = next(x for x in sources_extra.ENGLISH if x[0] == "reuters")
+        with mock.patch.object(paywall, "_session", lambda proxy=None, imp="chrome": FakeSession(script, proxy)), \
+                mock.patch.object(paywall, "_post", self.capsolver), mock.patch.object(paywall.time, "sleep", lambda s: None), \
+                mock.patch.object(sources, "fetch", lambda *a, **k: self.fail("a plain read of a Reuters sitemap")):
+            rows = sources.fetch_source(spec)
+        self.assertIn("https://www.reuters.com/world/china/china-exports-2026-11-17/", [r["url"] for r in rows])
+        self.assertEqual(len(self.tasks), 1)
+        self.assertTrue(any("from=50" in u for u in asked) and any(u.startswith(sources_extra.REUTERS_FULL) for u in asked))
+        self.assertFalse(sources.escalates(spec), "never retried over yycstream by the poller")
 
     def test_zero_balance_is_a_safety_stop(self):
         sent = []
@@ -436,6 +521,34 @@ class Archive(unittest.TestCase):
         with mock.patch.object(paywall, "_session", lambda *a, **k: S()), mock.patch.object(paywall.time, "sleep", lambda s: None):
             self.assertEqual(paywall.archive_run(), {"archived": 1})
         self.assertEqual(seen, ["archive.ph", "archive.is"])
+
+    def test_isp_route(self):
+        """with ISP_PROXY: lookups and submissions on the ISP IP, each request under its lock, no kept-alive tunnel,
+        its bytes the ISP IP's (the session is made with isp=True)"""
+        self.excerpt_post("https://www.ft.com/content/isp1")
+        held, made, seen = Held(), [], []
+
+        class S:
+            cookies = Cookies()
+
+            def get(self, url, timeout=None, headers=None):
+                assert held.on, "a request outside the ISP lock"
+                assert (headers or {}).get("Connection") == "close"
+                seen.append(url)
+                if "/newest/" in url:
+                    return Resp(404, "<html>No results</html>", url)
+                return Resp(200, "<html>Loading</html>", url)
+
+        def sess(proxy=None, imp="chrome", isp=False):
+            made.append((proxy, isp))
+            return S()
+        import sites_fetch
+        with mock.patch.dict(os.environ, {"ISP_PROXY": "http://u:p@isp.test:12323"}), \
+                mock.patch.object(sites_fetch, "isp_lock", held), mock.patch.object(paywall, "_session", sess), \
+                mock.patch.object(paywall.time, "sleep", lambda s: None):
+            self.assertEqual(paywall.archive_run(), {"submitted": 1})
+        self.assertEqual(set(made), {("http://u:p@isp.test:12323", True)})
+        self.assertTrue(any("/newest/" in u for u in seen) and any("/submit/" in u for u in seen))
 
     def test_cookies_kept_by_an_earlier_version_dont_stop_a_run(self):
         """the 06:17 UTC run of 15 Oct died on kv paywall:archive written before the cookies were kept per mirror

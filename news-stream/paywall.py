@@ -9,8 +9,10 @@ posts.text_via / text_via_url, which the item page shows):
   - Reuters (no paywall; its DataDome bot wall answers every plain client 401 with an interstitial "device check"):
     Reuters' own content API (/pf/api/v3/content/fetch/article-by-id-or-url-v1, the JSON its pages are built from,
     ~20 KB against ~480 KB for the page) read with a DataDome cookie that CapSolver solves (DatadomeSliderTask: the
-    interstitial and the slider captcha), through YYC's residential proxy sub-user yycstream (RESI_PROXY, GB exit) on one
-    sticky IP for the solve and the reads, with the User-Agent CapSolver requires. The cookie, the proxy session and
+    interstitial and the slider captcha), through YYC's ISP IP (ISP_PROXY, flat rate; Deyao 2026-11-17: a solver before
+    residential traffic) or, without it, the residential proxy sub-user yycstream (RESI_PROXY, GB exit) on one sticky IP,
+    for the solve and the reads, with the User-Agent CapSolver requires. The poller's Reuters source reads its sitemaps
+    the same way (reuters_page: DataDome guards them too since 30 Oct 2026). The cookie, the proxy session and
     the User-Agent are kept in kv (paywall:datadome) and reused across pages, threads and runs; a new solve only when
     Reuters answers 401/403 again (a ban of the IP, "t":"bv", takes a new proxy session). text_via 'solver'.
   - Bloomberg (proof of concept): the story as Bloomberg's own page data carries it to any logged-out reader
@@ -20,7 +22,8 @@ posts.text_via / text_via_url, which the item page shows):
     that declares isAccessibleForFree false yet gives under EXCERPT_CHARS): the public excerpt the page gives is kept
     (text_via 'excerpt'; their terms are kept: hidden paid text in a page or API is not read), then `paywall.py
     archive` (CronJob paywall, every 30 min) takes the text of the page's newest archive.today snapshot (text_via
-    'archive', the snapshot's URL in text_via_url) when it is longer than the excerpt. A page with no snapshot is
+    'archive', the snapshot's URL in text_via_url) when it is longer than the excerpt, on YYC's ISP IP (archive.today
+    answers no datacenter IP since ~8 Nov 2026; ROUTES below). A page with no snapshot is
     submitted once; later runs look again (ARCHIVE_LOOKS times at most, ARCHIVE_DAYS days back). archive.today answers
     datacenter and residential IPs alike with a reCAPTCHA (HTTP 429): 2Captcha solves it in a real Chrome (run under
     xvfb-run) and the clearance cookies are kept in kv (paywall:archive) for plain requests until it asks again.
@@ -92,8 +95,8 @@ def host(url):
     return (urllib.parse.urlparse(url).hostname or "").lower()
 
 
-def _session(proxy=None, impersonate="chrome"):
-    return resi.session(proxy, impersonate)  # counts the proxied bytes per site (resi.py)
+def _session(proxy=None, impersonate="chrome", **isp):
+    return resi.session(proxy, impersonate, **isp)  # counts the proxied bytes per site (resi.py); isp=True: the ISP IP's
 
 
 def _post(url, body):
@@ -265,73 +268,118 @@ def _dd_state():
     return corpus.kv_get("paywall:datadome") or {}
 
 
+def isp_proxy():
+    """YYC's IPRoyal ISP IP (env ISP_PROXY, flat rate; one client at a time: sites_fetch.isp_lock), or None"""
+    return os.environ.get("ISP_PROXY") or None
+
+
+def isp_turn(route):
+    """the ISP IP's lock while a block uses it (route "isp"), else nothing"""
+    if route != "isp":
+        return __import__("contextlib").nullcontext()
+    import sites_fetch
+    return sites_fetch.isp_lock()
+
+
+def _dd_get(url, accept, referer=None):
+    """GET a reuters.com URL with the solved DataDome session (kv paywall:datadome) → (session, response) for the
+    first answer that is not DataDome's (200, 404 …). The route is YYC's ISP IP when ISP_PROXY is set (flat rate,
+    Deyao 2026-11-17: a solver before residential traffic), its lock held for the reads and the solve (CapSolver
+    connects through the same proxy, and the ISP IP takes one client at a time: the session is closed before it); else
+    yycstream on a sticky GB IP (a banned IP takes a new session). referer: the page the solver is told the challenge
+    came from (an API read: its article's URL). Raises Blocked when it can't be read."""
+    route = "isp" if isp_proxy() else "resi"
+    with isp_turn(route):
+        st = _dd_state()
+        if st.get("route", "resi") != route:  # a cookie is bound to the IP it was solved on
+            st = {}
+        for attempt in range(DD_SOLVES + 1):
+            if not st.get("sid"):
+                st = {"sid": "".join(random.choices(string.ascii_lowercase + string.digits, k=8)), "route": route}
+            px = isp_proxy() if route == "isp" else proxy_url(st["sid"])
+            s = _session(px, DD_IMPERSONATE, **({"isp": True} if route == "isp" else {}))
+            if st.get("cookie"):
+                s.cookies.set("datadome", st["cookie"], domain=".reuters.com")
+            try:
+                h = {"User-Agent": DD_UA, "Accept": accept, "Accept-Language": "en-GB,en;q=0.9"}
+                r = s.get(url, headers=dict(h, **(NO_KEEPALIVE if route == "isp" else {})), timeout=TIMEOUT)
+            except resi.ProxyOut:
+                raise  # out of traffic (resi.py: one record, kv proxy_out): a pause for the readers, not a failed try
+            except Exception as e:
+                raise Blocked(f"reuters via the {route} route: {e!r}"[:300])
+            ch = dd_challenge(r.text, referer or url) if r.status_code in (401, 403) else None
+            if ch is None:
+                got = s.cookies.get("datadome", domain=".reuters.com")  # DataDome renews its cookie as it goes
+                if got and got != st.get("cookie"):
+                    st["cookie"] = got
+                    corpus.kv_set("paywall:datadome", st)
+                return s, r
+            if attempt == DD_SOLVES:
+                break
+            s.close()  # the ISP IP's one connection: CapSolver's comes next
+            with corpus.lock("paywall:datadome"):  # one solve at a time across threads and pods
+                now = _dd_state()
+                if now.get("cookie") and now.get("cookie") != st.get("cookie") and now.get("route", "resi") == route:
+                    st = now  # another reader solved meanwhile
+                    continue
+                curl, banned = ch
+                if banned:
+                    if route == "isp":  # one fixed IP: no other to take
+                        raise Blocked("reuters: DataDome banned the ISP IP")
+                    st = {}  # this IP is banned: a new sticky IP
+                    continue
+                try:
+                    st = {"sid": st["sid"], "route": route, "cookie": solve_datadome(curl, px, "reuters"),
+                          "at": datetime.now(HKT).isoformat(timespec="seconds")}
+                except Blocked as e:
+                    print("reuters solve:", e, flush=True)
+                    if getattr(e, "limit", False):  # the solver's balance: no point trying again now (a safety stop)
+                        raise
+                    st = {} if route == "resi" else {"sid": st["sid"], "route": route}
+                    continue
+                corpus.kv_set("paywall:datadome", st)
+    raise Blocked("reuters: DataDome kept answering")
+
+
 def reuters(url, meta=None):
-    """Reuters' article text through its content API, with a solved DataDome cookie (above) → text; meta gets
+    """Reuters' article text through its content API, with a solved DataDome cookie (_dd_get) → text; meta gets
     "published" and "via" 'solver'. Raises Blocked when it can't be read."""
     meta = {} if meta is None else meta
-    st = _dd_state()
-    for attempt in range(DD_SOLVES + 1):
-        if not st.get("sid"):
-            st = {"sid": "".join(random.choices(string.ascii_lowercase + string.digits, k=8))}
-        px = proxy_url(st["sid"])
-        s = _session(px, DD_IMPERSONATE)
-        if st.get("cookie"):
-            s.cookies.set("datadome", st["cookie"], domain=".reuters.com")
-        try:
-            r = s.get(reuters_api(url), headers={"User-Agent": DD_UA, "Accept": "application/json",
-                                                 "Accept-Language": "en-GB,en;q=0.9"}, timeout=TIMEOUT)
-        except resi.ProxyOut:
-            raise  # out of traffic (resi.py: one record, kv proxy_out): a pause for the readers, not a failed try
-        except Exception as e:
-            raise Blocked(f"reuters via the proxy: {e!r}"[:300])
-        if r.status_code == 200:
-            got = s.cookies.get("datadome", domain=".reuters.com")  # DataDome renews its cookie as it goes
-            if got and got != st.get("cookie"):
-                st["cookie"] = got
-                corpus.kv_set("paywall:datadome", st)
-            doc = r.json()
-            text, published = reuters_text(doc)
-            if published:
-                meta["published"] = published
-            if (doc.get("result") or {}).get("title"):  # the story's own headline (its sitemap's stories: from the URL)
-                meta["title"] = doc["result"]["title"]
-            meta["via"] = "solver"
-            return text
-        if r.status_code == 404:  # not an article the API knows (a video or live page): its page's own data
-            r = s.get(url, headers={"User-Agent": DD_UA, "Accept-Language": "en-GB,en;q=0.9"}, timeout=TIMEOUT)
-            i = r.text.find("Fusion.globalContent=") if r.status_code == 200 else -1
-            if i < 0:
-                raise Blocked(f"reuters: not in the content API, page HTTP {r.status_code}")
-            text, published = reuters_text(json.JSONDecoder().raw_decode(r.text[i + 21:])[0])
-            if published:
-                meta["published"] = published
-            meta["via"] = "solver"
-            return text
-        ch = dd_challenge(r.text, url) if r.status_code in (401, 403) else None
-        if ch is None:
-            raise Blocked(f"reuters: HTTP {r.status_code}")
-        if attempt == DD_SOLVES:
-            break
-        with corpus.lock("paywall:datadome"):  # one solve at a time across threads and pods
-            now = _dd_state()
-            if now.get("cookie") and now.get("cookie") != st.get("cookie"):  # another reader solved meanwhile
-                st = now
-                continue
-            curl, banned = ch
-            if banned:  # this IP is banned: a new sticky IP
-                st = {}
-                continue
-            try:
-                st = {"sid": st["sid"], "cookie": solve_datadome(curl, px, "reuters"),
-                      "at": datetime.now(HKT).isoformat(timespec="seconds")}
-            except Blocked as e:
-                print("reuters solve:", e, flush=True)
-                if getattr(e, "limit", False):  # the solver's balance: no point trying again now (a safety stop)
-                    raise
-                st = {}
-                continue
-            corpus.kv_set("paywall:datadome", st)
-    raise Blocked("reuters: DataDome kept answering")
+    s, r = _dd_get(reuters_api(url), "application/json", referer=url)
+    if r.status_code == 200:
+        doc = r.json()
+        text, published = reuters_text(doc)
+        if published:
+            meta["published"] = published
+        if (doc.get("result") or {}).get("title"):  # the story's own headline (its sitemap's stories: from the URL)
+            meta["title"] = doc["result"]["title"]
+        meta["via"] = "solver"
+        return text
+    if r.status_code == 404:  # not an article the API knows (a video or live page): its page's own data
+        s, r = _dd_get(url, "text/html,application/xhtml+xml,*/*;q=0.8")
+        i = r.text.find("Fusion.globalContent=") if r.status_code == 200 else -1
+        if i < 0:
+            raise Blocked(f"reuters: not in the content API, page HTTP {r.status_code}")
+        text, published = reuters_text(json.JSONDecoder().raw_decode(r.text[i + 21:])[0])
+        if published:
+            meta["published"] = published
+        meta["via"] = "solver"
+        return text
+    raise Blocked(f"reuters: HTTP {r.status_code}")
+
+
+def reuters_page(url):
+    """a reuters.com sitemap (the poller's Reuters source: DataDome guards the sitemaps too since 30 Oct 2026) with
+    the solved DataDome session → its text"""
+    _, r = _dd_get(url, "application/xml,text/xml;q=0.9,*/*;q=0.8")
+    if r.status_code != 200:
+        raise Blocked(f"reuters {url[:100]}: HTTP {r.status_code}")
+    return r.text
+
+
+def reuters_read(url):
+    """sources.READERS's reader for sid reuters → (text, route)"""
+    return reuters_page(url), "isp" if isp_proxy() else "yycstream"
 
 
 # ---- Bloomberg: the page's own data ----
@@ -450,12 +498,23 @@ def archive_text(page):
     return "\n".join(dict.fromkeys(best))[:20000]
 
 
-# archive.today is read on two routes: lookups and snapshot pages from the cluster's own IP (free; the snapshots
-# are ~0.5 MB each), submissions through the residential proxy (archive.today takes no capture from a datacenter
-# IP: its submit page answers "Loading" and nothing is captured, tried 15 Oct 2026; from a residential IP the same
-# request made the snapshot). Each route keeps its own clearance cookies (bound to its IP): kv paywall:archive and
-# paywall:archive:resi (with the proxy's sticky session id).
-ROUTES = {"direct": "paywall:archive", "resi": "paywall:archive:resi"}
+# archive.today is read on YYC's ISP IP (env ISP_PROXY, flat rate, one client at a time: each request under its lock,
+# bytes in kv isp:bytes), lookups, snapshot pages and submissions alike: since ~8 Nov 2026 archive.today answers no
+# connection from datacenter IPs (the cluster, Hetzner, LeaseWeb HK, a US host: TCP or TLS timeouts) and the ISP IP
+# reads it (17 Nov: 200). Without ISP_PROXY: lookups from the cluster's own IP, submissions through the residential
+# proxy (archive.today takes no capture from a datacenter IP: its submit page answers "Loading" and nothing is
+# captured, tried 15 Oct 2026). Each route keeps its own clearance cookies (bound to its IP): kv paywall:archive,
+# paywall:archive:isp and paywall:archive:resi (with the proxy's sticky session id).
+ROUTES = {"direct": "paywall:archive", "isp": "paywall:archive:isp", "resi": "paywall:archive:resi"}
+NO_KEEPALIVE = {"Connection": "close"}  # the ISP IP's one client: no tunnel left open between two lock holds
+
+
+def lookup_route():
+    return "isp" if isp_proxy() else "direct"
+
+
+def submit_route():
+    return "isp" if isp_proxy() else "resi"
 
 
 def archive_session(route="direct"):
@@ -464,7 +523,11 @@ def archive_session(route="direct"):
     if route == "resi":
         st.setdefault("sid", "".join(random.choices(string.ascii_lowercase + string.digits, k=8)))
         proxy = proxy_url(st["sid"])
-    s = _session(proxy)
+    if route == "isp":
+        proxy = isp_proxy()
+        s = _session(proxy, isp=True)
+    else:
+        s = _session(proxy)
     for dom, jar in (st.get("cookies") or {}).items():  # {mirror domain: {name: value}} (each mirror clears apart)
         if isinstance(jar, dict):  # a bare cookie (kept before the mirrors, 15 Oct) is skipped: a solve renews it
             for k, v in jar.items():
@@ -492,7 +555,7 @@ def archive_clear(url, route="direct"):
     own callback sends it (its fingerprint script, then POST /cdn-cgi/l/chk_captcha), then the clearance cookies →
     kv (ROUTES). Pictures, fonts, video and audio are never loaded, on either route (nomedia.block: text only)."""
     from patchright.sync_api import sync_playwright
-    with corpus.lock(ROUTES[route]):
+    with corpus.lock(ROUTES[route]), isp_turn(route):
         _, st, proxy = archive_session(route)
         kw = {}
         if proxy:
@@ -505,12 +568,12 @@ def archive_clear(url, route="direct"):
                 ctx = b.new_context(no_viewport=True)
                 nomedia.block(ctx)  # text only (nomedia.py)
                 if proxy:
-                    counted = resi.count_browser(ctx, "archive")
+                    counted = resi.count_browser(ctx, "archive", isp=route == "isp")
                 pg = ctx.new_page()
                 try:
                     pg.goto(url, wait_until="domcontentloaded", timeout=60000)
                 except Exception as e:
-                    if proxy:
+                    if proxy and route == "resi":
                         resi.check_browser(e)  # IPRoyal out of traffic → resi.ProxyOut
                     raise
                 time.sleep(2)
@@ -535,11 +598,13 @@ def archive_get(path, s=None, route="direct"):
     its captcha once when it asks → (response, session)"""
     if s is None:
         s, _, _ = archive_session(route)
+    kw = {"headers": NO_KEEPALIVE} if route == "isp" else {}
     last = None
     for m in MIRRORS:
         url = f"https://{m}{path}"
         try:
-            r = s.get(url, timeout=(15, 60))
+            with isp_turn(route):
+                r = s.get(url, timeout=(15, 60), **kw)
         except resi.ProxyOut:
             raise  # out of traffic: every mirror would say the same
         except Exception as e:  # the mirror doesn't answer from this IP: the next one
@@ -551,16 +616,17 @@ def archive_get(path, s=None, route="direct"):
                 raise Unreachable("archive.today: captcha, and no 2Captcha key (TWOCAPTCHA_API) to answer it")
             archive_clear(url, route)
             s, _, _ = archive_session(route)
-            r = s.get(url, timeout=(15, 60))
+            with isp_turn(route):
+                r = s.get(url, timeout=(15, 60), **kw)
             if captcha_page(r):
                 raise Blocked("archive.today: captcha again after a solve")
         return r, s
     raise Unreachable(f"archive.today: no mirror answered ({last!r})"[:300])
 
 
-def archive_lookup(url, s=None):
+def archive_lookup(url, s=None, route=None):
     """→ (snapshot URL, its text) of the page's newest archive.today snapshot, or (None, "") when there is none"""
-    r, s = archive_get("/newest/" + url, s)
+    r, s = archive_get("/newest/" + url, s, route=route or lookup_route())
     if r.status_code == 404 or "/newest/" in r.url:
         return None, ""
     if r.status_code != 200:
@@ -570,8 +636,8 @@ def archive_lookup(url, s=None):
 
 def archive_submit(url):
     """ask archive.today to capture the page (its submit form's request, as a reader sends it) from the residential
-    route; the capture takes minutes, later runs look for it"""
-    r, _ = archive_get("/submit/?" + urllib.parse.urlencode({"url": url}), route="resi")
+    route (the ISP IP, else the residential proxy); the capture takes minutes, later runs look for it"""
+    r, _ = archive_get("/submit/?" + urllib.parse.urlencode({"url": url}), route=submit_route())
     return r.status_code
 
 
@@ -619,7 +685,8 @@ def archive_run(limit=ARCHIVE_MAX, days=ARCHIVE_DAYS):
     """one run of the archive job (CronJob paywall): every excerpt post of the last `days` days still pending"""
     from collections import Counter
     stats = Counter()
-    s, _, _ = archive_session()
+    route = lookup_route()
+    s, _, _ = archive_session(route)
     now = datetime.now(HKT).isoformat(timespec="seconds")
     start = time.monotonic()
     down = False
@@ -629,8 +696,8 @@ def archive_run(limit=ARCHIVE_MAX, days=ARCHIVE_DAYS):
             continue
         looks = (r["looks"] or 0) + 1
         try:
-            snap, text = archive_lookup(r["url"], s)
-            s, _, _ = archive_session()  # a solve inside renews the cookies
+            snap, text = archive_lookup(r["url"], s, route)
+            s, _, _ = archive_session(route)  # a solve inside renews the cookies
             if snap:
                 saved = save_archive(r["id"], text, snap) if text else False
                 _scan(r["id"], looks=looks, status="done", snapshot=snap, at=now, chars=len(text))

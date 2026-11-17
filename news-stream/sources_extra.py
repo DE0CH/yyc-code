@@ -894,21 +894,28 @@ REUTERS_PAGES = ("&from=50",)  # the news sitemap's second page: 50 stories each
 REUTERS_FULL = "https://www.reuters.com/arc/outboundfeeds/sitemap/?outputType=xml"  # every story incl. Breakingviews
 
 
+def reuters_fetch(url):
+    """one more Reuters sitemap page, through the source's DataDome session (paywall.reuters_page)"""
+    import paywall
+    return paywall.reuters_page(url)
+
+
 def reuters(text):
-    """Reuters: headlines from its open Google News sitemap (arc outboundfeeds, paged with from=N), plus the stories
+    """Reuters: headlines from its Google News sitemap (arc outboundfeeds, paged with from=N), plus the stories
     only its full sitemap lists (Breakingviews: never in the news sitemap; coverage audit 2026-10-14): the newest 200 by
     lastmod, title from the URL slug until the page's own replaces it (SLUG_TITLES), time = lastmod when the URL's date
-    (…-YYYY-MM-DD/) is that day, else the URL's date (an old story updated is not news)"""
+    (…-YYYY-MM-DD/) is that day, else the URL's date (an old story updated is not news). Every page is read with the
+    solved DataDome session (READERS reuters, reuters_fetch: the sitemaps answer 401 to plain clients since 30 Oct 2026)"""
     out = news_sitemap(0)(text)
     for q in REUTERS_PAGES:
         try:
-            out += news_sitemap(0)(fetch("https://www.reuters.com/arc/outboundfeeds/news-sitemap/?outputType=xml" + q))
+            out += news_sitemap(0)(reuters_fetch("https://www.reuters.com/arc/outboundfeeds/news-sitemap/?outputType=xml" + q))
         except Exception:
             pass
     have = {x["url"] for x in out}
     for q in ("", "&from=100"):
         try:
-            full = news_sitemap(0, slug=True)(fetch(REUTERS_FULL + q))
+            full = news_sitemap(0, slug=True)(reuters_fetch(REUTERS_FULL + q))
         except Exception:
             continue
         for it in full:
@@ -985,6 +992,15 @@ _s.EVERY.update({"oncc_daily": 3600, "mingpao_pns_sitemap": 3600,
 _s.HEAD_BYTES.update({"scmp_video": 60_000, "scmp_photos": 20_000})
 # 橙新聞 cuts its gzip responses short (IncompleteRead); uncompressed it answers in full
 _s.READERS["fstb_linkedin"] = linkedin_read
+
+
+def reuters_read(url):
+    """Reuters' sitemaps behind DataDome (since 30 Oct 2026: 401 to every plain client) → paywall.reuters_read"""
+    import paywall
+    return paywall.reuters_read(url)
+
+
+_s.READERS["reuters"] = reuters_read
 _s.HEADERS.update({"orangenews": {"Accept-Encoding": "identity"}, "orangenews_finance": {"Accept-Encoding": "identity"}})
 _s.POST_DATA.update({sid: urllib.parse.urlencode({"limit": "30", "handlerName": "contentPageListHandler", "page": "1",
                                                   "params": json.dumps({"channelId": str(ch), "channelType": "3", "isPc": "1"})}).encode()

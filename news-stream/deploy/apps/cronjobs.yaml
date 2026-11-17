@@ -1080,6 +1080,11 @@ spec:
             - secretRef:
                 name: app-env
             env:
+            - name: ISP_PROXY  # archive.today (and Reuters' DataDome session) on YYC's ISP IP, one client at a time (lock 'yyc youtube')
+              valueFrom:
+                secretKeyRef:
+                  name: isp-proxy
+                  key: ISP_PROXY
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
