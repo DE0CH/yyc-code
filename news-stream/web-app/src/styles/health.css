@@ -2,8 +2,9 @@
    columns of fixed 14 px lines of Fusion Pixel 10 at its design size, so on any screen (1x, 2x, the iPhone's 3x) every
    pixel of a glyph is whole device pixels: whole-px sizes, line heights and boxes only, nothing centred into a half pixel,
    no transforms (the wall's blur pitfall, 2026-10-21). Flat sheet, 1 px rules, colour only for the flight-deck states;
-   each state has its marker shape too: normal a small green square, caution an amber block, failed a red block,
-   blind a magenta outline with a cross, advisory a blue outline, working (Jarvis 4) an ink block. Read only: no link,
+   dark cockpit: a normal line has no marker; each lit state has its own shape as well as its colour: caution an amber
+   block, failed a red block, blind a magenta outline with a cross, advisory a blue outline, working (Jarvis 4) an ink
+   block; an idle session only its amber word, as on the wall (no block: idle is the sessions' resting state). Read only: no link,
    button or input. The page's html carries live-doc (live.css: the ground, no page scroll, the frame shell). */
 html.health-doc { -webkit-text-size-adjust:100%; text-size-adjust:100%; }
 html.health-doc, html.health-doc body { overscroll-behavior:none; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
@@ -38,7 +39,9 @@ html.health-doc, html.health-doc body { overscroll-behavior:none; -webkit-user-s
 .hp-kv.blind .k, .hp-kv.blind .v, .hp-ln.blind, .hp-sub.blind { color:var(--blind); }
 .hp-kv.info .k, .hp-kv.info .v, .hp-ln.info, .hp-sub.info, .hp-j.info .w { color:var(--info); }
 .hp-mk { flex:none; display:block; position:relative; width:8px; height:8px; margin-right:5px; }
-.hp-mk.ok { width:4px; height:4px; margin:5px 7px 5px 2px; background:var(--ok); }
+/* dark cockpit (Deyao, 2026-11-17: "dark cockpit principle broken"): a normal line has no marker at all, only its
+   place (the names stay in one column); only what is not normal lights up */
+.hp-mk.ok { visibility:hidden; }
 .hp-mk.warn { background:var(--warn); } .hp-mk.bad { background:var(--bad); } .hp-mk.ink { background:var(--ink); }
 .hp-mk.info { border:1px solid var(--info); }
 .hp-mk.blind { border:1px solid var(--blind); color:var(--blind); }

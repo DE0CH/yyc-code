@@ -13,7 +13,8 @@ test's own Access key.
 2. On an iPhone 17's app area (402 x 778, WebKit, 3x): two columns of 200 and 201 px with the rule between; every font
    size, line height and line on a whole px (the wall's blur pitfall); nothing below a column's bottom, no sideways scroll;
    Jarvis 4 needing-you first; every lit state in its colour (AnyAPI can't be read: magenta; a Deployment with no pod ready:
-   red; a failed CronJob: amber; a booting host: blue); no link, button or input.
+   red; a failed CronJob: amber; a booting host: blue); dark cockpit: no marker on a normal line, an idle session only its
+   amber word; no link, button or input.
 3. The screen decides the detail (lib/healthFit.ts): every level-0 line shows at 778 and at 1000 px; the taller window
    shows more detail lines, never fewer; a short one (560 px) folds the oldest idle sessions into "+N idle"; a group of
    details (the AWS hosts) shows whole or not at all; the space a column leaves is less than its next detail would take.
@@ -148,6 +149,15 @@ class HealthPage(unittest.TestCase):
         self.assertEqual(colour(".hp-ln.bad:has-text('wisers 0/1')"), "rgb(255, 77, 90)")
         self.assertEqual(colour(".hp-kv.warn:has-text('CronJobs') .v"), "rgb(255, 184, 28)")
         self.assertEqual(colour(".hp-kv.info:has-text('aws-1b2c3d') .v"), "rgb(90, 169, 255)")
+        # dark cockpit (Deyao, 2026-11-17): nothing normal shows a marker; an idle session shows no block either; what is
+        # lit keeps its shape (the needing-you session's amber block, the red Deployments block)
+        shown = page.evaluate("""() => [...document.querySelectorAll('.hp-mk')].filter(m => getComputedStyle(m).visibility !== 'hidden')
+            .map(m => (m.closest('[data-state]') ? 'j:' + m.closest('[data-state]').dataset.state : m.className))""")
+        self.assertNotIn("hp-mk ok", shown)
+        self.assertNotIn("j:idle", shown)
+        self.assertIn("j:waiting", shown)
+        self.assertIn("hp-mk bad", shown)
+        self.assertEqual(page.locator(".hp-j[data-state='idle'] .w").first.evaluate("e => getComputedStyle(e).color"), "rgb(255, 184, 28)")
         self.assertIn("OpenRouter", t)
         self.assertIn("USD 61.52", t)
         self.assertIn("needs you", t)

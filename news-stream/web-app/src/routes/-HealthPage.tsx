@@ -90,7 +90,8 @@ function jarvisLines(j: JarvisLive, now: number, rows: number): Line[] {
       if (x === idle[idle.length - 1]) out.push(ln("jfold", 0, "ok", <span className="dim">+{fold} idle, longest {x.since ? dur((now - x.since) / 1000) : "–"}</span>));
       return;
     }
-    out.push({ key: "j" + i, level: 0, node: <div className={"hp-l hp-j" + K[JMK[x.state]]} data-state={x.state}><Mk st={JMK[x.state]} />
+    // idle: the amber word alone, as the wall's outlined tag (Deyao, 2026-11-17: dark cockpit); a block is for what needs him
+    out.push({ key: "j" + i, level: 0, node: <div className={"hp-l hp-j" + K[JMK[x.state]]} data-state={x.state}><Mk st={x.state === "idle" ? "ok" : JMK[x.state]} />
       <span className="n">{x.name}</span><span className="w">{jRight(x, now)}</span></div> });
     if (x.state === "waiting" || x.state === "working" || x.state === "background") {
       const d = jDetail(x, now);
