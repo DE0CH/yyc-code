@@ -4,10 +4,11 @@
 // returns it as `jarvis`. Only what the panel shows is kept: a name, a state, two counts and a time per session.
 
 /** working: a turn is running; waiting: it asks Deyao (a permission prompt); background: no turn, background jobs or
- * subagents running; idle: nothing running; booting: started, not reporting yet */
-export const JARVIS_STATES = ["working", "waiting", "background", "idle", "booting"] as const;
+ * subagents running; scheduled: nothing running (paused or idle), a wakeup, cron or watch armed (Deyao, 2026-11-17);
+ * idle: nothing running; booting: started, not reporting yet */
+export const JARVIS_STATES = ["working", "waiting", "background", "scheduled", "idle", "booting"] as const;
 export type JarvisState = typeof JARVIS_STATES[number];
-export interface JarvisSession { name: string; state: JarvisState; jobs: number; subagents: number; since: number | null }
+export interface JarvisSession { name: string; state: JarvisState; jobs: number; subagents: number; since: number | null; next: number | null }
 export interface JarvisLive { at: number; got: number; total: number; sessions: JarvisSession[] }
 
 export const JARVIS_KEEP = 16;  // liveLayout JARVIS_MAX: the most any layout shows
@@ -25,6 +26,7 @@ export function cleanJarvis(body: unknown, now: number): JarvisLive | null {
       name: (typeof x.name === "string" ? x.name : "").replace(/\p{Cc}/gu, " ").trim().slice(0, 120) || "untitled",
       state: x.state as JarvisState, jobs: int(x.jobs, 999), subagents: int(x.subagents, 999),
       since: typeof x.since === "number" && Number.isFinite(x.since) && x.since > 0 ? Math.floor(x.since) : null,
+      next: typeof x.next === "number" && Number.isFinite(x.next) && x.next > 0 ? Math.floor(x.next) : null,
     });
   }
   return { at: int(b.at, 8.64e15) || now, got: now, total: Math.max(int(b.total, 9999), sessions.length), sessions };

@@ -1477,12 +1477,17 @@ them (their events too), Full text went from two columns to one.
   line ends below the box, no part of a line is cut at its right edge and AWS's figures are shown whole.
 - **Jarvis 4 (Deyao, 2026-11-12:** "a panel for my jarvis 4 status, i just need to know limited information like if
   session is working, idle, or with background … at most 12-16 sessions"): Jarvis 4's router (DE0CH/jarvis4
-  `router/livepush.go`) POSTs his running sessions every 5 s to `/live/jarvis` with `X-Jarvis-Secret` (Worker secret
+  `router/livepush.go`) POSTs his running sessions, and the paused ones that will wake by themselves, every 5 s to `/live/jarvis` with `X-Jarvis-Secret` (Worker secret
   `JARVIS_LIVE_SECRET` = store key `YYC_JARVIS_LIVE_SECRET`); the LiveHub Durable Object keeps the last push
   (`server/jarvis.ts`; never Postgres) and `/app/live/data` returns it as `jarvis`. Each session: its state word
-  (working ink-filled, needs you amber, background and booting blue, idle quiet), its title, how long in that state
-  and its background jobs and subagents; at most 16, the most active first, "N more running" in the header, amber
-  "no update since" after a minute without a push. YYC holds no Jarvis 4 credential.
+  (working ink-filled, needs you amber, background, scheduled and booting blue, idle quiet), its title, how long in
+  that state and its background jobs and subagents; scheduled (Deyao, 2026-11-17: "it should also show scheduled as
+  blue, similar to background") = paused or idle with a wakeup, cron or watch armed, as the Jarvis 4 app's Scheduled,
+  with its next wake in HKT ("next 14:30", "watching" for a watch alone); at most 16, the most active first, "N more"
+  in the header, amber "no update since" after a minute without a push. YYC holds no Jarvis 4 credential.
+- **View only (Deyao, 2026-11-17:** "there can't be any clickable element on the monitor … it's a view only live
+  monitor"): no links, buttons or inputs anywhere on /app/live (YYC AI's Schedules link was removed; test 3 counts
+  them).
 
   Each header: the panel's count in the last 10 minutes and hour (read every 30 s).
 - **One card at a time** (Deyao: "should do one new item at a time even if it pulled multiples in one update"): each

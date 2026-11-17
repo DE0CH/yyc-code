@@ -243,8 +243,11 @@ JARVIS = {"total": 18, "sessions": [
     {"name": "Live dashboard: booting host colour", "state": "working", "jobs": 0, "subagents": 0},
     {"name": "Cathay seat for the HKG flight", "state": "waiting", "jobs": 0, "subagents": 0},
     {"name": "YYC AI image compaction", "state": "background", "jobs": 2, "subagents": 1},
+    # paused or idle with a wakeup/cron armed (its next one; a watch alone has no time) (Deyao, 2026-11-17)
+    {"name": "Deploy watch for aviary", "state": "scheduled", "jobs": 0, "subagents": 0, "next": int(time.time() * 1000) + 3600_000},
+    {"name": "Watching the CI run", "state": "scheduled", "jobs": 0, "subagents": 0},
     {"name": "booting session", "state": "booting", "jobs": 0, "subagents": 0}] +
-    [{"name": f"idle session {i}", "state": "idle", "jobs": 0, "subagents": 0} for i in range(14)]}
+    [{"name": f"idle session {i}", "state": "idle", "jobs": 0, "subagents": 0} for i in range(12)]}
 
 
 def push_jarvis(doc, secret=JARVIS_SECRET):
@@ -429,10 +432,8 @@ class LivePage(unittest.TestCase):
         # warming up is an advisory, not a caution: blue (deyao-web-design status colours)
         self.assertEqual(page.locator("[data-ai-state] .tag.info", has_text="warming up").count(), 1)
         self.assertEqual(page.locator("[data-ai-state] .row.infoc", has_text="Host aws-1b2c3d booting").count(), 1)
-        # the only link to YYC AI's operator page is Schedules; View as lives on that page's Now tab (Deyao, 2026-11-11)
-        ops = page.locator("[data-ai-state] a.ops")
-        self.assertEqual([ops.nth(i).get_attribute("href") for i in range(ops.count())], ["https://ai.yyc-internal.com/ops/schedules"])
-        self.assertEqual(page.locator("[data-ai-state] a[href*='view-as']").count(), 0)
+        # a view-only monitor: nothing on it can be clicked, no links or buttons (Deyao, 2026-11-17)
+        self.assertEqual(page.locator("a, button, input, select, textarea, [onclick], [role=button], [role=link]").count(), 0)
         sys_ = page.inner_text(".lp[data-panel=sys]")
         for x in ("OpenRouter", "credit USD 61.52", "yyc-chat USD 2.96 today · USD 25.30 month", "provider API", "TikHub",
                   "balance USD 12.40, today USD 0.31", "yycstream left 3.2 GB", "AnyAPI", "error: HTTPError 500",
@@ -463,11 +464,15 @@ class LivePage(unittest.TestCase):
         # Jarvis 4 (Deyao, 2026-11-12): 16 sessions, most active first, each its state word in its colour, "2 more"
         jp = page.locator(".lp[data-panel=jarvis]")
         self.assertEqual(jp.locator(".jr").count(), 16)
-        self.assertIn("2 more running", jp.locator("h2").inner_text())
+        self.assertIn("2 more", jp.locator("h2").inner_text())
         self.assertEqual(jp.locator(".jr[data-state=working] .tag.inkf", has_text="working").count(), 1)
         self.assertEqual(jp.locator(".jr[data-state=waiting] .tag.warn", has_text="needs you").count(), 1)
         self.assertEqual(jp.locator(".jr[data-state=background] .tag.info", has_text="background").count(), 1)
         self.assertEqual(jp.locator(".jr[data-state=booting] .tag.info", has_text="booting").count(), 1)
+        # scheduled is blue like background, with its next wake (HKT) or "watching" (Deyao, 2026-11-17)
+        self.assertEqual(jp.locator(".jr[data-state=scheduled] .tag.info", has_text="scheduled").count(), 2)
+        self.assertRegex(jp.locator(".jr[data-state=scheduled]", has_text="Deploy watch").inner_text(), r"next (\d\d-\d\d )?\d\d:\d\d")
+        self.assertIn("watching", jp.locator(".jr[data-state=scheduled]", has_text="Watching the CI").inner_text())
         self.assertEqual(jp.locator(".tag.badt").count(), 0)  # nothing here is a failure
         self.assertRegex(jp.locator(".jr[data-state=background]").inner_text(), r"for \d+ min, 2 background jobs, 1 subagent")
         self.assertIn("Cathay seat for the HKG flight", jp.locator(".jr[data-state=waiting]").inner_text())

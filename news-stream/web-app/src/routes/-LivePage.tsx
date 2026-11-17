@@ -393,7 +393,6 @@ function AiState({ sys, now, w, h, side }: { sys: LiveSys | null; now: number; w
           {p ? <span className="dim">{p.conversations} conversations today</span> : null}</R>;
       })}
       {((a.by_model || []) as J[]).length ? <R k="dim">{((a.by_model || []) as J[]).slice(0, 3).map(m => `${m.model} ${m.calls} (${usd(m.today_usd)})`).join(", ")}</R> : null}
-      <OpsLinks page={s_(a.ops_page)} />
       <Sec>Errors in the last {a.recent_minutes ?? 15} min; sandbox starts in 24 h</Sec>
       <R k={rec.failedStarts || rec.modelErrors || rec.hostErrors ? "why" : undefined}>
         {rec.failedStarts ?? "–"} failed starts, {rec.modelErrors ?? "–"} model/tool call errors, {rec.hostErrors ?? "–"} host errors, {rec.blocked ?? "–"} blocked hosts</R>
@@ -401,13 +400,6 @@ function AiState({ sys, now, w, h, side }: { sys: LiveSys | null; now: number; w
       <R k="dim" title={s_(a.source) || undefined}>source: YYC AI operator snapshot (its Postgres, Kubernetes, the scaler)</R>
     </div>
   );
-}
-
-/** everyone's schedules, their runs and the pause-all switch (Deyao, 2026-11-06): YYC AI's /ops/schedules.
- * View as is on YYC AI's operator page itself, its Now tab (Deyao, 2026-11-11) */
-function OpsLinks({ page }: { page: string | null }) {
-  if (!page) return null;
-  return <R><a className="c1 ops" href={`${page}schedules`} target="_blank" rel="noopener noreferrer" title="every person's schedules, their runs and the pause-all switch">Schedules</a></R>;
 }
 
 /** the first words of a source, up to its first "(": "provider API", "Exa's own charged cost per call" */
@@ -655,14 +647,19 @@ function SysPanel({ box, sys, now }: { box: Box; sys: LiveSys | null; now: numbe
 }
 
 /** Jarvis 4's state words and their colour (the flight deck's: working is normal and stays ink; waiting asks Deyao,
- * amber; background jobs and booting finish by themselves, blue; idle is quiet) */
+ * amber; background jobs, a schedule (Deyao, 2026-11-17) and booting go on by themselves, blue; idle is quiet) */
 const JARVIS_TAG: Record<JarvisSession["state"], [string, string]> = {
-  working: ["working", "inkf"], waiting: ["needs you", "warn"], background: ["background", "info"], idle: ["idle", ""], booting: ["booting", "info"],
+  working: ["working", "inkf"], waiting: ["needs you", "warn"], background: ["background", "info"], scheduled: ["scheduled", "info"], idle: ["idle", ""], booting: ["booting", "info"],
 };
 /** "2 background jobs, 1 subagent" */
 const workersText = (x: JarvisSession) => [x.jobs ? `${x.jobs} background ${x.jobs === 1 ? "job" : "jobs"}` : "",
   x.subagents ? `${x.subagents} ${x.subagents === 1 ? "subagent" : "subagents"}` : ""].filter(Boolean).join(", ");
 
+/** a scheduled session's next wake in HKT: "14:30" today, "11-19 14:30" on a later day */
+const wakeAt = (ms: number, now: number) => {
+  const d = (t: number) => new Date(t + 8 * 3600e3).toISOString();
+  return (d(ms).slice(0, 10) === d(now).slice(0, 10) ? "" : d(ms).slice(5, 10) + " ") + hhmm(ms);
+};
 /** panel 11: Deyao's running Jarvis 4 sessions, most active first, one fixed cell each (liveLayout jarvisGrid) */
 function JarvisPanel({ box, j, now }: { box: Box; j: JarvisLive | null; now: number }) {
   const g = jarvisGrid(box), list = (j?.sessions || []).slice(0, g.n);
@@ -671,7 +668,7 @@ function JarvisPanel({ box, j, now }: { box: Box; j: JarvisLive | null; now: num
   return (
     <section className="lp" data-panel="jarvis" aria-label={PANEL_NAMES.jarvis} style={{ left: box.x, top: box.y, width: box.w, height: box.h }}>
       <h2 style={{ height: HEADER }}><span>{PANEL_NAMES.jarvis}</span>
-        <span className="hr">{more > 0 ? <span className="dim">{more} more running, </span> : null}
+        <span className="hr">{more > 0 ? <span className="dim">{more} more, </span> : null}
           {j ? <span className={"num " + (old ? "warn" : "dim")}>{old ? "no update since " : "as of "}{hhmmss(j.got)}</span> : null}</span></h2>
       <div className="js" style={{ gridTemplateColumns: `repeat(${g.cols}, ${Math.floor((box.w - 2) / g.cols)}px)`, gridTemplateRows: `repeat(${g.rows}, ${JARVIS_ROW_H}px)` }}>
         {!j ? <div className="jr dim">{sys0(now)}</div> : !list.length ? <div className="jr dim">no session running</div>
@@ -679,7 +676,8 @@ function JarvisPanel({ box, j, now }: { box: Box; j: JarvisLive | null; now: num
             const [word, k] = JARVIS_TAG[x.state];
             return <div key={i} className={"jr" + (x.state === "idle" ? " idle" : "") + (i >= g.rows ? " c2nd" : "")} data-state={x.state}>
               <div className="j1"><span className={"tag " + k}>{word}</span><span className="jn">{x.name}</span></div>
-              <div className="j2 num">{x.since ? `for ${dur(Math.max(0, (now || j.got) - x.since) / 1000)}` : ""}{workersText(x) ? `${x.since ? ", " : ""}${workersText(x)}` : ""}</div>
+              <div className="j2 num">{x.state === "scheduled" ? (x.next ? `next ${wakeAt(x.next, now || j.got)}` : "watching")
+                : <>{x.since ? `for ${dur(Math.max(0, (now || j.got) - x.since) / 1000)}` : ""}{workersText(x) ? `${x.since ? ", " : ""}${workersText(x)}` : ""}</>}</div>
             </div>;
           })}
       </div>

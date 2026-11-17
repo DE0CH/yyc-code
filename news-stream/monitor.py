@@ -2429,10 +2429,6 @@ def _gib(b):
     return None if b is None else round(float(b) / 2**30, 1)
 
 
-# YYC AI's operator page: the live dashboard links its Schedules page (<page>schedules); View as lives on the page's Now tab
-YYC_AI_OPS_PAGE = os.environ.get("YYC_AI_OPS_PAGE", "https://ai.yyc-internal.com/ops/")
-
-
 def ai_slim(d):
     """what the page shows of the snapshot (no message contents exist in it: owners, ids, hosts, counts, costs)"""
     b = d.get("budget") or {}
@@ -2464,7 +2460,6 @@ def ai_slim(d):
                      for m in b.get("byModel") or [] if m.get("callsToday")],
         "people_today": [{"owner": p.get("owner"), "conversations": p.get("today"), "live": p.get("live")}
                          for p in d.get("people") or [] if p.get("today") or p.get("live")],
-        "ops_page": YYC_AI_OPS_PAGE,
         "recent": {k: rec.get(k) for k in ("failedStarts", "modelErrors", "hostErrors", "blocked")},
         "recent_minutes": d.get("recentMinutes"),
         "starts_24h": starts,
