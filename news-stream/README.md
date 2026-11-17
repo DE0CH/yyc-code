@@ -1468,7 +1468,7 @@ them (their events too), Full text went from two columns to one.
   | Display | Row 1 | Row 2 |
   |---|---|---|
   | left 1920 x 1200 (rows 589 px) | 1 Ingest (8 cards) · 2 Full text (5, five lines of text each) · 3 Comments (5, the three most liked), 636 px each | 4 Stage 1, 1276 px wide (5 cards, every topic's score, meter and reason) · 5 Stage 2 (4, stage 1 vs stage 2 with both reasons) |
-  | right 1920 x 1080 (rows 532 px; Deyao, 2026-11-12) | 6 Filed (5) · 7 Alerts (8) · 8 Problems (6) · 11 Jarvis 4 (16 sessions), 480 px each | 9 YYC AI, 959 px wide (its state in a 479 px column, its activity as cards beside it) · 10 Systems, 959 px wide |
+  | right 1920 x 1080 (rows 532 px; Deyao, 2026-11-12) | 6 Filed (5) · 7 Alerts (8) · 8 Problems (6), 401 px each · 11 Jarvis 4, 720 px (two columns of 16 sessions; 2026-11-17, his sessions went past 16) | 9 YYC AI, 959 px wide (its state in a 479 px column, its activity as cards beside it) · 10 Systems, 959 px wide |
 
   One window (1440 x 830) is a 5 x 3 grid: the pipeline's five panels, then Filed, Alerts, Problems and Jarvis 4 (two
   columns of 8 sessions), then YYC AI (three columns) and Systems (two).
@@ -1487,7 +1487,7 @@ them (their events too), Full text went from two columns to one.
   (working ink-filled, needs you amber, background, scheduled and booting blue, idle quiet), its title, how long in
   that state and its background jobs and subagents; scheduled (Deyao, 2026-11-17: "it should also show scheduled as
   blue, similar to background") = paused or idle with a wakeup, cron or watch armed, as the Jarvis 4 app's Scheduled,
-  with its next wake in HKT ("next 14:30", "watching" for a watch alone); at most 16, the most active first, "N more"
+  with its next wake in HKT ("next 14:30", "watching" for a watch alone); at most 32 (16 in one window), the most active first, "N more"
   in the header, amber "no update since" after a minute without a push. YYC holds no Jarvis 4 credential.
 - **View only (Deyao, 2026-11-17:** "there can't be any clickable element on the monitor … it's a view only live
   monitor"): no links, buttons or inputs anywhere on /app/live (YYC AI's Schedules link was removed; test 3 counts

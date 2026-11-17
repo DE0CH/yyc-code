@@ -11,7 +11,7 @@ export type JarvisState = typeof JARVIS_STATES[number];
 export interface JarvisSession { name: string; state: JarvisState; jobs: number; subagents: number; since: number | null; next: number | null }
 export interface JarvisLive { at: number; got: number; total: number; sessions: JarvisSession[] }
 
-export const JARVIS_KEEP = 16;  // liveLayout JARVIS_MAX: the most any layout shows
+export const JARVIS_KEEP = 32;  // liveLayout JARVIS_MAX: the most any layout shows
 
 const int = (v: unknown, max: number) => typeof v === "number" && Number.isFinite(v) ? Math.min(max, Math.max(0, Math.floor(v))) : 0;
 

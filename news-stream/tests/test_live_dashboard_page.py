@@ -238,16 +238,18 @@ def boxes(page):
 
 
 JARVIS_SECRET = "dev-jarvis"
-# Jarvis 4's push (its router, every 5 s): 18 running, the 16 most active sent; the Worker keeps at most 16
-JARVIS = {"total": 18, "sessions": [
+# Jarvis 4's push (its router, every 5 s): 34 running, all sent; the Worker keeps at most 32 (the right display's two
+# columns of 16; Deyao, 2026-11-17: his sessions went past the 16 it was drawn for)
+JARVIS = {"total": 34, "sessions": [
     {"name": "Live dashboard: booting host colour", "state": "working", "jobs": 0, "subagents": 0},
     {"name": "Cathay seat for the HKG flight", "state": "waiting", "jobs": 0, "subagents": 0},
     {"name": "YYC AI image compaction", "state": "background", "jobs": 2, "subagents": 1},
     # paused or idle with a wakeup/cron armed (its next one; a watch alone has no time) (Deyao, 2026-11-17)
     {"name": "Deploy watch for aviary", "state": "scheduled", "jobs": 0, "subagents": 0, "next": int(time.time() * 1000) + 3600_000},
     {"name": "Watching the CI run", "state": "scheduled", "jobs": 0, "subagents": 0},
-    {"name": "booting session", "state": "booting", "jobs": 0, "subagents": 0}] +
-    [{"name": f"idle session {i}", "state": "idle", "jobs": 0, "subagents": 0} for i in range(12)]}
+    {"name": "booting session", "state": "booting", "jobs": 0, "subagents": 0},
+    {"name": "Qwen Code PDF output differs; fix deliver file display", "state": "working", "jobs": 1, "subagents": 0}] +
+    [{"name": f"idle session {i}", "state": "idle", "jobs": 0, "subagents": 0} for i in range(27)]}
 
 
 def push_jarvis(doc, secret=JARVIS_SECRET):
@@ -463,11 +465,12 @@ class LivePage(unittest.TestCase):
         for x in ("AWS (account yyc)", "month USD 1,237.31 · yesterday USD 105.29", "by service EC2 1,128.80 · Tax 206.22 · EC2 other 101.61",
                   "running now 12 × m7i.xlarge, 2 × m7i.2xlarge, 1 × t3.large"):
             self.assertIn(x, sys_)
-        # Jarvis 4 (Deyao, 2026-11-12): 16 sessions, most active first, each its state word in its colour, "2 more"
+        # Jarvis 4 (Deyao, 2026-11-12; 32 on the right display since 2026-11-17): most active first, each its state word
+        # in its colour, the 2 more of the 34 in the header
         jp = page.locator(".lp[data-panel=jarvis]")
-        self.assertEqual(jp.locator(".jr").count(), 16)
+        self.assertEqual(jp.locator(".jr").count(), 32)
         self.assertIn("2 more", jp.locator("h2").inner_text())
-        self.assertEqual(jp.locator(".jr[data-state=working] .tag.inkf", has_text="working").count(), 1)
+        self.assertEqual(jp.locator(".jr[data-state=working] .tag.inkf", has_text="working").count(), 2)
         self.assertEqual(jp.locator(".jr[data-state=waiting] .tag.warn", has_text="needs you").count(), 1)
         self.assertEqual(jp.locator(".jr[data-state=background] .tag.info", has_text="background").count(), 1)
         self.assertEqual(jp.locator(".jr[data-state=booting] .tag.info", has_text="booting").count(), 1)
@@ -483,6 +486,16 @@ class LivePage(unittest.TestCase):
         ctx, page = open_page(self.br, "/app/live", 1440, 830)
         cells = page.evaluate("[...document.querySelectorAll('.lp[data-panel=jarvis] .jr')].map(e => Math.round(e.getBoundingClientRect().left))")
         self.assertEqual((len(cells), len(set(cells))), (16, 2))
+        self.assertIn("18 more", page.locator(".lp[data-panel=jarvis] h2").inner_text())
+        ctx.close()
+        # the right display (Deyao, 2026-11-17: more than 16 running): two columns of 16, the 32 the Worker keeps, every
+        # title whole (a 54-character one among them)
+        ctx, page = open_page(self.br, "/app/live?half=right", 1920, 1080)
+        cells = page.evaluate("[...document.querySelectorAll('.lp[data-panel=jarvis] .jr')].map(e => Math.round(e.getBoundingClientRect().left))")
+        self.assertEqual((len(cells), len(set(cells))), (32, 2))
+        cut = page.evaluate("[...document.querySelectorAll('.lp[data-panel=jarvis] .jn')].filter(e => e.scrollWidth > e.clientWidth).map(e => e.textContent)")
+        self.assertEqual(cut, [])
+        self.assertEqual(page.locator(".lp[data-panel=jarvis] .jn", has_text="Qwen Code PDF output differs; fix deliver file display").count(), 1)
         ctx.close()
 
     def test_4_one_at_a_time(self):

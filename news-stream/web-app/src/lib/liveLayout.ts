@@ -13,7 +13,8 @@
 // screens"; Duplicates and Links followed were removed for them, Full text went from two columns to one):
 //   left  1920 x 1200   Ingest | Full text | Comments
 //                       Stage 1 (two columns wide: every topic's score and reason) | Stage 2
-//   right 1920 x 1080   Filed | Alerts | Problems | Jarvis 4 (Deyao's sessions: working, idle, background; 2026-11-12)
+//   right 1920 x 1080   Filed | Alerts | Problems (401 px each) | Jarvis 4 (Deyao's sessions: working, idle,
+//                       background; 2026-11-12; 720 px, two columns of 16 sessions since 2026-11-17)
 //                       YYC AI (two columns wide: its state, then its activity as cards) | Systems (two columns wide:
 //                       pods, hosts, balances, Postgres; at 640 px its lines did not fit and its bottom fell off)
 //   one window 1440 x 830: every panel in a 5 x 3 grid (testing, a laptop)
@@ -54,16 +55,33 @@ export function aiSplit(b: Box): { side: boolean; stateW: number; stateH: number
     : { side: false, stateW: b.w - 2, stateH: AI_STATE_H };
 }
 
-function grid(w: number, h: number, cols: number, rows: number, cells: (BoxId | null)[][], spans: Partial<Record<BoxId, number>> = {}): Layout {
+/** `cols` x `rows` cells; a panel in `spans` is that many cells wide. A panel in `widths` is that many px wide and the
+ * other panels of its row share what is left by their spans (the right display's Jarvis 4) */
+function grid(w: number, h: number, cols: number, rows: number, cells: (BoxId | null)[][], spans: Partial<Record<BoxId, number>> = {},
+              widths: Partial<Record<BoxId, number>> = {}): Layout {
   const cw = Math.floor((w - 2 * E - (cols - 1) * G) / cols);
   const rh = Math.floor((h - BAR - E - (rows - 1) * G) / rows);
   const panels: Box[] = [];
   cells.forEach((row, r) => {
-    let c = 0;
-    for (const id of row) {
-      const span = (id && spans[id]) || 1;
-      if (id) panels.push({ id, x: E + c * (cw + G), y: BAR + r * (rh + G), w: span * cw + (span - 1) * G, h: rh });
-      c += span;
+    const ids = row.filter((id): id is BoxId => !!id);
+    const fixed = ids.filter(id => widths[id]);
+    const y = BAR + r * (rh + G);
+    if (!fixed.length) {
+      let c = 0;
+      for (const id of row) {
+        const span = (id && spans[id]) || 1;
+        if (id) panels.push({ id, x: E + c * (cw + G), y, w: span * cw + (span - 1) * G, h: rh });
+        c += span;
+      }
+      return;
+    }
+    const left = w - 2 * E - (ids.length - 1) * G - fixed.reduce((t, id) => t + widths[id]!, 0);
+    const units = ids.filter(id => !widths[id]).reduce((t, id) => t + (spans[id] || 1), 0);
+    let x = E;
+    for (const id of ids) {
+      const bw = widths[id] || Math.floor(left * (spans[id] || 1) / units);
+      panels.push({ id, x, y, w: bw, h: rh });
+      x += bw + G;
     }
   });
   return { w, h, panels };
@@ -76,11 +94,14 @@ const PHONE_ORDER: [BoxId, number][] = [  // panel, cards shown
 export const SYS_PHONE_H = 800;
 
 /** Jarvis 4's panel: one fixed-height row per session (two lines: its state and name, then how long and what runs
- * besides it), in columns of JARVIS_COL_W px or more, at most JARVIS_MAX sessions (Deyao, 2026-11-12: "allocate at
- * most 12-16 depending on the layout"); the router sends them most active first */
+ * besides it), in columns of JARVIS_COL_W px or more, at most JARVIS_MAX sessions; the router sends them most active
+ * first. Deyao, 2026-11-12: "allocate at most 12-16 depending on the layout"; 2026-11-17: his running sessions went
+ * past 16, so the right display gives the panel JARVIS_RIGHT_W px (two columns of 16, every title whole) and Filed,
+ * Alerts and Problems share the rest of the row */
 export const JARVIS_ROW_H = 31;
 export const JARVIS_COL_W = 280;
-export const JARVIS_MAX = 16;
+export const JARVIS_MAX = 32;
+export const JARVIS_RIGHT_W = 720;
 export const JARVIS_PHONE_H = HEADER + 2 + JARVIS_MAX * JARVIS_ROW_H;
 export function jarvisGrid(b: Box): { cols: number; rows: number; n: number } {
   const cols = Math.max(1, Math.floor((b.w - 2) / JARVIS_COL_W));
@@ -102,7 +123,7 @@ export function phoneLayout(width: number): Layout {
 
 export const LAYOUTS: Record<Exclude<Mode, "phone">, Layout> = {
   left: grid(1920, 1200, 3, 2, [["ingest", "fulltext", "comments"], ["stage1", "stage2"]], { stage1: 2 }),
-  right: grid(1920, 1080, 4, 2, [["filed", "alert", "problem", "jarvis"], ["ai", "sys"]], { ai: 2, sys: 2 }),
+  right: grid(1920, 1080, 4, 2, [["filed", "alert", "problem", "jarvis"], ["ai", "sys"]], { ai: 2, sys: 2 }, { jarvis: JARVIS_RIGHT_W }),
   single: grid(1440, 830, 5, 3, [["ingest", "fulltext", "comments", "stage1", "stage2"], ["filed", "alert", "problem", "jarvis"], ["ai", "sys"]],
     { jarvis: 2, ai: 3, sys: 2 }),
 };
