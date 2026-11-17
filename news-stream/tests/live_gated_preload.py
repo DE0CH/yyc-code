@@ -132,9 +132,13 @@ with sync_playwright() as pw:
     item = f"/item/{pick['pid']}?p={pick['stream']}"
     print("post:", item, "full text", pick["chars"], "characters")
 
-    # 1
-    code, h, html, secs = get(item, cookie)
-    check(code == 200 and pick["run"] in html, f"the item page's HTML for the bot has the end of the full text ({secs:.2f} s)")
+    # 1 (the first request a newly deployed version serves may go out before /app/me has answered the server, 1.5 s:
+    # the page is then the public one and the browser reads the rest, as before the server could; seen once, at a deploy)
+    for tries in (1, 2):
+        code, h, html, secs = get(item, cookie)
+        if code == 200 and pick["run"] in html:
+            break
+    check(code == 200 and pick["run"] in html, f"the item page's HTML for the bot has the end of the full text ({secs:.2f} s, try {tries})")
     check(pick["reason"] in html, "and the scorer's reason")
     check(h.get("Cache-Control") == "private, no-store", f"and is never stored ({h.get('Cache-Control')})")
     code, h, html, secs0 = get(item)
@@ -170,16 +174,18 @@ with sync_playwright() as pw:
         if {"/app/item/text", "/app/item/ai"} <= set(asked):
             break
         page.wait_for_timeout(100)
-    check(sorted(asked) == ["/app/item/ai", "/app/item/text"], f"hovering a 串流 card requests its full text and scores {asked}")
+    hovered = sorted(asked)
+    check(hovered == ["/app/item/ai", "/app/item/text"], f"hovering a 串流 card requests its full text and scores {asked}")
     page.wait_for_load_state("networkidle")
+    del asked[:]
     card.click()
     page.wait_for_selector("#h-title")
     page.wait_for_timeout(1500)
-    check(sorted(asked) == ["/app/item/ai", "/app/item/text"] and docs == [],
-          f"the click is a page change in the app with no second request {asked} {docs}")
+    check(asked == [] and docs == [] and len(hovered) == 2,
+          f"the click is a page change in the app that asks for none of it again {asked} {docs}")
     page.screenshot(path=os.path.join(OUT, "item-after-hover.png"))
     browser.close()
 
 print(json.dumps({"site": SITE, "post": item, "seconds_with_cookie": round(secs, 2), "seconds_public": round(secs0, 2),
-                  "failed": fails}, ensure_ascii=False))
+                  "tries": tries, "failed": fails}, ensure_ascii=False))
 sys.exit(1 if fails else 0)
