@@ -63,8 +63,8 @@ input[type=checkbox], input[type=radio], progress, input[type=range] { accent-co
 
 /* Latin-script post text (lib/lang.tsx Txt / langOf: lang="en"): a Latin system face, so ‘ ’ “ ” – … are narrow (the CJK
    face draws them full-width: "Netflix’ s"); every other character falls back to the CJK face. Not on the live
-   dashboard (live.css: its own pixel font throughout) */
-:lang(en):not(.live, .live *) { font-family:var(--latin); }
+   dashboard or the health page (live.css, health.css: their own pixel font throughout) */
+:lang(en):not(.live, .live *, .hp, .hp *) { font-family:var(--latin); }
 
 /* emoji drawn in the text colour, never in their own colours (Deyao, 2026-10-30), on the pages where colour means a
    state (the monitor; the live dashboard does it in live.css): Noto Emoji, after the text faces and system-ui (it also

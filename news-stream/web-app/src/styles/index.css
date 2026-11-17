@@ -21,6 +21,7 @@
 @import "./wisers.css" layer(components);
 @import "./proof.css" layer(components);
 @import "./live.css" layer(components);
+@import "./health.css" layer(components);
 
 @theme inline {
   --color-ink: var(--ink);

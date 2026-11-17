@@ -107,6 +107,7 @@ designed (not inverted). `src/styles/house.css` holds the tokens and shared part
 | `/search?q=&type=&site=&region=&from=&to=&sort=&title=1&comments=1&page=` | **搜尋** (flag `search`); lists are comma-separated, an old link with repeated keys gets one 302 to the comma form; `/api/search`, `/api/search/meta`, `/api/export/search.xlsx` |
 | `/reports/?p=<stream>&all=1` | **報告** (flag `reports`); files at `/reports/<day>/<profile>/<file>`, `/api/reports` |
 | `/app/monitor`, `/app/monitor/data` | **Deyao's monitor** (English, its own bar, not linked; 404 to anyone else; X-Robots-Tag noindex) |
+| `/app/health`, `/app/health/data`, `/app/health/app-signin` | **Deyao's system health page** for his "YYC Systems" iPhone app (English, read only, two fitted columns; 404 to anyone else; noindex; `../README.md` "The system health page") |
 | `/app/wisers/`, `/app/wisers/search?q=…`, `/app/wisers/doc/<docId>`, `/app/wisers/browse`, `/app/wisers/print`, `/app/wisers/media/<id>`, `/app/wisers/log`, `/app/wisers/saved`, `/app/wisers/view/<file>` | **WiseSearch 轉接** (`src/routes/-wisers/`, `src/lib/wisers.ts`; its own bar; only tokens of its own Access app, `WISERS_AUD`, else a plain 404; data from the relay's JSON API `/app/wisers/api/` on the cluster; `../README.md` "WiseSearch 轉接") |
 | `/app/me`, `/app/item/text`, `/app/item/ai`, `/app/item/video`, `/app/stream/scores` | approved accounts' reads (403 otherwise) |
 | `/version` | the build id |

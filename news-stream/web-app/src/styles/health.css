@@ -1,0 +1,50 @@
+/* YYC system health (/app/health; -HealthPage.tsx, lib/healthFit.ts): the wall's look (live.css) on a phone. Two
+   columns of fixed 14 px lines of Fusion Pixel 10 at its design size, so on any screen (1x, 2x, the iPhone's 3x) every
+   pixel of a glyph is whole device pixels: whole-px sizes, line heights and boxes only, nothing centred into a half pixel,
+   no transforms (the wall's blur pitfall, 2026-10-21). Flat sheet, 1 px rules, colour only for the flight-deck states;
+   each state has its marker shape too: normal a small green square, caution an amber block, failed a red block,
+   blind a magenta outline with a cross, advisory a blue outline, working (Jarvis 4) an ink block. Read only: no link,
+   button or input. The page's html carries live-doc (live.css: the ground, no page scroll, the frame shell). */
+html.health-doc { -webkit-text-size-adjust:100%; text-size-adjust:100%; }
+html.health-doc, html.health-doc body { overscroll-behavior:none; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
+.hp { --ink:#e8eaec; --sub:#c2c8ce; --mut:#9ea6ae; --dim:#7f8891; --rule:#33393f; --panel:#1a1d20;
+  --bad:#ff4d5a; --ok:#3cc48a; --warn:#ffb81c; --info:#5aa9ff; --blind:#f472d0;
+  position:absolute; left:0; top:0; display:flex; overflow:hidden; background:var(--panel); color:var(--sub);
+  font:10px/14px "Fusion Pixel 10","Noto Emoji",monospace; font-synthesis:none; -webkit-font-smoothing:none; }
+.hp *, .hp *::before, .hp *::after { box-sizing:border-box; border-radius:0; animation:none !important; transition:none !important; }
+.hp b, .hp h2 { font-weight:400; font-style:normal; }
+.hp b { color:var(--ink); }
+.hp .dim { color:var(--dim); }
+.hp-col { flex:none; display:flex; flex-direction:column; overflow:hidden; }
+.hp-col + .hp-col { border-left:1px solid var(--rule); }
+.hp-sec { flex:none; } .hp-sec.last { flex:1 1 0; min-height:0; }
+.hp-sec > h2 { margin:0; height:20px; line-height:18px; padding:0 4px; font-size:10px; color:var(--ink); display:flex; gap:6px;
+  border-top:1px solid var(--rule); border-bottom:1px solid var(--rule); white-space:nowrap; overflow:hidden; }
+.hp-sec > h2.first { height:19px; border-top:0; }
+.hp-sec > h2 .hr { margin-left:auto; color:var(--dim); overflow:hidden; text-overflow:ellipsis; }
+.hp-sec > h2 .hr.blind { color:var(--blind); }
+.hp-g { padding:1px 4px 2px; }
+.hp-l { height:14px; white-space:nowrap; overflow:hidden; }
+.hp-kv, .hp-j { display:flex; align-items:center; }
+.hp-kv .k, .hp-j .n { flex:0 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; }
+.hp-kv .k { color:var(--mut); } .hp-j .n { color:var(--ink); }
+.hp-kv .v, .hp-j .w { flex:none; margin-left:auto; padding-left:6px; text-align:right; }
+.hp-kv .v { color:var(--ink); } .hp-j .w { color:var(--mut); }
+.hp-ln, .hp-sub { text-overflow:ellipsis; }
+.hp-sub { padding-left:13px; color:var(--dim); }
+.hp-sub b { color:var(--sub); }
+.hp-kv.warn .k, .hp-kv.warn .v, .hp-ln.warn, .hp-sub.warn, .hp-j.warn .w { color:var(--warn); }
+.hp-kv.bad .k, .hp-kv.bad .v, .hp-ln.bad, .hp-sub.bad { color:var(--bad); }
+.hp-kv.blind .k, .hp-kv.blind .v, .hp-ln.blind, .hp-sub.blind { color:var(--blind); }
+.hp-kv.info .k, .hp-kv.info .v, .hp-ln.info, .hp-sub.info, .hp-j.info .w { color:var(--info); }
+.hp-mk { flex:none; display:block; position:relative; width:8px; height:8px; margin-right:5px; }
+.hp-mk.ok { width:4px; height:4px; margin:5px 7px 5px 2px; background:var(--ok); }
+.hp-mk.warn { background:var(--warn); } .hp-mk.bad { background:var(--bad); } .hp-mk.ink { background:var(--ink); }
+.hp-mk.info { border:1px solid var(--info); }
+.hp-mk.blind { border:1px solid var(--blind); color:var(--blind); }
+.hp-mk.blind svg { position:absolute; left:0; top:0; width:6px; height:6px; fill:currentColor; shape-rendering:crispEdges; }
+.hp-stale .hp-col { filter:grayscale(1) brightness(.45); }
+.hp-note { position:absolute; left:8px; right:8px; top:120px; padding:6px 8px; background:var(--panel); border:3px solid var(--blind);
+  color:#fff; font:12px/16px "Fusion Pixel 12",monospace; }
+/* a figure in a line that is lit takes the line's colour */
+.hp-kv.warn b, .hp-kv.bad b, .hp-kv.blind b, .hp-kv.info b, .hp-ln b { color:inherit; }

@@ -15,6 +15,7 @@ import { Route as SearchRouteImport } from './routes/search'
 import { Route as VersionRouteImport } from './routes/version'
 import { Route as ApiReportsRouteImport } from './routes/api.reports'
 import { Route as ApiSearchRouteImport } from './routes/api.search'
+import { Route as AppHealthRouteImport } from './routes/app.health'
 import { Route as AppLiveRouteImport } from './routes/app.live'
 import { Route as AppMeRouteImport } from './routes/app.me'
 import { Route as AppMonitorRouteImport } from './routes/app.monitor'
@@ -32,6 +33,8 @@ import { Route as ApiExportSummaryDotxlsxRouteImport } from './routes/api.export
 import { Route as ApiExportThemesDotxlsxRouteImport } from './routes/api.export.themes[.]xlsx'
 import { Route as ApiExportTrendDotxlsxRouteImport } from './routes/api.export.trend[.]xlsx'
 import { Route as ApiSearchMetaRouteImport } from './routes/api.search.meta'
+import { Route as AppHealthAppSigninRouteImport } from './routes/app.health_.app-signin'
+import { Route as AppHealthDataRouteImport } from './routes/app.health_.data'
 import { Route as AppItemAiRouteImport } from './routes/app.item.ai'
 import { Route as AppItemTextRouteImport } from './routes/app.item.text'
 import { Route as AppItemVideoRouteImport } from './routes/app.item.video'
@@ -80,6 +83,11 @@ const ApiReportsRoute = ApiReportsRouteImport.update({
 const ApiSearchRoute = ApiSearchRouteImport.update({
   id: '/api/search',
   path: '/api/search',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppHealthRoute = AppHealthRouteImport.update({
+  id: '/app/health',
+  path: '/app/health',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppLiveRoute = AppLiveRouteImport.update({
@@ -167,6 +175,16 @@ const ApiSearchMetaRoute = ApiSearchMetaRouteImport.update({
   id: '/meta',
   path: '/meta',
   getParentRoute: () => ApiSearchRoute,
+} as any)
+const AppHealthAppSigninRoute = AppHealthAppSigninRouteImport.update({
+  id: '/app/health_/app-signin',
+  path: '/app/health/app-signin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppHealthDataRoute = AppHealthDataRouteImport.update({
+  id: '/app/health_/data',
+  path: '/app/health/data',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AppItemAiRoute = AppItemAiRouteImport.update({
   id: '/app/item/ai',
@@ -271,6 +289,7 @@ export interface FileRoutesByFullPath {
   '/version': typeof VersionRoute
   '/api/reports': typeof ApiReportsRoute
   '/api/search': typeof ApiSearchRouteWithChildren
+  '/app/health': typeof AppHealthRoute
   '/app/live': typeof AppLiveRoute
   '/app/me': typeof AppMeRoute
   '/app/monitor': typeof AppMonitorRoute
@@ -288,6 +307,8 @@ export interface FileRoutesByFullPath {
   '/api/export/themes.xlsx': typeof ApiExportThemesDotxlsxRoute
   '/api/export/trend.xlsx': typeof ApiExportTrendDotxlsxRoute
   '/api/search/meta': typeof ApiSearchMetaRoute
+  '/app/health/app-signin': typeof AppHealthAppSigninRoute
+  '/app/health/data': typeof AppHealthDataRoute
   '/app/item/ai': typeof AppItemAiRoute
   '/app/item/text': typeof AppItemTextRoute
   '/app/item/video': typeof AppItemVideoRoute
@@ -315,6 +336,7 @@ export interface FileRoutesByTo {
   '/version': typeof VersionRoute
   '/api/reports': typeof ApiReportsRoute
   '/api/search': typeof ApiSearchRouteWithChildren
+  '/app/health': typeof AppHealthRoute
   '/app/live': typeof AppLiveRoute
   '/app/me': typeof AppMeRoute
   '/app/monitor': typeof AppMonitorRoute
@@ -332,6 +354,8 @@ export interface FileRoutesByTo {
   '/api/export/themes.xlsx': typeof ApiExportThemesDotxlsxRoute
   '/api/export/trend.xlsx': typeof ApiExportTrendDotxlsxRoute
   '/api/search/meta': typeof ApiSearchMetaRoute
+  '/app/health/app-signin': typeof AppHealthAppSigninRoute
+  '/app/health/data': typeof AppHealthDataRoute
   '/app/item/ai': typeof AppItemAiRoute
   '/app/item/text': typeof AppItemTextRoute
   '/app/item/video': typeof AppItemVideoRoute
@@ -360,6 +384,7 @@ export interface FileRoutesById {
   '/version': typeof VersionRoute
   '/api/reports': typeof ApiReportsRoute
   '/api/search': typeof ApiSearchRouteWithChildren
+  '/app/health': typeof AppHealthRoute
   '/app/live': typeof AppLiveRoute
   '/app/me': typeof AppMeRoute
   '/app/monitor': typeof AppMonitorRoute
@@ -377,6 +402,8 @@ export interface FileRoutesById {
   '/api/export/themes.xlsx': typeof ApiExportThemesDotxlsxRoute
   '/api/export/trend.xlsx': typeof ApiExportTrendDotxlsxRoute
   '/api/search/meta': typeof ApiSearchMetaRoute
+  '/app/health_/app-signin': typeof AppHealthAppSigninRoute
+  '/app/health_/data': typeof AppHealthDataRoute
   '/app/item/ai': typeof AppItemAiRoute
   '/app/item/text': typeof AppItemTextRoute
   '/app/item/video': typeof AppItemVideoRoute
@@ -406,6 +433,7 @@ export interface FileRouteTypes {
     | '/version'
     | '/api/reports'
     | '/api/search'
+    | '/app/health'
     | '/app/live'
     | '/app/me'
     | '/app/monitor'
@@ -423,6 +451,8 @@ export interface FileRouteTypes {
     | '/api/export/themes.xlsx'
     | '/api/export/trend.xlsx'
     | '/api/search/meta'
+    | '/app/health/app-signin'
+    | '/app/health/data'
     | '/app/item/ai'
     | '/app/item/text'
     | '/app/item/video'
@@ -450,6 +480,7 @@ export interface FileRouteTypes {
     | '/version'
     | '/api/reports'
     | '/api/search'
+    | '/app/health'
     | '/app/live'
     | '/app/me'
     | '/app/monitor'
@@ -467,6 +498,8 @@ export interface FileRouteTypes {
     | '/api/export/themes.xlsx'
     | '/api/export/trend.xlsx'
     | '/api/search/meta'
+    | '/app/health/app-signin'
+    | '/app/health/data'
     | '/app/item/ai'
     | '/app/item/text'
     | '/app/item/video'
@@ -494,6 +527,7 @@ export interface FileRouteTypes {
     | '/version'
     | '/api/reports'
     | '/api/search'
+    | '/app/health'
     | '/app/live'
     | '/app/me'
     | '/app/monitor'
@@ -511,6 +545,8 @@ export interface FileRouteTypes {
     | '/api/export/themes.xlsx'
     | '/api/export/trend.xlsx'
     | '/api/search/meta'
+    | '/app/health_/app-signin'
+    | '/app/health_/data'
     | '/app/item/ai'
     | '/app/item/text'
     | '/app/item/video'
@@ -539,6 +575,7 @@ export interface RootRouteChildren {
   VersionRoute: typeof VersionRoute
   ApiReportsRoute: typeof ApiReportsRoute
   ApiSearchRoute: typeof ApiSearchRouteWithChildren
+  AppHealthRoute: typeof AppHealthRoute
   AppLiveRoute: typeof AppLiveRoute
   AppMeRoute: typeof AppMeRoute
   AppMonitorRoute: typeof AppMonitorRoute
@@ -555,6 +592,8 @@ export interface RootRouteChildren {
   ApiExportSummaryDotxlsxRoute: typeof ApiExportSummaryDotxlsxRoute
   ApiExportThemesDotxlsxRoute: typeof ApiExportThemesDotxlsxRoute
   ApiExportTrendDotxlsxRoute: typeof ApiExportTrendDotxlsxRoute
+  AppHealthAppSigninRoute: typeof AppHealthAppSigninRoute
+  AppHealthDataRoute: typeof AppHealthDataRoute
   AppItemAiRoute: typeof AppItemAiRoute
   AppItemTextRoute: typeof AppItemTextRoute
   AppItemVideoRoute: typeof AppItemVideoRoute
@@ -618,6 +657,13 @@ declare module '@tanstack/react-router' {
       path: '/api/search'
       fullPath: '/api/search'
       preLoaderRoute: typeof ApiSearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/app/health': {
+      id: '/app/health'
+      path: '/app/health'
+      fullPath: '/app/health'
+      preLoaderRoute: typeof AppHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/app/live': {
@@ -738,6 +784,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/search/meta'
       preLoaderRoute: typeof ApiSearchMetaRouteImport
       parentRoute: typeof ApiSearchRoute
+    }
+    '/app/health_/app-signin': {
+      id: '/app/health_/app-signin'
+      path: '/app/health/app-signin'
+      fullPath: '/app/health/app-signin'
+      preLoaderRoute: typeof AppHealthAppSigninRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/app/health_/data': {
+      id: '/app/health_/data'
+      path: '/app/health/data'
+      fullPath: '/app/health/data'
+      preLoaderRoute: typeof AppHealthDataRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/app/item/ai': {
       id: '/app/item/ai'
@@ -894,6 +954,7 @@ const rootRouteChildren: RootRouteChildren = {
   VersionRoute: VersionRoute,
   ApiReportsRoute: ApiReportsRoute,
   ApiSearchRoute: ApiSearchRouteWithChildren,
+  AppHealthRoute: AppHealthRoute,
   AppLiveRoute: AppLiveRoute,
   AppMeRoute: AppMeRoute,
   AppMonitorRoute: AppMonitorRoute,
@@ -910,6 +971,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiExportSummaryDotxlsxRoute: ApiExportSummaryDotxlsxRoute,
   ApiExportThemesDotxlsxRoute: ApiExportThemesDotxlsxRoute,
   ApiExportTrendDotxlsxRoute: ApiExportTrendDotxlsxRoute,
+  AppHealthAppSigninRoute: AppHealthAppSigninRoute,
+  AppHealthDataRoute: AppHealthDataRoute,
   AppItemAiRoute: AppItemAiRoute,
   AppItemTextRoute: AppItemTextRoute,
   AppItemVideoRoute: AppItemVideoRoute,

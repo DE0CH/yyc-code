@@ -82,7 +82,12 @@ function usePhoneWidth(on: boolean) {
  * 2026-11-17). The shell itself is never replaced: what it does is only this. */
 export function LiveShell() {
   const { half } = useSearch({ from: "/app/live" });
-  const src = "/app/live?" + new URLSearchParams({ ...(half ? { half } : {}), frame: "1" });
+  return <FrameShell src={"/app/live?" + new URLSearchParams({ ...(half ? { half } : {}), frame: "1" })} title="YYC live" />;
+}
+
+/** LiveShell's frame swap for any page that draws itself in a frame (/app/live, /app/health): the frame posts
+ * {live: "drawn"} to this window once it has its first data */
+export function FrameShell({ src, title }: { src: string; title: string }) {
   const [frames, setFrames] = useState<{ id: number; shown: boolean }[]>([{ id: 0, shown: true }]);
   const els = useRef(new Map<number, HTMLIFrameElement>());
   const fr = useRef(frames);  // the same, for the listeners
@@ -135,7 +140,7 @@ export function LiveShell() {
   return (
     <div className="live-shell" data-frames={frames.length}>
       {frames.map(f => <iframe key={f.id} ref={el => { if (el) els.current.set(f.id, el); else els.current.delete(f.id); }} src={src}
-        title="YYC live" data-frame={f.id} className={f.shown ? "on" : "off"} allow="fullscreen" />)}
+        title={title} data-frame={f.id} className={f.shown ? "on" : "off"} allow="fullscreen" />)}
     </div>
   );
 }

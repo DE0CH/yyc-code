@@ -1557,6 +1557,31 @@ both halves (and the same boxes in a window of another size), no panel crossing 
 phone at 390 x 844, every card and the YYC AI and Systems areas, one-at-a-time inserts with no motion and "+N behind"
 on a burst, staleness, F, wake lock; `LIVE_PG=<postgres url>` renders live data for screenshots).
 
+## The system health page (`/app/health`; -HealthPage.tsx, lib/healthFit.ts, health.css; Deyao, 2026-11-17)
+
+The systems half of the live dashboard on one phone screen, for Deyao's iPhone app "YYC Systems" (DE0CH/yyc-health-ios: a
+WebView of this page). Layout E of the mocks he picked: two columns (one is "too wide"), Jarvis 4's sessions and the
+cluster on the left (CronJobs, Deployments, nodes, YYC AI's pods), YYC AI, the providers' own figures, the sandbox hosts,
+Postgres, WiseSearch and the object storage on the right; no summary on top. Deyao only (gates.ts, 404 to anyone else),
+English, read only (no link, button or input), dark, the wall's pixel font and state colours (health.css).
+- **The screen decides the detail** (Deyao: "the screen space should inform the level of details that can be shown";
+  lib/healthFit.ts `fit`): every line is a fixed 14 px row with a level. Level 0 (each check, provider, host, session and
+  everything lit) always shows; levels 1-3 (what a busy session does, OpenRouter's keys, each AWS host, the pods, who has a
+  sandbox, the nodes, …) go in level by level while they fit the column, a group whole or not at all. When level 0 alone
+  doesn't fit, the oldest idle sessions fold into "+N idle, longest X" (`jarvisFold`); past that, "N more lines".
+- **On the pixel:** whole-px sizes, line heights and boxes, the columns split in whole px (`columns`); the site's English
+  font rule leaves `.hp` alone (house.css), or the pixel face is replaced and every line lands on a half pixel.
+- **Data:** `/app/health/data` every 3 s: kv live:sys and Jarvis 4's last push, nothing else. A read failing for 30 s
+  greys the page out with "No data since"; live:sys or the Jarvis push older than a minute puts "no update since" in
+  magenta in those headings.
+- **Updates:** `/app/health` is the wall's frame shell (`FrameShell`): a new build's frame replaces the old once drawn,
+  the WebView never reloads.
+- **The app's sign-in:** `/app/health/app-signin?state=…` (Deyao only): the app opens it in the system sign-in sheet,
+  Access signs him in, and the page sends the sheet to `dev.de0ch.yycsystems://signed-in?state=…#token=<the Access
+  token>`; the app keeps the token in its Keychain and gives the WebView it as the `CF_Authorization` cookie.
+- Tests: `tests/test_health_page.py` (Deyao only and the sign-in, the iPhone 17 layout on whole pixels with every lit
+  state, detail following the window's height, the fitting in Node, an old part, the shell).
+
 ## Reimbursement evidence (from the providers)
 - **OpenRouter:** `infra/cost-report.py <YYYY-MM> <outdir>` (needs a management key in `OPENROUTER_MGMT`) pulls
   OpenRouter's own activity records for the yyc-stream key into a CSV and a one-page HTML summary (print to PDF).

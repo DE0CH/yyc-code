@@ -1,5 +1,5 @@
 // What server.ts checks before TanStack Start sees a request, in this order:
-//  1. Deyao's monitor (/app/monitor…) and live dashboard (/app/live…): his Access identity only; anyone else, signed in or not, gets a plain 404 before
+//  1. Deyao's monitor (/app/monitor…), live dashboard (/app/live…) and system health page (/app/health…): his Access identity only; anyone else, signed in or not, gets a plain 404 before
 //     anything renders (the page is not linked anywhere and doesn't admit it exists). Unknown paths under it: 404.
 //  1b. The WiseSearch page (/app/wisers…): only a token of its own Access app (WISERS_AUD: the WiseSearch accounts);
 //     anything else gets a plain 404. Its data comes from the relay at /app/wisers/api/ (yyc-edge sends that to the
@@ -19,7 +19,9 @@ export const hostOf = (req: Request) => (req.headers.get("x-forwarded-host") || 
 export const MONITOR_PATHS = new Set(["/app/monitor", "/app/monitor/", "/app/monitor/data", "/app/monitor/flags"]);
 /** Deyao's live dashboard (/app/live; his identity only, like the monitor) */
 export const LIVE_PATHS = new Set(["/app/live", "/app/live/", "/app/live/data"]);
-const deyaoOnly = (path: string) => path === "/app/monitor" || path.startsWith("/app/monitor/") || path === "/app/live" || path.startsWith("/app/live/");
+/** his system health page and its app's sign-in (/app/health; his identity only, like the monitor) */
+export const HEALTH_PATHS = new Set(["/app/health", "/app/health/", "/app/health/data", "/app/health/app-signin"]);
+const deyaoOnly = (path: string) => ["/app/monitor", "/app/live", "/app/health"].some(p => path === p || path.startsWith(p + "/"));
 const NOINDEX = { "X-Robots-Tag": "noindex" };
 
 const plain404 = (extra: Record<string, string> = {}) =>
@@ -36,7 +38,7 @@ export async function gate(req: Request): Promise<Response | null> {
   const path = new URL(req.url).pathname;
   if (deyaoOnly(path)) {
     if ((await accessUser(req)) !== ADMIN_EMAIL) return plain404(NOINDEX);
-    return MONITOR_PATHS.has(path) || LIVE_PATHS.has(path) ? null : plain404(NOINDEX);
+    return MONITOR_PATHS.has(path) || LIVE_PATHS.has(path) || HEALTH_PATHS.has(path) ? null : plain404(NOINDEX);
   }
   if (path === "/app/wisers" || path.startsWith("/app/wisers/")) {
     if (!(await accessUser(req, [WISERS_AUD]))) return plain404(NOINDEX);
