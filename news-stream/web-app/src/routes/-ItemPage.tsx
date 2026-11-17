@@ -7,9 +7,9 @@ import { Link, useCanGoBack, useLocation, useNavigate, useParams, useRouter, use
 import { Shell } from "../shell/Shell";
 import { itemDefault, useProfile } from "../shell/profile";
 import { DeyaoOnly } from "../lib/DeyaoOnly";
-import { itemByUrlQuery, itemCoverageQuery, itemQuery, keys, useMe, useProfiles } from "../queries";
+import { itemAIQuery, itemByUrlQuery, itemCoverageQuery, itemQuery, itemTextQuery, itemVideoQuery, keys, useMe, useProfiles } from "../queries";
 import { useLive } from "../live";
-import { getItemAI, getItemText, getItemVideo, HttpError, type Item, type ItemAI, type ItemPicture, type ItemRef, type ItemTag, type ItemText, type NotScored, type Profile, type StreamScore } from "../api";
+import { HttpError, type Item, type ItemAI, type ItemPicture, type ItemRef, type ItemTag, type ItemText, type NotScored, type Profile, type StreamScore } from "../api";
 import { Icon } from "../lib/icons";
 import { SiteLink } from "../lib/SiteLink";
 import { AiBadge, AiTranscribedBadge, SourceTitle } from "../lib/AiBadge";
@@ -70,12 +70,24 @@ export function ItemPage() {
   useLive(keys.item(id), { enabled: !!D && anyPending(D) });
 
   const user = me.data ?? null;
-  const textQ = useQuery({ queryKey: keys.itemText(id), queryFn: () => getItemText(id), enabled: !!user && !!D, retry: false });
+  // approved accounts: the full text (/app/item/text). Usually here already: the route's loader reads it with the
+  // post (lib/load.ts loadGated), into the server's HTML or on the hover before the tap
+  const textQ = useQuery({ ...itemTextQuery(id), enabled: !!user && !!D });
   const TEXT = textQ.data ?? null;
 
-  // approved accounts: every stream's score, reason, category and threshold (/app/item/ai), as on 串流
-  const aiQ = useQuery({ queryKey: [...keys.itemAI(id), D?.scoring?.at ?? ""], queryFn: () => getItemAI(id), enabled: !!user && !!D, retry: false });
+  // approved accounts: every stream's score, reason, category and threshold (/app/item/ai), as on 串流; read again
+  // when the post has been scored again (its scoring time moved while the page is open)
+  const aiQ = useQuery({ ...itemAIQuery(id), enabled: !!user && !!D });
   const AI: ItemAI | null = aiQ.data ?? null;  // a failed read says so (未能載入評分) with 重試
+  const qc = useQueryClient();
+  const scoredAt = D ? D.scoring?.at ?? "" : null;
+  const scoredSeen = useRef<{ id: number; at: string } | null>(null);
+  useEffect(() => {
+    if (scoredAt === null) return;
+    const seen = scoredSeen.current;
+    scoredSeen.current = { id, at: scoredAt };
+    if (seen && seen.id === id && seen.at !== scoredAt) void qc.invalidateQueries({ queryKey: keys.itemAI(id) });
+  }, [id, scoredAt, qc]);
 
   // #text / #thread: scroll there once the page is drawn
   const scrolled = useRef(false);
@@ -253,8 +265,7 @@ function PicturesCard({ D, TEXT }: { D: Item; TEXT: ItemText | null }) {
  *  the page stays open) */
 function VideoCard({ D, user }: { D: Item; user: string | null }) {
   const v = D.video;
-  const q = useQuery({ queryKey: keys.itemVideo(D.id), queryFn: () => getItemVideo(D.id),
-    enabled: !!user && v?.status === "ok", retry: false, staleTime: 30 * 60e3, refetchInterval: 45 * 60e3 });
+  const q = useQuery({ ...itemVideoQuery(D.id), enabled: !!user && v?.status === "ok", refetchInterval: 45 * 60e3 });
   if (!v) return null;
   const L = q.data;
   const size = v.bytes ? `${(v.bytes / 1048576).toFixed(1)} MB` : "";

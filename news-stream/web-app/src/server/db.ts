@@ -85,8 +85,12 @@ export function connect(url: string, o: { max?: number; idle?: number; name?: st
 // real connections pooled next to the database, so this costs little). server.ts runs every request inside `perRequest`.
 import { AsyncLocalStorage } from "node:async_hooks";
 
-const store = new AsyncLocalStorage<{ sql?: Sql }>();
+/** what one request keeps: its database client, and who is reading (server/reader.ts: asked once per request;
+ *  signedIn once the answer is an approved account) */
+interface RequestState { sql?: Sql; reader?: Promise<string | null | undefined>; signedIn?: boolean }
+const store = new AsyncLocalStorage<RequestState>();
 export const perRequest = <T,>(fn: () => T): T => store.run({}, fn);
+export const requestState = (): RequestState | undefined => store.getStore();
 
 /** this request's client */
 export async function db(): Promise<Sql> {

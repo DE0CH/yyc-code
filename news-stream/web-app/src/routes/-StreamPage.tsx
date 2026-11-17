@@ -7,9 +7,9 @@ import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-quer
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { Shell } from "../shell/Shell";
 import { useProfile } from "../shell/profile";
-import { feedQuery, keys, useMe } from "../queries";
+import { feedQuery, keys, scoresQuery, useMe } from "../queries";
 import { useLive } from "../live";
-import { getScores, type Feed, type FeedItem, type StreamCounts } from "../api";
+import { type Feed, type FeedItem, type StreamCounts } from "../api";
 import { Icon } from "../lib/icons";
 import { AiBadge } from "../lib/AiBadge";
 import { LABELS, LABEL_ZH, SENT, SENT_VAR, SENT_ZH } from "../lib/zh";
@@ -44,7 +44,8 @@ export function StreamPage() {
   useLive(keys.feed(date), { enabled: date === null });
 
   // approved accounts: each item's relevance score (0–100) and the model's reason, which the feed (public) leaves out
-  const scoresQ = useQuery({ queryKey: keys.scores(date), queryFn: () => getScores(date), enabled: !!me, retry: false });
+  // (usually here already: the route's loader reads them with the feed, lib/load.ts loadGated)
+  const scoresQ = useQuery({ ...scoresQuery(date), enabled: !!me });
   useLive(keys.scores(date), { enabled: !!me && date === null });
   const scores = scoresQ.data || {};
 

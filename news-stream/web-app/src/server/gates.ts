@@ -7,7 +7,7 @@
 //  2. Sections behind a feature flag (GATES): off for the site the reader is on → 404 {"error": "not found"}.
 import { accessUser, ADMIN_EMAIL, WISERS_AUD } from "./access";
 import { config, flagsFor } from "./config";
-import { db } from "./db";
+import { db, requestState } from "./db";
 
 /** path (or path prefix) → flag; add a section's paths here when it moves into this app */
 export const GATES: [string, string][] = [["/reports", "reports"], ["/api/reports", "reports"],
@@ -67,11 +67,12 @@ export async function flagOn(flag: string, host: string) {
 }
 
 /** headers added to what the app answered: a document is never used from a cache without asking (no-cache: Back and
- *  a reload get this deploy's page; under /app, no-store: approved accounts' pages stay off the disk), and Deyao's
- *  monitor and the WiseSearch page are never indexed */
+ *  a reload get this deploy's page; under /app, and any page rendered for an approved account (it may carry the full
+ *  text: server/reader.ts), no-store: approved accounts' pages stay off the disk), and Deyao's monitor and the
+ *  WiseSearch page are never indexed */
 export function finish(req: Request, res: Response): Response {
   const path = new URL(req.url).pathname;
-  const app = path === "/app" || path.startsWith("/app/");
+  const app = path === "/app" || path.startsWith("/app/") || !!requestState()?.signedIn;
   const doc = (res.headers.get("Content-Type") || "").startsWith("text/html");
   const noindex = deyaoOnly(path) || path === "/app/wisers" || path.startsWith("/app/wisers/");
   if (!doc && !noindex) return res;

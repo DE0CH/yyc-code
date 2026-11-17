@@ -21,8 +21,25 @@ for figures ("Look", below). Where it sits in the whole system: `../ARCHITECTURE
 - **Server functions** (`src/fns.ts`, `fns-dashboard.ts`, `fns-search.ts`) run on the Worker, next to the database
   (placement `aws:eu-central-1`, Frankfurt: the placement region nearest YYC's Postgres in Hetzner fsn1), and are called from route loaders and from TanStack Query in the
   browser. Public data only; what is for approved accounts is under `/app/` (`app.me.ts`, `app.item.text.ts`,
-  `app.item.ai.ts`, `app.stream.scores.ts`, `app.agent*.ts`), where `src/server/access.ts` checks Cloudflare Access's
-  signed JWT again.
+  `app.item.ai.ts`, `app.item.video.ts`, `app.stream.scores.ts`), where `src/server/access.ts` checks Cloudflare
+  Access's signed JWT again.
+- **What only approved accounts see comes with the page** (Deyao, 2026-11-17; the full text, comments and transcripts,
+  the scores and reasons, the saved video's links): a route's loader reads it together with the public data
+  (`src/lib/load.ts` `loadGated`, the queries in `src/queries.ts`), once the reader is known to be an approved account.
+  - *The first page (rendered on the server):* it is in the HTML, so it shows before any script runs and the browser
+    asks for none of it again. The server learns who is reading in `src/server/reader.ts`: on the beta site Access
+    sends its token on every path; a public page of the main site (`/`, `/item/<id>`) is outside the Access app and
+    carries only Access's cookie (`CF_Authorization`, set for the whole host: the Access app must keep its cookie
+    path attribute off), which the Worker never judges itself: it asks `/app/me` on the same site with that cookie
+    (once per request, 1.5 s at most), so Cloudflare Access decides as for the browser's own requests, and `/app/me`
+    answers from the token Access then sends. No cookie (nothing is asked), a cookie Access did not take, or no
+    answer: the page goes out without saying who reads, and the browser asks `/app/me` as before; so the server only
+    ever adds to what a reader gets. These reads are
+    plain code inside the render (`createIsomorphicFn` in `src/api.ts`), never server functions: a server function is
+    a public URL.
+  - *A page change in the browser* (a hover or touch preloading a link, or the tap): the loader requests
+    `/app/item/text`, `/app/item/ai` and `/app/stream/scores` at the same moment as the public data, not after the
+    page has drawn; `/app/me` is asked first only when its answer is not in the cache yet.
 - **Data:** YYC's Postgres through Cloudflare Hyperdrive (binding `HYPERDRIVE`, config `yyc-pg`, read-only role
   `yyc_edge`, query cache off), with the `postgres` client (`src/server/db.ts`: one client per request).
 - **What Python publishes for the app:** kv `edge:config` (`../edge_config.py`, every minute from the poller: streams,
@@ -41,7 +58,7 @@ for figures ("Look", below). Where it sits in the whole system: `../ARCHITECTURE
 | Path | What |
 |---|---|
 | `src/server.ts` | the Worker: the edge secret, `/live`, the gates, TanStack Start's handler; class `LiveHub` |
-| `src/router.tsx`, `src/routes/` | every route and its search params (plain `?a=b`); `-<Name>Page.tsx` are the pages (the `-` keeps them out of the router), `__root.tsx` renders the shell; preload on intent (`defaultPreload: "intent"`: hover 75 ms, touchstart at once; off on Save-Data/2G), each loader puts its data into the query cache (`ensureQueryData`, not awaited) so the click reuses it |
+| `src/router.tsx`, `src/routes/` | every route and its search params (plain `?a=b`); `-<Name>Page.tsx` are the pages (the `-` keeps them out of the router), `__root.tsx` renders the shell; preload on intent (`defaultPreload: "intent"`: hover 75 ms, touchstart at once; off on Save-Data/2G), each loader puts its data into the query cache (`ensureQueryData`, not awaited) so the click reuses it; for an approved account the loader reads the approved-only data the same way (`loadGated`) |
 | `src/shell/` | the app shell (top bar, sections, stream picker, phone tab bar) and the stream shown (`?p=` + the cookie `yyc-profile`, read on the server: `src/lib/remembered.ts`); `../NAVIGATION.md` |
 | `src/api.ts`, `api-dashboard.ts`, `api-search.ts`, `src/queries*.ts` | the pages' data calls and query keys; the persona button calls the cluster (`/api/ai/estimate`, `POST /app/ai/persona`) |
 | `src/server/feed.ts` | 串流's feed (one HKT day of every shown stream, the days, source status) |
@@ -50,7 +67,7 @@ for figures ("Look", below). Where it sits in the whole system: `../ARCHITECTURE
 | `src/server/search/` | 搜尋 (ports of search.py, query.py, searchtext.py with jieba and OpenCC as Python runs them); `split.ts`: a query of words alone, sorted by date, as one statement that reads the stored text of substring-only candidates only (page and facets together; yyc-mcp's posts_search uses it too) |
 | `src/server/reports.ts` | 報告: the listing and the stored files (table `report_files`, written by `../reports.py`) |
 | `src/server/monitor.ts` | Deyao's monitor: kv `monitor:data` (published by `../monitor.py`), never the cluster |
-| `src/server/scores.ts`, `site.ts`, `titles.ts`, `time.ts`, `kv.ts`, `config.ts`, `access.ts`, `gates.ts`, `db.ts` | 串流's score line, profiles and flags, AI titles, Python's datetime semantics, kv reads, `edge:config`, Access, the gates, the database |
+| `src/server/scores.ts`, `site.ts`, `titles.ts`, `time.ts`, `kv.ts`, `config.ts`, `access.ts`, `reader.ts`, `gates.ts`, `db.ts` | 串流's score line, profiles and flags, AI titles, Python's datetime semantics, kv reads, `edge:config`, Access, who is reading a page rendered on the server, the gates, the database |
 | `src/lib/` | client helpers: `clock.ts` (the server's clock while hydrating, so the first render matches its HTML), `bias.ts` + `BiasNote.tsx` (the selection-bias sentence, shown once per view whose figures count posts one per vote: `../README.md` "Figures that depend on our selection"), `freshness.ts` (串流's 即時更新 label: NAVIGATION.md "串流: is it current?"), `pending.ts` (處理中), `build.ts` + `update.ts` (a new deploy reaching open pages, below), `time.ts` |
 | `scripts/call.ts` | runs one server function in Node against `DATABASE_URL` and prints its JSON (the Python tests and the parity harness) |
 
@@ -91,7 +108,7 @@ designed (not inverted). `src/styles/house.css` holds the tokens and shared part
 | `/reports/?p=<stream>&all=1` | **報告** (flag `reports`); files at `/reports/<day>/<profile>/<file>`, `/api/reports` |
 | `/app/monitor`, `/app/monitor/data` | **Deyao's monitor** (English, its own bar, not linked; 404 to anyone else; X-Robots-Tag noindex) |
 | `/app/wisers/`, `/app/wisers/search?q=…`, `/app/wisers/doc/<docId>`, `/app/wisers/browse`, `/app/wisers/print`, `/app/wisers/media/<id>`, `/app/wisers/log`, `/app/wisers/saved`, `/app/wisers/view/<file>` | **WiseSearch 轉接** (`src/routes/-wisers/`, `src/lib/wisers.ts`; its own bar; only tokens of its own Access app, `WISERS_AUD`, else a plain 404; data from the relay's JSON API `/app/wisers/api/` on the cluster; `../README.md` "WiseSearch 轉接") |
-| `/app/me`, `/app/item/text`, `/app/item/ai`, `/app/stream/scores` | approved accounts' reads (403 otherwise) |
+| `/app/me`, `/app/item/text`, `/app/item/ai`, `/app/item/video`, `/app/stream/scores` | approved accounts' reads (403 otherwise) |
 | `/version` | the build id |
 
 ## Deploy
@@ -120,7 +137,8 @@ the same test fails on the previous code, which reloaded). Live check: `tests/li
   deployment with Vite and Vue Router": navigate to the target instead). TanStack Router's lazy route component also
   reloads in place on a missing chunk (`lazyRouteComponent.js`, once per message): `lib/update.ts` sets the key it
   checks first, so it never does.
-- **Caching.** Documents: `private, no-cache` (`/app/…`: `private, no-store`), set in `server/gates.ts` `finish()`, so
+- **Caching.** Documents: `private, no-cache` (`/app/…`, and every page rendered for an approved account, which may
+  carry the full text: `private, no-store`), set in `server/gates.ts` `finish()`, so
   a reload, a new tab or Back without the back/forward cache always gets the current deploy's page; nothing in front
   caches them (the router `yyc-edge` passes requests through; Cloudflare does not cache Worker responses). Hashed files
   `/assets/*`: `public, max-age=31536000, immutable` (`public/_headers`). `/version`: `no-store`. No service worker.
@@ -186,7 +204,8 @@ Access tokens are checked against (`server/access.ts`); on Cloudflare only Cloud
 - **Pages** (Playwright against a dev server or a preview of a build, WebKit iPhone 390 px and Chromium 1600 px):
   `tests/test_web_app_pages.py` (串流 and the item page), `test_dashboard_spa.py`, `test_search_spa.py`,
   `test_agent_page.py` (a preview, `CLOUDFLARE_ENV=agent` with `.dev.vars.agent`, a fake NDJSON cluster),
-  `test_edge_ops.py` (報告 and the monitor, its own `vite dev`), `test_spa_preload.py`, `test_stream_fresh_app.py`.
+  `test_edge_ops.py` (報告 and the monitor, its own `vite dev`), `test_spa_preload.py`, `test_stream_fresh_app.py`, `test_gated_preload.py` (what approved accounts see is in the
+  server's HTML and read on hover; its own database, production build and stand-in for Access: runs in CI as it is).
 - **Server functions from the Python tests:** `tests/edge_call.py` runs one through `scripts/call.ts` on the test's
   own database, so the pipeline's tests check what the site serves (串流's feed and scores, the item page's AI
   analysis, 搜尋, 報告's files, the conversations, the monitor's snapshot).

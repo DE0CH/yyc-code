@@ -1,6 +1,10 @@
 // THE data module: every request the app makes goes through here. Public data comes from the Worker's server
 // functions (fns.ts: Postgres read on the Worker); what is for approved accounts from /app/… routes behind Cloudflare
-// Access (/app/me, /app/stream/scores, /app/item/text, /app/item/ai), answered by the same Worker.
+// Access (/app/me, /app/stream/scores, /app/item/text, /app/item/ai, /app/item/video), answered by the same Worker.
+// A page rendered on the server reads the same approved-only data inside the Worker (server/reader.ts: once
+// Cloudflare Access has said who the reader is), so it is in the page's HTML; these reads are not server functions
+// (a server function is a public URL), only code the server render runs.
+import { createIsomorphicFn } from "@tanstack/react-start";
 import { fetchFeed, fetchFlags, fetchItem, fetchItemCoverage, fetchProfiles, fetchReports } from "./fns";
 
 import { today } from "./lib/time";
@@ -192,19 +196,30 @@ export const getProfiles = () => (fetchProfiles() as unknown as Promise<{ profil
 
 export const getFlags = () => (fetchFlags() as unknown as Promise<Flags>).catch(() => ({} as Flags));
 
-/** the approved account's email, or null (Access answers a redirect to its login for everyone else) */
-export async function getMe(): Promise<string | null> {
-  try {
-    const r = await fetch(BASE + "/app/me", { redirect: "manual", credentials: "same-origin" });
-    if (!r.ok) return null;
-    const d = (await r.json()) as { email?: string | null };
-    return d.email || null;
-  } catch { return null; }
-}
+/** the approved account's email, or null. The browser asks /app/me (Access answers a redirect to its login for
+ *  everyone else); a page rendered on the server asks server/reader.ts, which may also answer undefined: it cannot
+ *  tell, and the browser asks */
+export const getMe = createIsomorphicFn()
+  .server(async (): Promise<string | null | undefined> => (await import("./server/reader")).reader())
+  .client(async (): Promise<string | null | undefined> => {
+    try {
+      const r = await fetch(BASE + "/app/me", { redirect: "manual", credentials: "same-origin" });
+      if (!r.ok) return null;
+      const d = (await r.json()) as { email?: string | null };
+      return d.email || null;
+    } catch { return null; }
+  });
 
 /** approved accounts: "stream|url" → score for that day */
-export const getScores = (date?: string | null) =>
-  getJSON<{ scores: Record<string, Score> }>("/app/stream/scores" + qs({ date }), { redirect: "manual" }).then(d => d.scores || {});
+export const getScores = createIsomorphicFn()
+  .server(async (date?: string | null): Promise<Record<string, Score>> => {
+    const { approvedRead } = await import("./server/reader");
+    const { streamScores } = await import("./server/scores");
+    const { hktToday } = await import("./server/time");
+    return approvedRead(sql => streamScores(sql, date || hktToday())) as Promise<Record<string, Score>>;
+  })
+  .client((date?: string | null): Promise<Record<string, Score>> =>
+    getJSON<{ scores: Record<string, Score> }>("/app/stream/scores" + qs({ date }), { redirect: "manual" }).then(d => d.scores || {}));
 
 /** one post, or null when the system has no such post (a value, not an error: a failed query rendered on the server
  *  reaches the browser as an unhandled "redacted" error) */
@@ -217,13 +232,34 @@ export async function getItem(ref: { id: number } | { url: string }): Promise<It
 export const getItemCoverage = (id: number) => fetchItemCoverage({ data: { id } }) as unknown as Promise<ItemRef[]>;
 
 /** approved accounts: the stream scorer's score, reason, category and threshold for every stream */
-export const getItemAI = (id: number) => getJSON<ItemAI>("/app/item/ai" + qs({ id }), { redirect: "manual" });
+export const getItemAI = createIsomorphicFn()
+  .server(async (id: number): Promise<ItemAI> => {
+    const { approvedRead } = await import("./server/reader");
+    const { aiScores } = await import("./server/item");
+    return approvedRead(sql => aiScores(sql, id)) as unknown as Promise<ItemAI>;
+  })
+  .client((id: number) => getJSON<ItemAI>("/app/item/ai" + qs({ id }), { redirect: "manual" }));
 
 /** approved accounts: the full stored text and the thread's comments in full */
-export const getItemText = (id: number) => getJSON<ItemText>("/app/item/text" + qs({ id }), { redirect: "manual" });
+export const getItemText = createIsomorphicFn()
+  .server(async (id: number): Promise<ItemText> => {
+    const { approvedRead } = await import("./server/reader");
+    const { text } = await import("./server/item");
+    return approvedRead(sql => text(sql, id)) as unknown as Promise<ItemText>;
+  })
+  .client((id: number) => getJSON<ItemText>("/app/item/text" + qs({ id }), { redirect: "manual" }));
 
 /** approved accounts: the saved TikTok video's presigned links (made per request, valid one hour) */
-export const getItemVideo = (id: number) => getJSON<ItemVideoLinks>("/app/item/video" + qs({ id }), { redirect: "manual" });
+export const getItemVideo = createIsomorphicFn()
+  .server(async (id: number): Promise<ItemVideoLinks> => {
+    const { approvedRead } = await import("./server/reader");
+    const { s3Config, videoLinks } = await import("./server/video");
+    const { env } = await import("cloudflare:workers");
+    const v = await approvedRead(sql => videoLinks(sql, id, s3Config(env as unknown as Record<string, unknown>)));
+    if (!v) throw new HttpError(404, "no saved video");
+    return v as unknown as ItemVideoLinks;
+  })
+  .client((id: number) => getJSON<ItemVideoLinks>("/app/item/video" + qs({ id }), { redirect: "manual" }));
 
 
 // ---------- 報告 ----------
