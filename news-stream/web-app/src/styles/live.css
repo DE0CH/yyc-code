@@ -26,11 +26,12 @@ html.live-doc.live-phone, html.live-doc.live-phone body { overflow-x:hidden; ove
 /* House style, dark only (claude-env deyao-web-design's dark tokens): flat panels on the ground with 1px rules in the
    one rule grey (the site's dark --rule; a panel's header is set apart by its type and its rule, not a tinted band), square
    tags, and hue only for states, in the flight-deck colours of every page (house.css --st-*): red = failed / needs action
-   now, amber = a caution (late, stale, needs a look), green = back to normal, blue = an advisory that is neither (Stage 2
-   overruled Stage 1: "now passes", "rejected"). Nothing else is red, amber or green:
+   now (a service lost right now; Deyao, 2026-11-17), amber = a caution (degraded but serving, late, near a limit, an
+   error that is over), green = back to normal, blue = an advisory that is neither (Stage 2 overruled Stage 1: "now
+   passes", "rejected"), magenta = blind (a read that failed, figures gone old). Nothing else is red, amber, green or magenta:
    routes, streams, event kinds and scores are ink or grey; a channel tag's word names it. */
 .live { --ink:#e8eaec; --sub:#c2c8ce; --mut:#9ea6ae; --dim:#7f8891; --rule:#33393f; --edge:var(--rule); --panel:#1a1d20; --head:var(--panel);
-  --bad:#ff4d5a; --ok:#3cc48a; --warn:#ffb81c; --info:#5aa9ff; --meter:#2a2f35; --meter-s:#59626b;
+  --bad:#ff4d5a; --ok:#3cc48a; --warn:#ffb81c; --info:#5aa9ff; --blind:#f472d0; --meter:#2a2f35; --meter-s:#59626b;
   position:absolute; left:0; top:0; overflow:hidden; background:#111315; color:var(--ink);
   font:12px/16px "Fusion Pixel 12","Noto Emoji",monospace; font-synthesis:none; -webkit-font-smoothing:none; }
 .live-bar, .lp > h2, .lp .m, .lp .x, .lp .tag, .lp .topic { font-family:"Fusion Pixel 10","Noto Emoji",monospace; }
@@ -50,6 +51,7 @@ html.live-doc.live-phone, html.live-doc.live-phone body { overflow-x:hidden; ove
 /* a bad / good card: a 4px line in its status hue down the left, inside the same box (the padding gives way, so the
    text stays where it was) */
 .lp li.bad { border-left:4px solid var(--bad); padding-left:0; }
+.lp li.cau { border-left:4px solid var(--warn); padding-left:0; }  /* an error that is over: a caution */
 .lp .m { display:flex; gap:6px; align-items:center; height:14px; font-size:10px; line-height:14px; color:var(--mut); white-space:nowrap; overflow:hidden; }
 .lp .m > * { flex:none; }
 .lp .m > span:not(.num):not(.tag) { flex:0 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; }
@@ -63,12 +65,14 @@ html.live-doc.live-phone, html.live-doc.live-phone body { overflow-x:hidden; ove
 .lp .dim, .live .dim { color:var(--dim); }
 .live .bad { color:var(--bad); }
 .live .warn:not(.tag) { color:var(--warn); }
+.live .blind { color:var(--blind); }  /* the page cannot see: a failed read, old figures */
 .lp .tag { font-size:10px; line-height:12px; padding:0 3px; border:1px solid var(--rule); border-radius:0; color:var(--mut); font-weight:500; margin-left:4px; }
 .lp .m .tag { margin-left:0; }
 .lp .tag.ok { color:var(--ok); border-color:var(--ok); }
 .lp .tag.badt { color:var(--bad); border-color:var(--bad); }
 .lp .tag.warn { color:var(--warn); border-color:var(--warn); }
 .lp .tag.info { color:var(--info); border-color:var(--info); }
+.lp .tag.blindt { color:var(--blind); border-color:var(--blind); }
 .lp .tag.tg, .lp .tag.wa, .lp .tag.ink { color:var(--ink); border-color:var(--mut); }
 .lp .x b, .lp .chk b { color:var(--ink); font-weight:600; }
 /* Stage 1: every topic, highest first, in two columns: name, score, a meter, the reason */
@@ -84,7 +88,7 @@ html.live-doc.live-phone, html.live-doc.live-phone body { overflow-x:hidden; ove
 .lp .topic.near em, .lp .topic.near b { color:var(--sub); } .lp .topic.near .meter s { background:var(--mut); }
 .lp .topic.pass em, .lp .topic.pass b { color:var(--ink); } .lp .topic.pass .meter s { background:var(--ink); }
 .live-stale .lp, .live-stale .live-bar { filter:grayscale(1) brightness(.45); }
-.live-stale-note { position:absolute; left:0; right:0; top:432px; margin:0 auto; width:max-content; padding:10px 18px; background:var(--panel); border:3px solid var(--warn);
+.live-stale-note { position:absolute; left:0; right:0; top:432px; margin:0 auto; width:max-content; padding:10px 18px; background:var(--panel); border:3px solid var(--blind);
   color:#fff; font-size:24px; line-height:32px; font-weight:600; white-space:nowrap; }
 /* YYC AI's state and the Systems panel (kv live:sys): fixed 14 px lines of 10 px type, one fact per line, clipped */
 .lp .st { overflow:hidden; padding:2px 4px; font-family:"Fusion Pixel 10","Noto Emoji",monospace; font-size:10px; line-height:14px; color:var(--sub); }
@@ -92,6 +96,7 @@ html.live-doc.live-phone, html.live-doc.live-phone body { overflow-x:hidden; ove
 .lp .st .row > * { flex:none; }
 .lp .st .row > span:last-child { flex:0 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; }
 .lp .st .row.why { color:var(--bad); } .lp .st .row.warnc { color:var(--warn); } .lp .st .row.infoc { color:var(--info); }  /* warming up: starting, not wrong */
+.lp .st .row.blindc { color:var(--blind); }  /* can't read: fine or down, the page does not know */
 .lp .st .now { color:var(--ink); }
 .lp .st .sec { height:16px; line-height:16px; margin-top:2px; border-top:1px solid var(--rule); color:var(--mut); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .lp .st > .sec:first-child { margin-top:0; border-top:0; }  /* the header's rule is the line above it: never a second one 2px under it */
@@ -102,13 +107,13 @@ html.live-doc.live-phone, html.live-doc.live-phone body { overflow-x:hidden; ove
 .lp .st .ind { width:8px; }  /* a provider's further figures in a narrow box (a phone): a small indent, not the name column's width */
 .lp .st .src { margin-left:auto; }
 .lp .st .bk { width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }  /* Systems: two buckets a line */
-.lp .st .bk.why { color:var(--bad); }
+.lp .st .bk.blindc { color:var(--blind); }
 .lp .st.cols { display:flex; }  /* Systems in two columns when one doesn't hold every line */
 .lp .st .col { flex:none; overflow:hidden; }
 .lp .st .col + .col { margin-left:6px; padding-left:6px; border-left:1px solid var(--rule); }
 .lp .st .col > .sec:first-child { margin-top:0; border-top:0; }
 .lp .st .pc { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }  /* Systems' compact form: a provider's cell */
-.lp .st .pc.why { color:var(--bad); } .lp .st .pc.dim { color:var(--mut); }
+.lp .st .pc.blindc { color:var(--blind); } .lp .st .pc.dim { color:var(--mut); }
 .lp .st .pc > span { color:var(--ink); }
 .lp .st .tag { margin-left:0; }
 /* Jarvis 4: one fixed cell per session, columns sharing one rule; line 1 its state and name, line 2 how long and what runs */

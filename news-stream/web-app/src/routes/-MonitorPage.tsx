@@ -73,21 +73,25 @@ function make(D: D, c: Ctx) {
 
   function stops() {
     const st = (D.stops || {}).providers || [];
-    return (D.stops || {}).error ? `<p class="err">${esc(D.stops.error)}</p>` : st.map((s: D) =>
+    return (D.stops || {}).error ? `<p class="blind">can't read: ${esc(D.stops.error)}</p>` : st.map((s: D) =>
       `<div class="stop" role="status"><b>${esc(s.name)}: ${stopLine(s)}</b><div class="small">${s.last_failed ? "last failed request " + ago(s.last_failed) + ", " : ""}${s.notified ? "Deyao told on Discord, " : ""}it said: ${esc(s.message || "")}</div></div>`).join("");
   }
 
   function tiles() {
     const s = D.sources || {}, cn = s.counts || {}, j = D.jobs || {}, p = D.pipeline || {}, sp = D.spending || {};
-    const bad = (j.cronjobs || []).filter((x: D) => !x.suspended && (x.last_finished === "failed" || x.late)).length;
+    // red: a service lost now (a CronJob with no success for three intervals, a Deployment with no pod ready); amber: one
+    // failed run, a Deployment short of pods that still serves (Deyao, 2026-11-17)
+    const cjs = (j.cronjobs || []).filter((x: D) => !x.suspended);
+    const bad = cjs.filter((x: D) => x.last_finished === "failed" || x.late).length;
     const deps = (j.deployments || []).filter((d: D) => d.ready < (d.replicas || 0)).length;
+    const down = cjs.some((x: D) => x.late) || (j.deployments || []).some((d: D) => (d.replicas || 0) > 0 && !d.ready);
     const or = ((D.balances || {}).providers || []).find((b: D) => b.id === "openrouter") || {};
     const sc = p.scoring || {};
     const win = (h: number) => (sp.windows || []).find((w: D) => w.hours === h);
     const w24 = win(24), w6 = win(6);
     const t: [string, string, unknown, string][] = [
-      [cn.failing ? "bad" : "", "Sources failing", cn.failing == null ? "–" : `${cn.failing} / ${cn.total}`, `${cn.quiet || 0} quiet, last poll ${s.last_poll ? ago(s.last_poll) : "–"}`],
-      [bad || deps ? "bad" : "", "Jobs failing or late", j.error ? "?" : bad, `${deps} deployment(s) not fully ready`],
+      ["", "Sources failing", cn.failing == null ? "–" : `${cn.failing} / ${cn.total}`, `${cn.quiet || 0} quiet, last poll ${s.last_poll ? ago(s.last_poll) : "–"}`],
+      [down ? "bad" : bad || deps ? "warn" : j.error ? "blind" : "", "Jobs failing or late", j.error ? "?" : bad, `${deps} deployment(s) not fully ready`],
       [(sc.awaiting || 0) > 100 ? "warn" : "", "Posts awaiting score", num(sc.awaiting), (sc.oldest_waiting ? "oldest " + ago(sc.oldest_waiting) : "live scoring queue") + (sc.first_run ? `, ${num(sc.first_run)} more from new sources' first reads (數據分析 only)` : "")],
       [stopOf("openrouter") ? "bad" : "", "OpenRouter this month", or.status === "ok" ? usd(or.usage_month_usd) : "–", stopOf("openrouter") ? stopLine(stopOf("openrouter")) : or.status === "ok" ? `${usd(or.usage_today_usd)} today (UTC), key yyc-stream` : esc(or.error || or.needs || "")],
       ["", "Spent, last 24 h", w24 ? usd(w24.total_usd) : "–", `${w6 ? usd(w6.total_usd / 6, 4) + "/h over the last 6 h, " : ""}${usd(sp.total_mtd_usd)} this month`],
@@ -99,12 +103,12 @@ function make(D: D, c: Ctx) {
 
   function balances() {
     const b = D.balances || {};
-    if (b.error) return `<p class="err">${esc(b.error)}</p>`;
+    if (b.error) return `<p class="blind">can't read: ${esc(b.error)}</p>`;
     return (b.providers || []).map((x: D) => {
       const stop = stopOf(x.id);
-      const head = (main?: string) => `<h3>${esc(x.name)} ${stop ? pill("bad", stop.tag) : x.status === "ok" ? pill("ok", "connected") : x.status === "error" ? pill("bad", "error") : pill("off", "not connected")}</h3>${stop ? `<p class="stop">${stopLine(stop)}</p>` : ""}${main || ""}`;
+      const head = (main?: string) => `<h3>${esc(x.name)} ${stop ? pill("bad", stop.tag) : x.status === "ok" ? pill("ok", "connected") : x.status === "error" ? pill("blind", "can't read") : pill("off", "not connected")}</h3>${stop ? `<p class="stop">${stopLine(stop)}</p>` : ""}${main || ""}`;
       if (x.status === "not_connected") return `<div class="card">${head()}<div class="small muted">Needs: ${esc(x.needs)}</div></div>`;
-      if (x.status === "error") return `<div class="card">${head()}<p class="err">${esc(x.error)}</p></div>`;
+      if (x.status === "error") return `<div class="card">${head()}<p class="blind">can't read: ${esc(x.error)}</p></div>`;
       let body = "";
       if (x.id === "openrouter") {
         const credit = x.credit_balance_usd != null
@@ -138,7 +142,7 @@ function make(D: D, c: Ctx) {
         <dt>Today so far</dt><dd>${x.today_usd != null ? usd(x.today_usd, 4) : "–"} <span class="muted">(as far as AWS has billed it)</span></dd>
         <dt>This month by service</dt><dd>${svc(x.services_month)}</dd>
         <dt>Instances now</dt><dd>${(x.instances || []).map((i: D) => `${esc(i.name || i.id)}: ${esc(i.type)} ${esc(i.market)}, ${esc(i.state)} since ${hkt(i.launched)} <span class="muted">(${esc(i.region)})</span>`).join("<br>") || "none"}</dd>
-        <dt>Cost figures read</dt><dd>${hkt(x.costs_read)}${est ? ` <span class="muted">(AWS's estimates until the month's invoice)</span>` : ""}${x.costs_error ? `<br><span class="err">the last read failed: ${esc(x.costs_error)}</span>` : ""}</dd></dl>`;
+        <dt>Cost figures read</dt><dd>${hkt(x.costs_read)}${est ? ` <span class="muted">(AWS's estimates until the month's invoice)</span>` : ""}${x.costs_error ? `<br><span class="blind">the last read failed: ${esc(x.costs_error)}</span>` : ""}</dd></dl>`;
       } else if (x.id === "cloudflare") {
         const pct = (u: D) => u.included ? ` (${Math.round(u.used / u.included * 100)}%)` : "";
         body = `<div class="big">${usd(x.subscriptions_monthly_usd)} / month <span class="small muted">${esc(x.plan || "")}</span></div><dl class="kv"><dt>Account</dt><dd>${esc(x.account)}</dd>
@@ -173,7 +177,7 @@ function make(D: D, c: Ctx) {
 
   function spending() {
     const sp = D.spending || {};
-    if (sp.error) return { html: `<p class="err">${esc(sp.error)}</p>`, month: "", days: [] as string[], series: [] as D[], totals: [] as number[] };
+    if (sp.error) return { html: `<p class="blind">can't read: ${esc(sp.error)}</p>`, month: "", days: [] as string[], series: [] as D[], totals: [] as number[] };
     const month = `${sp.month || ""}, ${sp.note || ""}`;
     const days: string[] = sp.days || [], series: D[] = (sp.series || []).filter((s: D) => s.by_day);
     const totals = days.map(d => series.reduce((a, s) => a + (s.by_day[d] || 0), 0));
@@ -376,7 +380,7 @@ function make(D: D, c: Ctx) {
 
   function sources() {
     const s = D.sources || {};
-    if (s.error) return { html: `<p class="err">${esc(s.error)}</p>`, sum: "", rule: "" };
+    if (s.error) return { html: `<p class="blind">can't read: ${esc(s.error)}</p>`, sum: "", rule: "" };
     const cn = s.counts || {};
     const sum = `${cn.total} sources, ${cn.failing} failing, ${cn.off || 0} off, ${cn.quiet} quiet, ${cn.proxy} via proxy, ${cn.browser} via browser, last poll ${s.last_poll ? ago(s.last_poll) : "–"}`;
     const q = c.query.toLowerCase(), filter = c.filter;
@@ -385,9 +389,10 @@ function make(D: D, c: Ctx) {
       (!q || (r.name + " " + r.id).toLowerCase().includes(q)));
     const html = rows.length ? rows.map((r: D) => {
       // off on purpose (the safety stop): "off: safety stop", never failing (Deyao, 2026-10-15)
-      const st = r.state === "off" ? pill("off", "off: " + r.off) : r.state === "failing" ? pill("bad", `failing${r.fails ? ", " + r.fails + " polls" : ""}`) : r.quiet ? pill("warn", "quiet") : pill("ok", "ok");
+      // a failing source is quiet (ink, no colour): most likely their end, outside our control (Deyao, 2026-11-17)
+      const st = r.state === "off" ? pill("off", "off: " + r.off) : r.state === "failing" ? pill("", `failing${r.fails ? ", " + r.fails + " polls" : ""}`) : r.quiet ? pill("warn", "quiet") : pill("ok", "ok");
       const err = r.state === "off" ? null : r.error || r.last_error;
-      // red only while it is current (failing now); an earlier error of a source that answers again is history
+      // ink while it is current (failing now), muted once the source answers again: never a state colour
       const live = r.error_current ?? r.state === "failing";
       return `<div class="item"><div class="top">${st}<span class="name">${esc(r.name)}</span><span class="id">${esc(r.id)}, ${esc(r.kind)}</span></div>
       <div class="meta">24 h: ${num(r.posts_24h)} posts, usual ${r.usual_per_day == null ? "–" : r.usual_per_day + "/day"}, last fetch ${num(r.items)} items, last OK ${when(r.last_ok)}${r.fail_since && r.state === "failing" ? ", failing since " + hkt(r.fail_since) : ""}</div>
@@ -399,7 +404,7 @@ function make(D: D, c: Ctx) {
   /** the full-text rate per source, 24 h (monitor.fulltext_sources): worst first; under 80 % is a warning */
   function ftSources(rows: D[]) {
     if (!rows.length) return "";
-    const line = (r: D) => `<li>${r.rate == null ? pill("off", "waiting") : r.rate < 50 ? pill("bad", r.rate + "%") : r.rate < 80 ? pill("warn", r.rate + "%") : pill("ok", r.rate + "%")} ${esc(r.source || r.sid)} <span class="muted small">${esc(r.sid)}, ${num(r.full)} full, ${num(r.missing)} title only or none, ${num(r.pending)} waiting, ${num(r.posts)} posts</span></li>`;
+    const line = (r: D) => `<li>${r.rate == null ? pill("off", "waiting") : r.rate < 80 ? pill("warn", r.rate + "%") : pill("ok", r.rate + "%")} ${esc(r.source || r.sid)} <span class="muted small">${esc(r.sid)}, ${num(r.full)} full, ${num(r.missing)} title only or none, ${num(r.pending)} waiting, ${num(r.posts)} posts</span></li>`;
     const bad = rows.filter(r => r.rate != null && r.rate < 80), rest = rows.filter(r => !(r.rate != null && r.rate < 80));
     return `<h4 class="small">Full text by source, 24 h</h4>${bad.length ? `<ul class="small ftl">${bad.map(line).join("")}</ul>` : `<p class="small muted">Every source read keeps full text for 80 % or more of its posts.</p>`}
       <details><summary class="small">All ${rows.length} sources</summary><ul class="small ftl">${rest.map(line).join("")}</ul></details>`;
@@ -423,14 +428,14 @@ function make(D: D, c: Ctx) {
   function pipeline() {
     const j = D.jobs || {}, p = D.pipeline || {};
     let h = "";
-    if (p.error) h += `<p class="err">${esc(p.error)}</p>`;
+    if (p.error) h += `<p class="blind">can't read: ${esc(p.error)}</p>`;
     else {
       const sc = p.scoring || {}, hs = p.history_scoring || {}, ft = p.fulltext || {}, lim = p.ai_limit;
       const rep = p.replies || {}, soc = p.social || {}, db = p.database || {}, tr = p.transcribe || {}, pc = p.pictures || {};
       const arch = Object.entries(p.archive_backfill || {}) as [string, D][];
       for (const [prov, x] of Object.entries(p.social_limit || {}) as [string, D][]) h += `<p class="err">${prov === "anyapi" ? "AnyAPI" : "TikHub"}: ${esc((stopOf(prov) || {}).tag || "requests failing")}, requests failing since ${when(x.since)}: its social search platforms bring in nothing new until the account is topped up (the hourly run tries again). It said: ${esc(x.message || "")}${x.notified ? ", Deyao told on Discord" : ""}</p>`;
       const w = p.watch || {};
-      if (w.paused) h += `<p class="err">Account watching reached its daily safety stop on ${esc(w.paused.day || "")} (since ${when(w.paused.since)}): ${usd((w.paused.spend || {}).total, 2)} of ${usd((w.paused.spend || {}).cap, 2)}. The watched accounts wait until 00:00 HKT and carry on by themselves; search and the other sources keep running.${w.paused.notified ? ", Deyao told on Discord" : ""}</p>`;
+      if (w.paused) h += `<p class="cau">Account watching reached its daily safety stop on ${esc(w.paused.day || "")} (since ${when(w.paused.since)}): ${usd((w.paused.spend || {}).total, 2)} of ${usd((w.paused.spend || {}).cap, 2)}. The watched accounts wait until 00:00 HKT and carry on by themselves; search and the other sources keep running.${w.paused.notified ? ", Deyao told on Discord" : ""}</p>`;
       if (lim) h += `<p class="err">OpenRouter ${esc((stopOf("openrouter") || {}).tag || "requests failing")} since ${when(lim.since)}: live scoring, history scoring and AI features are paused until the key's limit is raised or the account recharged (the app tries again every 10 minutes). OpenRouter said: ${esc(lim.message || "")}${lim.notified ? ", Deyao told on Discord" : ""}</p>`;
       h += `<div class="cards">
       <div class="card"><h3>Poller &amp; live scoring ${(p.poller || {}).minutes_ago > 15 ? pill("bad", "late") : pill("ok", "running")}</h3><dl class="kv">
@@ -463,7 +468,7 @@ function make(D: D, c: Ctx) {
         <dt>Last 24 h</dt><dd>${num(pc.scored_24h)} scored, ${num(pc.meaningful_24h)} meaningful (${num(pc.threshold)}+), ${num(pc.posts_looked_at_24h)} posts looked at</dd>
         <dt>Spent today</dt><dd>${usd(pc.usd_today, 4)} (ai_spend images), ${esc(pc.model || "")}</dd>
         <dt>All</dt><dd>${num(pc.scored)} pictures, ${num(pc.meaningful)} meaningful, last ${when(pc.last)}</dd></dl></div>
-      <div class="card"><h3>Watched accounts ${w.paused ? pill("bad", "paused: safety stop") : pill("ok", "running")}</h3><dl class="kv">
+      <div class="card"><h3>Watched accounts ${w.paused ? pill("warn", "paused: safety stop") : pill("ok", "running")}</h3><dl class="kv">
         <dt>Accounts</dt><dd>${num(w.accounts)}</dd>
         ${(Object.entries(w.platforms || {}) as [string, D][]).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${num(v.accounts)} (${Object.entries(v.groups || {}).map(([g, n]) => esc(g) + " " + n).join(", ")})${v.ok !== undefined ? ", " + num(v.ok) + " answering" : ""}${v.failing ? ", " + pill("warn", v.failing + " failing") : ""}${v.off ? ", " + esc(v.off) : ""}</dd>`).join("")}
         <dt>Last run</dt><dd>${when(w.last_run)}, ${num(w.posts_in_file)} posts in the file, ${num(w.posts_24h)} filed in 24 h</dd>
@@ -471,22 +476,22 @@ function make(D: D, c: Ctx) {
         <dt>Last days</dt><dd>${chips(Object.entries(w.days || {}).map(([d, v]) => esc(dtEn.date(d, c.now)) + " <b>" + usd(v, 2) + "</b>"))}</dd></dl></div>
       <div class="card wide"><h3>Forum replies</h3><dl class="kv">
         ${(Object.entries(rep) as [string, D][]).map(([k, v]) => !v ? "" : `<dt>${esc(k)} replies</dt><dd>${when(v.at)}, ${v.skipped ? brief(v.skipped, "b") :
-          `${v.ok === false ? pill("bad", "failing") + " " : ""}${v.threads != null ? num(v.threads) + " threads read, " : ""}${num(v.new_replies)} new, ${num(v.pending)} pending, ${v.proxy_mb_today ?? 0} MB proxy today${v.errors ? ", " + v.errors + " errors" : ""}${v.blocked ? " " + pill("bad", "blocked") : ""}`}${v.error ? `<div class="err">${esc(v.error)}</div>` : ""}</dd>`).join("")}</dl></div>
+          `${v.ok === false ? pill("", "failing") + " " : ""}${v.threads != null ? num(v.threads) + " threads read, " : ""}${num(v.new_replies)} new, ${num(v.pending)} pending, ${v.proxy_mb_today ?? 0} MB proxy today${v.errors ? ", " + v.errors + " errors" : ""}${v.blocked ? " " + pill("warn", "blocked") : ""}`}${v.error ? `<div class="muted small">${esc(v.error)}</div>` : ""}</dd>`).join("")}</dl></div>
       <div class="card"><h3>Social search &amp; archive</h3><dl class="kv">${soc.last_run ? `<dt>Last social run</dt><dd>${when(soc.last_run.at)}, ${usd(soc.last_run.cost_usd, 3)}${(soc.last_run.failed || []).length ? ", failed: " + esc(soc.last_run.failed.join(", ")) : ""}</dd>` : ""}
         <dt>Failing checks</dt><dd>${(soc.failing_checks || []).length ? esc(soc.failing_checks.join(", ")) : "none"}</dd>
         <dt>Archive backfill</dt><dd>${arch.length ? arch.map(([k, v]) => `${esc(k)}: ${esc(v.done_to || v.next || JSON.stringify(v).slice(0, 60))}`).join("<br>") : "no outlet position stored"}</dd>
         <dt>Database</dt><dd>${db.bytes ? (db.bytes / 1e9).toFixed(2) + " GB" : "–"}, ${num(db.posts_estimate)} posts</dd></dl></div>
     </div>`;
     }
-    if (j.error) h += `<p class="err">Jobs: ${esc(j.error)}</p>`;
+    if (j.error) h += `<p class="blind">Jobs: can't read: ${esc(j.error)}</p>`;
     else {
       h += `<h3 style="font-size:14px;margin:14px 0 4px">CronJobs</h3><div class="list">` + (j.cronjobs || []).map((cj: D) => {
-        const st = cj.off ? pill("off", "off: " + esc(cj.off)) : cj.suspended ? pill("off", "off: suspended") : cj.last_finished === "failed" ? pill("bad", "last run failed") : cj.late ? pill("warn", cj.late_after_minutes ? `late: no success in ${cj.late_after_minutes} min` : "late") : pill("ok", "ok");
+        const st = cj.off ? pill("off", "off: " + esc(cj.off)) : cj.suspended ? pill("off", "off: suspended") : cj.late ? pill("bad", cj.late_after_minutes ? `late: no success in ${cj.late_after_minutes} min` : "late") : cj.last_finished === "failed" ? pill("warn", "last run failed") : pill("ok", "ok");
         return `<div class="item"><div class="top">${st}<span class="name">${esc(cj.name)}</span><span class="id">${esc(cj.schedule)} UTC</span>
         <span class="runs" title="newest first">${(cj.recent || []).map((r: D) => `<i class="${esc(r.state)}" title="${esc(r.state)}${r.reason ? " (" + esc(r.reason) + ")" : ""}, started ${esc(hkt(r.start))} HKT"></i>`).join("")}</span></div>
         <div class="meta">last success ${when(cj.last_success)}, last start ${when(cj.last_schedule)}${cj.active ? ", running now" : ""}${cj.memory_peak_mib != null ? `, memory peak ${cj.memory_peak_mib} of ${cj.memory_limit_mib ?? "?"} Mi (last 20 runs)` : ""}</div></div>`;
       }).join("") + `</div><h3 style="font-size:14px;margin:14px 0 4px">Deployments</h3><div class="list">` + (j.deployments || []).map((d: D) =>
-        `<div class="item"><div class="top">${d.off && !d.replicas ? pill("off", "off: " + esc(d.off)) : (d.ready >= (d.replicas || 0) ? pill("ok", "ready") : pill("bad", "not ready")) + (d.off ? pill("off", "transcription off: " + esc(d.off)) : "")}<span class="name">${esc(d.name)}</span><span class="id">${d.ready}/${d.replicas} ready, ${esc(d.image)}</span></div></div>`).join("") + `</div>`;
+        `<div class="item"><div class="top">${d.off && !d.replicas ? pill("off", "off: " + esc(d.off)) : (d.ready >= (d.replicas || 0) ? pill("ok", "ready") : d.ready > 0 ? pill("warn", `${d.ready} of ${d.replicas} ready`) : pill("bad", "not ready")) + (d.off ? pill("off", "transcription off: " + esc(d.off)) : "")}<span class="name">${esc(d.name)}</span><span class="id">${d.ready}/${d.replicas} ready, ${esc(d.image)}</span></div></div>`).join("") + `</div>`;
     }
     return h;
   }
@@ -494,7 +499,7 @@ function make(D: D, c: Ctx) {
   function telegram() {
     const t = D.telegram || {};
     if (t.pending) return `<p class="muted small">${esc(t.error || "first snapshot still being computed")}</p>`;
-    if (t.error) return `<p class="err">${esc(t.error)}</p>`;
+    if (t.error) return `<p class="blind">can't read: ${esc(t.error)}</p>`;
     return `<div class="list">${(t.streams || []).map((s: D) => `<div class="item"><div class="top">${!s.channel ? pill("off", "no channel") : s.backlog ? pill(s.backlog > 20 ? "bad" : "warn", s.backlog + " waiting") : pill("ok", "up to date")}<span class="name">${esc(s.name)}</span><span class="id">${esc(s.stream)}</span></div>
     <div class="meta">${num(s.items)} items in the stream, ${lastSent(s)}</div></div>`).join("")}</div>
     <p class="note">${sendError(t.last_error)} ${esc(t.note || "")}</p>`;
@@ -516,7 +521,7 @@ function make(D: D, c: Ctx) {
   function whatsapp() {
     const w = D.whatsapp || {};
     if (w.pending) return `<p class="muted small">${esc(w.error || "first snapshot still being computed")}</p>`;
-    if (w.error) return `<p class="err">${esc(w.error)}</p>`;
+    if (w.error) return `<p class="blind">can't read: ${esc(w.error)}</p>`;
     const st = w.status || {}, ph = w.phone || {};
     const kind = ({ linked: "ok", connecting: "warn", unlinked: "off" } as Record<string, string>)[st.state] || "bad";
     const close = st.last_close ? `, last disconnect ${ago(st.last_close.at)}: ${esc(String(st.last_close.code ?? ""))} ${esc(st.last_close.reason || "")}` : "";
@@ -532,7 +537,7 @@ function make(D: D, c: Ctx) {
   function cloudflare() {
     const c = D.cloudflare || {};
     if (c.pending) return `<p class="muted small">${esc(c.error || "first snapshot still being computed")}</p>`;
-    if (c.error) return `<p class="err">${esc(c.error)}</p>`;
+    if (c.error) return `<p class="blind">can't read: ${esc(c.error)}</p>`;
     const names = (c.names || []).map((n: D) => `<div class="item" data-name="${esc(n.name)}" data-ok="${n.ok ? "1" : "0"}"><div class="top">${n.ok ? pill("ok", "CNAME ok") : n.cname == null ? pill("warn", "lookup failed") : pill("bad", "wrong record")}<span class="name">${esc(n.name)}</span><span class="id">${esc((n.cname || []).join(", ") || (n.error ? "" : "no CNAME"))}</span></div>${n.error ? `<div class="meta err">${esc(n.error)}</div>` : ""}</div>`).join("");
     return `<div class="list">${names}</div><p class="note">Each name must be a DNS-only CNAME to ${esc(c.target || "")} (Deyao's zone, set by hand); public DNS, every 5 min. YYC's Cloudflare as code (news-stream/deploy/cloudflare/tofu): <a href="${esc(c.runs || "")}">the workflow's runs</a> (a failed run is posted to Discord).</p>`;
   }
@@ -550,7 +555,7 @@ function make(D: D, c: Ctx) {
   function wisers() {
     const w = D.wisers || {};
     if (w.pending) return `<p class="muted small">${esc(w.error || "first snapshot still being computed")}</p>`;
-    if (w.error) return `<p class="err">${esc(w.error)}</p>`;
+    if (w.error) return `<p class="blind">can't read: ${esc(w.error)}</p>`;
     const last = w.last ? `last search ${ago(w.last)}${w.last_ok === false ? " (did not complete)" : ""}` : "no search yet";
     const ss = w.session || {}, ll = ss.last_login || {};
     const st = ss.state === "held" ? pill("ok", "session held") : ss.state === "logged_out" ? pill("bad", "logged out") : pill("off", "session not opened yet");
@@ -558,9 +563,9 @@ function make(D: D, c: Ctx) {
     <div class="meta">${ss.last_ok ? `last call Wisers answered ${esc(ago(ss.last_ok))}` : "no call answered yet"}${ll.at ? `, last automatic login ${esc(ago(ll.at))} ${ll.ok ? "ok" : "failed" + (ll.error ? ": " + esc(String(ll.error)) : "")}` : ""}${ss.state === "logged_out" ? ", take it back: <code>kubectl -n yyc exec deploy/wisers -- python3 /app/wisers/login.py /var/lib/wisers/login</code>" : ""}</div></div>`;
     const h = w.health || {}, pr = h.probe || {}, fl: Record<string, number> = h.failures || {};
     const mins = (x: unknown) => x == null ? "" : `${Math.round(Number(x) / 60)} min`;
-    const hp = !w.health ? "" : `<div class="item" id="wisers-health" data-ok="${(h.problems || []).length ? "0" : "1"}"><div class="top">${!pr.at ? pill("off", "no check yet") : pr.ok ? pill("ok", `answering, ${esc(String(pr.secs))} s`) : pill("bad", "not answering")}<span class="name">Health check</span><span class="id">${pr.at ? "last " + esc(ago(pr.at)) : ""}</span></div>
+    const hp = !w.health ? "" : `<div class="item" id="wisers-health" data-ok="${(h.problems || []).length ? "0" : "1"}"><div class="top">${!pr.at ? pill("off", "no check yet") : pr.ok ? pill("ok", `answering, ${esc(String(pr.secs))} s`) : pill(Number(pr.fails ?? 2) >= 2 ? "bad" : "warn", "not answering")}<span class="name">Health check</span><span class="id">${pr.at ? "last " + esc(ago(pr.at)) : ""}</span></div>
     <div class="meta">one free WisersOne call (${esc(String(pr.path || "getUserCustomConfig"))}, no quota) every ${esc(mins(h.probe_secs))}${pr.ok === false ? `: ${esc(String(pr.outcome || ""))} ${esc(String(pr.error || ""))}` : ""}. Last 15 min: ${esc(String(h.calls ?? 0))} calls, ${Object.keys(fl).length ? Object.entries(fl).map(([k, v]) => `${esc(String(v))} ${esc(k)}`).join(", ") : "none failed"}. Last hour: ${esc(String(h.logins_1h ?? 0))} logins${h.failed_logins_1h ? ` (${esc(String(h.failed_logins_1h))} failed)` : ""}, ${esc(String(h.expiries_1h ?? 0))} expiries.${h.last_expiry ? ` Last expiry ${esc(ago(h.last_expiry.at))}: ${esc(String(h.last_expiry.how || ""))}${h.last_expiry.idle_secs != null ? `, ${esc(mins(h.last_expiry.idle_secs))} after the last answered call` : ""}${h.last_expiry.since_login_secs != null ? `, ${esc(mins(h.last_expiry.since_login_secs))} after the last login` : ""}${h.last_expiry.exit_ip ? `, from ${esc(String(h.last_expiry.exit_ip))}` : ""}.` : ""}</div>
-    ${(h.problems || []).length ? `<div class="meta err">${(h.problems as string[]).map(esc).join("; ")}</div>` : ""}
+    ${(h.problems || []).length ? `<div class="meta ${h.down ? "err" : "cau"}">${(h.problems as string[]).map(esc).join("; ")}</div>` : ""}
     ${(h.recent_failures || []).map((r: D) => `<div class="meta">${esc(ago(r.at))} ${esc(String(r.path || ""))}, ${esc(String(r.who || ""))}: ${esc(String(r.outcome || ""))}${r.error ? " " + esc(String(r.error).slice(0, 120)) : ""}</div>`).join("")}</div>`;
     return `<div class="list">${sess}${hp}<div class="item" id="wisers-counts" data-today="${esc(String(w.today ?? ""))}" data-month="${esc(String(w.month ?? ""))}"><div class="top">${pill("", esc(String(w.today ?? 0)) + " today")}${pill("off", esc(String(w.month ?? 0)) + " this month")}<span class="name">WisersOne searches</span><span class="id">${esc(String(w.all ?? 0))} logged</span></div>
     <div class="meta">${last}${w.today_failed ? `, ${esc(String(w.today_failed))} today did not complete` : ""}, <a href="${esc(w.log || "/app/wisers/log")}">search log</a></div></div></div>
@@ -571,15 +576,15 @@ function make(D: D, c: Ctx) {
   function videos() {
     const v = D.videos || {};
     if (v.pending) return `<p class="muted small">${esc(v.error || "first snapshot still being computed")}</p>`;
-    if (v.error) return `<p class="err">${esc(v.error)}</p>`;
+    if (v.error) return `<p class="blind">can't read: ${esc(v.error)}</p>`;
     const mb = (b: unknown) => `${(Number(b || 0) / 1e6).toFixed(1)} MB`;
     const st: Record<string, D> = v.status || {}, bk = v.bucket || null;
     const q = st.queued?.n || 0;
-    const head = `<div class="item" id="videos-totals"><div class="top">${pill("", `${esc(String(st.ok?.n || 0))} saved`)}${q ? pill("warn", `${q} queued${v.retrying ? ", " + v.retrying + " retrying" : ""}`) : pill("ok", "queue empty")}${st.failed?.n ? pill("bad", `${st.failed.n} failed`) : ""}${st.gone?.n ? pill("off", `${st.gone.n} gone`) : ""}<span class="name">TikTok videos</span><span class="id">${mb(st.ok?.bytes)} in our records</span></div>
+    const head = `<div class="item" id="videos-totals"><div class="top">${pill("", `${esc(String(st.ok?.n || 0))} saved`)}${q ? pill("", `${q} queued${v.retrying ? ", " + v.retrying + " retrying" : ""}`) : pill("ok", "queue empty")}${st.failed?.n ? pill("warn", `${st.failed.n} failed`) : ""}${st.gone?.n ? pill("off", `${st.gone.n} gone`) : ""}<span class="name">TikTok videos</span><span class="id">${mb(st.ok?.bytes)} in our records</span></div>
       <div class="meta">${bk ? `bucket ${esc(bk.bucket)}: ${esc(String(bk.objects))} objects, ${mb(bk.bytes)} (ListObjectsV2 ${ago(bk.at)})` : "bucket not measured yet"}</div></div>`;
-    const days = (v.by_day || []).map((d: D) => `<div class="item"><div class="top"><span class="name">${esc(d.day)}</span><span class="id">${esc(String(d.queued))} queued (${esc(String(d.queued_stage1))} at stage 1, the rest by the sweep or backlog), ${esc(String(d.ok))} downloaded, ${mb(d.bytes)}${d.failed ? `, <span class="err">${esc(String(d.failed))} failed</span>` : ""}${d.gone ? `, ${esc(String(d.gone))} gone` : ""}</span></div></div>`).join("");
-    const reasons = (v.reasons || []).map((r: D) => `<div class="item"><div class="top">${pill(r.status === "gone" ? "off" : "bad", `${esc(String(r.n))} ${esc(r.status)}`)}<span class="id">${esc(r.reason)}</span></div></div>`).join("");
-    const recent = (v.recent_failures || []).map((r: D) => `<div class="item"><div class="top">${pill(r.status === "queued" ? "warn" : r.status === "gone" ? "off" : "bad", r.status === "queued" ? `retry (${r.tries} tries)` : r.status)}<span class="name"><a href="/item/${esc(String(r.post_id))}">post ${esc(String(r.post_id))}</a></span><span class="id">${ago(r.at)}</span></div><div class="meta err-clamp">${esc(r.error)}</div></div>`).join("");
+    const days = (v.by_day || []).map((d: D) => `<div class="item"><div class="top"><span class="name">${esc(d.day)}</span><span class="id">${esc(String(d.queued))} queued (${esc(String(d.queued_stage1))} at stage 1, the rest by the sweep or backlog), ${esc(String(d.ok))} downloaded, ${mb(d.bytes)}${d.failed ? `, <span class="cau">${esc(String(d.failed))} failed</span>` : ""}${d.gone ? `, ${esc(String(d.gone))} gone` : ""}</span></div></div>`).join("");
+    const reasons = (v.reasons || []).map((r: D) => `<div class="item"><div class="top">${pill(r.status === "gone" ? "off" : "warn", `${esc(String(r.n))} ${esc(r.status)}`)}<span class="id">${esc(r.reason)}</span></div></div>`).join("");
+    const recent = (v.recent_failures || []).map((r: D) => `<div class="item"><div class="top">${pill(r.status === "queued" || r.status !== "gone" ? "warn" : "off", r.status === "queued" ? `retry (${r.tries} tries)` : r.status)}<span class="name"><a href="/item/${esc(String(r.post_id))}">post ${esc(String(r.post_id))}</a></span><span class="id">${ago(r.at)}</span></div><div class="meta err-clamp">${esc(r.error)}</div></div>`).join("");
     return `<div class="list">${head}${days || `<div class="item"><div class="meta">no videos yet</div></div>`}</div>` +
       (reasons ? `<h3>Failures by reason (last ${esc(String(v.days))} days)</h3><div class="list">${reasons}</div>` : "") +
       (recent ? `<h3>Latest failures and retries</h3><div class="list">${recent}</div>` : "") +
@@ -594,7 +599,7 @@ function make(D: D, c: Ctx) {
       if (x.pending) return `${esc(k)}: first snapshot still being computed`;
       const a = x.age_seconds == null ? null : x.age_seconds + since;
       return `${esc(k)} as of ${x.computed_at ? hm(x.computed_at) : "–"}${a == null ? "" : ", " + dur(a) + " old"}` +
-        (x.refresh_error ? `, <span class="err">last refresh failed ${ago(x.refresh_failed_at)}: ${esc(x.refresh_error)}</span>` : "");
+        (x.refresh_error ? `, <span class="blind">last refresh failed ${ago(x.refresh_failed_at)}: ${esc(x.refresh_error)}</span>` : "");
     }).join("; ");
   }
 

@@ -87,6 +87,7 @@ SNAP = {
     "stops": {"stored_at": NOW - 30, "value": {"providers": [], "computed_at": AT}},
     # AWS as monitor.bal_aws gives it (Deyao, 2026-11-17; YYC's account that day)
     "balances": {"stored_at": NOW - 60, "value": {"computed_at": AT, "providers": [
+        {"id": "anyapi", "name": "AnyAPI", "status": "error", "error": "HTTPError 500"},
         {"id": "aws", "name": "AWS (account yyc)", "status": "ok", "account": "YYC's AWS member account 551897326524 (its own invoice)",
          "month": "2026-11", "month_usd": 37.312328, "yesterday": "2026-11-16", "yesterday_usd": 5.290205, "today_usd": 0.41,
          "services_month": [{"name": "EC2", "usd": 28.803596}, {"name": "Tax", "usd": 6.22}, {"name": "EC2 other (disks, traffic)", "usd": 1.612112},
@@ -119,7 +120,13 @@ SNAP = {
                  {"id": "hkej", "name": "信報", "kind": "proxy", "state": "ok", "posts_24h": 12, "usual_per_day": 10, "items": 20,
                   "last_ok": ago(minutes=3), "last_error": "HTTP 429 long ago", "last_error_at": ago(hours=20),
                   "error_current": False}]}},
-    "jobs": {"stored_at": NOW - 20, "value": {"computed_at": AT, "cronjobs": [], "deployments": []}},
+    # one failed run (it runs again), a job with no success for three intervals, a Deployment short of one pod, one with none
+    "jobs": {"stored_at": NOW - 20, "value": {"computed_at": AT,
+        "cronjobs": [{"name": "forums", "schedule": "*/10 * * * *", "last_finished": "failed", "late": False, "recent": []},
+                     {"name": "fulltext", "schedule": "*/5 * * * *", "last_finished": "failed", "late": True, "late_after_minutes": 45, "recent": []},
+                     {"name": "comments", "schedule": "*/15 * * * *", "last_finished": "succeeded", "late": False, "recent": []}],
+        "deployments": [{"name": "mcp", "replicas": 2, "ready": 1, "image": "mcp:abc"}, {"name": "wisers", "replicas": 1, "ready": 0, "image": "wisers:abc"},
+                        {"name": "poller", "replicas": 2, "ready": 2, "image": "news:abc"}]}},
     "pipeline": {"stored_at": NOW - 25, "value": {"computed_at": AT, "scoring": {"awaiting": 3}, "fulltext": {},
         "history_scoring": {"on": True, "state": "limit", "at": ago(hours=5), "left": 100, "posts": 50, "spent_usd": 1.2,
                             "state_current": False}}},
@@ -274,9 +281,32 @@ class MonitorNow(unittest.TestCase):
                 self.assertIn("since then sends worked", p.inner_text("#telegram"))
                 p.click("[data-f=all]")
                 hk = p.locator("#src .item:has-text('信報')")
-                self.assertEqual(hk.locator(".err, pre:not(.past)").count(), 0)
+                self.assertEqual(hk.locator(".err, .errx:not(.past)").count(), 0)  # (the "past" class sits on the .errx box)
                 self.assertIn("Earlier error", hk.inner_text())
-                self.assertEqual(p.locator("#src .item:has-text('RTHK') pre:not(.past)").count(), 1)  # current stays red
+                self.assertEqual(p.locator("#src .item:has-text('RTHK') .errx:not(.past)").count(), 1)  # current stays ink
+                # 6. state colours (Deyao, 2026-11-17): red = a service lost right now. A failing news source is quiet
+                # (their end, outside our control): no red or amber on it or on its tile
+                rt = p.locator("#src .item:has-text('RTHK')")
+                self.assertIn("failing, 2 polls", rt.inner_text())
+                self.assertEqual(rt.locator(".pill.bad, .pill.warn, .err").count(), 0, name)
+                self.assertEqual(p.locator("#tiles .tile:has-text('Sources failing')").count(), 1)
+                self.assertEqual(p.locator("#tiles .tile.bad:has-text('Sources failing'), #tiles .tile.warn:has-text('Sources failing')").count(), 0)
+                # a CronJob with no success for three intervals is red, one failed run amber; a Deployment short of a pod
+                # that still serves is amber, one with no pod ready red; the tile is red because something is down
+                jobs = p.locator("#jobs")
+                self.assertEqual(jobs.locator(".item:has-text('fulltext') .pill.bad", has_text="late: no success in 45 min").count(), 1)
+                self.assertEqual(jobs.locator(".item:has-text('forums') .pill.warn", has_text="last run failed").count(), 1)
+                self.assertEqual(jobs.locator(".item:has-text('forums') .pill.bad").count(), 0)
+                self.assertEqual(jobs.locator(".item:has-text('mcp:abc') .pill.warn", has_text="1 of 2 ready").count(), 1)
+                self.assertEqual(jobs.locator(".item:has-text('mcp:abc') .pill.bad").count(), 0)
+                self.assertEqual(jobs.locator(".item:has-text('wisers:abc') .pill.bad", has_text="not ready").count(), 1)
+                self.assertEqual(p.locator("#tiles .tile.bad:has-text('Jobs failing or late')").count(), 1)
+                # a provider whose API can't be read: blind (magenta, its own colour), never red
+                an = p.locator("#bal .card:has-text('AnyAPI')")
+                self.assertEqual(an.locator(".pill.blind", has_text="can't read").count(), 1)
+                self.assertEqual(an.locator(".blind", has_text="HTTPError 500").count(), 1)
+                self.assertEqual(an.locator(".pill.bad, .err").count(), 0)
+                self.assertEqual(an.locator(".pill.blind").evaluate("e => getComputedStyle(e).backgroundColor"), "rgb(163, 19, 143)", name)
                 hs = p.locator("#pipe .card:has-text('History scoring')")
                 self.assertEqual(hs.locator(".pill.bad").count(), 0, name)
                 self.assertRegex(hs.inner_text(), r"limit, 5\.\d h ago")

@@ -53,6 +53,23 @@ class Problems(unittest.TestCase):
         self.assertEqual(monitor.wisers_problems(d), [], "logged out is the wisers:session alert")
         self.assertEqual(monitor.wisers_problems({"session": {"state": "held"}}), [], "a relay without the health block")
 
+    def test_down(self):
+        """Deyao, 2026-11-17: red is a service lost right now. Staff cannot search when the health check failed twice in
+        a row or their calls are refused as logged out (wisers_down); a few failed calls or a health check that stopped
+        are problems that are not down (amber on the pages)"""
+        def down(**h):
+            d = copy.deepcopy(BASE)
+            d["health"].update(h)
+            return monitor.wisers_down(d)
+        self.assertFalse(down())
+        self.assertTrue(down(probe={"at": iso(N), "ok": False, "outcome": "timeout", "error": "x", "fails": 2}))
+        self.assertFalse(down(probe={"at": iso(N), "ok": False, "outcome": "timeout", "error": "x", "fails": 1}))
+        self.assertTrue(down(failures={"logged_out": 1}))
+        self.assertFalse(down(failures={"timeout": 2, "error": 1}))
+        self.assertEqual(len(p(failures={"timeout": 2, "error": 1})), 1, "still a problem, just not down")
+        self.assertFalse(down(probe={"at": iso(N - timedelta(minutes=30)), "ok": True}))
+        self.assertFalse(down(probe=None))
+
 
 if __name__ == "__main__":
     unittest.main()

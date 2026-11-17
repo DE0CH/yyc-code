@@ -1308,7 +1308,7 @@ navigation. It refreshes itself every
 minute. **Link following** (follow.py; card under Pipeline): posts followed and links (new, duplicate, unknown site,
 skipped per reason with their top sites, failed, waiting) for the last 24 h and all time, and the sites no source reads
 (host, links, posts, an example post and link): the list of sites we're missing. No budget-shaped figures (Deyao, 2026-10-15/16): no cap bar, run-out date, headroom or projection; spend
-and balances are facts. **An error is red only while it is current** (Deyao, 2026-10-16): a channel's send error once
+and balances are facts. **An error is lit only while it is current** (Deyao, 2026-10-16; a send error red, a source's error ink: "State colours" below): a channel's send error once
 a later send to that stream worked (any stream's, for an error naming none; kv `telegram_sent_at` /
 `whatsapp_sent_at`, written by each send that worked), a source's last error once it answers again, history
 scoring's "OpenRouter limit" once OpenRouter's stop (kv `openrouter_limit`) has cleared: each is shown muted with its
@@ -1488,7 +1488,7 @@ them (their events too), Full text went from two columns to one.
   that state and its background jobs and subagents; scheduled (Deyao, 2026-11-17: "it should also show scheduled as
   blue, similar to background") = paused or idle with a wakeup, cron or watch armed, as the Jarvis 4 app's Scheduled,
   with its next wake in HKT ("next 14:30", "watching" for a watch alone); at most 32 (16 in one window), in the router's order (needs you, idle, working, background, scheduled, booting), "N more"
-  in the header, amber "no update since" after a minute without a push. YYC holds no Jarvis 4 credential.
+  in the header, magenta "no update since" after a minute without a push. YYC holds no Jarvis 4 credential.
 - **View only (Deyao, 2026-11-17:** "there can't be any clickable element on the monitor … it's a view only live
   monitor"): no links, buttons or inputs anywhere on /app/live (YYC AI's Schedules link was removed; test 3 counts
   them).
@@ -1499,9 +1499,22 @@ them (their events too), Full text went from two columns to one.
   (POLL_MS / queue length, at least 300 ms apart); a queue longer than one read's worth shows "+N behind"; nothing is
   dropped (the read hands a burst over in order: after a cursor it returns the oldest 40, not the newest). Each insert
   is instant: no highlight, fade or animation (Deyao: "no highlight, too busy"); the oldest card leaves at the bottom.
-  Failures are red with their reason. No unseen counts, no acknowledge key, no sound.
+  No unseen counts, no acknowledge key, no sound.
+- **State colours (Deyao, 2026-11-17), on /app/live and /app/monitor:** red is only a service lost right now ("immediate
+  loss of service"): a Deployment with no pod ready, a CronJob with no success for three of its intervals ("late"), the
+  gateway or a host with someone's sandbox on it not answering, a provider stopped for credit or a limit, WiseSearch
+  logged out or its health check failed twice in a row (`monitor.wisers_down`), an alert refused for good, YYC AI's
+  status "problem". Amber is a caution, still serving: a Deployment short of pods whose others serve ("1 of 2
+  ready"), one failed CronJob run, a node not ready or under pressure, an empty host not answering, Postgres near its
+  connection limit or under its free-space floor, a failing WAL archive or base backup, and errors that are over (a
+  failed sandbox start, a refused call, the counts of the last 15 minutes). Magenta is blind: the page cannot read
+  something (a provider's API, Postgres figures, the node list, a bucket, YYC AI's snapshot) or its figures are old
+  ("no update since"), so the thing may be fine or down. Blue is something that finishes by itself (a rollout, a
+  host booting). A failing news source is quiet ink, on both pages (most likely their end, outside our control): the
+  source's tag, the "Sources failing" tile, a full-text fetch that failed ("not fetched"). Tests:
+  `test_live_dashboard_page.py` 3 and 3b, `test_edge_monitor_now.py` 6, `test_monitor_wisers.py` `test_down`.
 - **Staleness:** no successful read for 30 s, or the poller's last poll older than 12 min: the whole screen greys
-  out and says "No data since HH:MM". YYC AI and Systems say "no update since HH:MM:SS" in red when kv live:sys is
+  out and says "No data since HH:MM". YYC AI and Systems say "no update since HH:MM:SS" in magenta (blind) when kv live:sys is
   over a minute old. A screen wake lock while visible; F = full screen.
 - **Data:** the page reads `/app/live/data?c=<panel:last id,…>` every 3 s; one answer covers every panel in three
   indexed queries (+ three counts every 30 s) and kv `live:sys`.

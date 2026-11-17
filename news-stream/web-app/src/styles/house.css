@@ -9,14 +9,16 @@
 :root {
   --ground:#eef0f2; --panel:#ffffff; --ink:#14171a; --muted:#59626b; --rule:#d3d8dd;
   --c-1:#c8102e; --c-2:#005eb8; --c-3:#00774a; --c-4:#8a5800;          /* crimson, blue, green, ochre */
-  /* status, as on a flight deck (Airbus ECAM / Boeing EICAS, FAA AC 25.1322): red = a fault that needs action now,
-     amber = a caution that needs attention, green = normal, blue = information worth seeing that is neither good nor
-     bad (an advisory: e.g. Stage 2 overruling Stage 1). These mean only that, on every page that shows a state; no category
-     or decoration may use them. --st-warn is a fill or a mark (ink text on it); amber
-     words on the sheet use --st-warn-ink */
-  --st-bad:#c8102e; --st-on-bad:#ffffff; --st-warn:#f2a900; --st-warn-ink:#7a5000; --st-on-warn:#14171a; --st-ok:#00774a; --st-info:#005eb8;
-  /* the monitor's providers (one hue each, named by a legend): never red, amber or green, which are status */
-  --p-1:#005eb8; --p-2:#6a3fb5; --p-3:#9b3d8c; --p-4:#00727e; --p-5:#4a6274; --p-6:#24325f;  /* blue, violet, plum, teal, slate, navy */
+  /* status, as on a flight deck (Airbus ECAM / Boeing EICAS, FAA AC 25.1322): red = a service lost right now, act
+     now (Deyao, 2026-11-17: "immediate loss of service"; a replica down with others serving is not red); amber = a
+     caution: still serving but degraded, late, near a limit, or an error that is over; green = normal; blue =
+     information worth seeing that is neither good nor bad (an advisory: Stage 2 overruling Stage 1, a rollout);
+     magenta = blind (Deyao, 2026-11-17): the page cannot read something or its figures are old, so the thing may be
+     fine or down. These mean only that, on every page that shows a state; no category or decoration may use them.
+     --st-warn is a fill or a mark (ink text on it); amber words on the sheet use --st-warn-ink */
+  --st-bad:#c8102e; --st-on-bad:#ffffff; --st-warn:#f2a900; --st-warn-ink:#7a5000; --st-on-warn:#14171a; --st-ok:#00774a; --st-info:#005eb8; --st-blind:#a3138f; --st-on-blind:#ffffff;
+  /* the monitor's providers (one hue each, named by a legend): never red, amber, green or magenta, which are status */
+  --p-1:#005eb8; --p-2:#6a3fb5; --p-3:#7a5c48; --p-4:#00727e; --p-5:#4a6274; --p-6:#24325f;  /* blue, violet, umber, teal, slate, navy */
   /* sentiment, the one hue category of the public pages */
   --sent-neg:var(--c-1); --sent-pos:var(--c-3); --sent-mixed:var(--c-4); --sent-irony:var(--c-2); --sent-neu:var(--ink);
   --hit:#ffe08a; --hit-ink:#14171a;                                    /* a search hit */
@@ -32,16 +34,16 @@
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --ground:#111315; --panel:#1a1d20; --ink:#e8eaec; --muted:#9ea6ae; --rule:#33393f;
   --c-1:#ff6b78; --c-2:#5aa9ff; --c-3:#3cc48a; --c-4:#e0a54a;
-  --st-bad:#ff4d5a; --st-on-bad:#111315; --st-warn:#ffb81c; --st-warn-ink:#ffb81c; --st-on-warn:#111315; --st-ok:#3cc48a; --st-info:#5aa9ff;
-  --p-1:#5aa9ff; --p-2:#b08cff; --p-3:#e58ad6; --p-4:#3cc6d4; --p-5:#a3b8c8; --p-6:#8a9bd6;
+  --st-bad:#ff4d5a; --st-on-bad:#111315; --st-warn:#ffb81c; --st-warn-ink:#ffb81c; --st-on-warn:#111315; --st-ok:#3cc48a; --st-info:#5aa9ff; --st-blind:#f472d0; --st-on-blind:#111315;
+  --p-1:#5aa9ff; --p-2:#b08cff; --p-3:#c9a58e; --p-4:#3cc6d4; --p-5:#a3b8c8; --p-6:#8a9bd6;
   --hit:#6b5410; --hit-ink:#fff3c4;
   color-scheme:dark;
 }}
 :root[data-theme="dark"] {
   --ground:#111315; --panel:#1a1d20; --ink:#e8eaec; --muted:#9ea6ae; --rule:#33393f;
   --c-1:#ff6b78; --c-2:#5aa9ff; --c-3:#3cc48a; --c-4:#e0a54a;
-  --st-bad:#ff4d5a; --st-on-bad:#111315; --st-warn:#ffb81c; --st-warn-ink:#ffb81c; --st-on-warn:#111315; --st-ok:#3cc48a; --st-info:#5aa9ff;
-  --p-1:#5aa9ff; --p-2:#b08cff; --p-3:#e58ad6; --p-4:#3cc6d4; --p-5:#a3b8c8; --p-6:#8a9bd6;
+  --st-bad:#ff4d5a; --st-on-bad:#111315; --st-warn:#ffb81c; --st-warn-ink:#ffb81c; --st-on-warn:#111315; --st-ok:#3cc48a; --st-info:#5aa9ff; --st-blind:#f472d0; --st-on-blind:#111315;
+  --p-1:#5aa9ff; --p-2:#b08cff; --p-3:#c9a58e; --p-4:#3cc6d4; --p-5:#a3b8c8; --p-6:#8a9bd6;
   --hit:#6b5410; --hit-ink:#fff3c4;
   color-scheme:dark;
 }

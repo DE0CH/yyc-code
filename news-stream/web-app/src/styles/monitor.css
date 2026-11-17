@@ -1,22 +1,26 @@
 /* Deyao's monitor's own styles (scoped to .page-monitor), in the house style (house.css): sections are white sheets on
    the grey ground, tiles are ruled value plates. States use the flight-deck colours (house.css --st-*; Deyao,
-   2026-10-30): failed = red with an SVG cross, warn = amber with a square, ok = a small green square with ink text
-   (a dark cockpit: what is normal stays quiet), off = muted. Each state also has its own shape, so it reads without
-   colour. The providers' hues in the spending chart and bars (--p-*, named by the legend) are never red, amber or
-   green. */
+   2026-10-30): failed = red with an SVG cross (only a service lost right now; Deyao, 2026-11-17), warn = amber with a
+   square (degraded but serving, near a limit, an error that is over), blind = magenta with a crossed eye (a read that
+   failed, old figures: the thing may be fine or down), ok = a small green square with ink text (a dark cockpit: what
+   is normal stays quiet), off = muted; a failing news source is quiet ink (their end, outside our control). Each
+   state also has its own shape, so it reads without colour. The providers' hues in the spending chart and bars
+   (--p-*, named by the legend) are never red, amber, green or magenta. */
 .page-monitor {
   /* the house icons as masks (an SVG mask takes the element's colour): the failed cross and the disclosure chevron */
   --x-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='square'%3E%3Cpath d='M6 6l12 12M18 6L6 18'/%3E%3C/svg%3E");
+  --eye-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='square'%3E%3Cpath d='M3 12c3-5 6-7 9-7s6 2 9 7c-3 5-6 7-9 7s-6-2-9-7zM4 4l16 16'/%3E%3C/svg%3E");
   --chev-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='square'%3E%3Cpath d='M9 5l7 7-7 7'/%3E%3C/svg%3E");
   padding-bottom:env(safe-area-inset-bottom); }
 /* the bar is the shell's (shell.css): .yyc-bar, a 56px .yyc-row with the title and the freshness, and the section jumps
    as the level-2 .yyc-sub row (44px tabs on one full-width rule) */
 .page-monitor .bar h1 { display:flex; align-items:center; font-size:16px; margin:0; font-weight:700; white-space:nowrap; }
 .page-monitor .bar .upd { display:flex; align-items:center; margin-left:auto; padding-left:10px; font-size:13px; color:var(--muted); text-align:right; font-family:var(--num); }
-/* the freshness pip in the bar: live = green filled, stale = amber hollow, down = a red cross */
+/* the freshness pip in the bar: live = green filled; the page's own data old or not arriving is blind (magenta; Deyao,
+   2026-11-17): stale = a hollow magenta square, no data = the crossed eye */
 .page-monitor .dot { display:inline-block; width:10px; height:10px; background:var(--st-ok); border:2px solid var(--st-ok); margin-right:7px; vertical-align:0; }
-.page-monitor .dot.stale { background:transparent; border-color:var(--st-warn); }
-.page-monitor .dot.down { border:0; width:12px; height:12px; background:var(--st-bad); -webkit-mask:var(--x-mask) center / 100% no-repeat; mask:var(--x-mask) center / 100% no-repeat; vertical-align:-1px; }
+.page-monitor .dot.stale { background:transparent; border-color:var(--st-blind); }
+.page-monitor .dot.down { border:0; width:12px; height:12px; background:var(--st-blind); -webkit-mask:var(--eye-mask) center / 100% no-repeat; mask:var(--eye-mask) center / 100% no-repeat; vertical-align:-1px; }
 .page-monitor main { padding:8px var(--gutter) 40px; display:grid; gap:8px; grid-template-columns:minmax(0,1fr); }
 /* a jump lands its section 8px under the bar (57 + 45px) */
 .page-monitor section { background:var(--panel); padding:16px; min-width:0; scroll-margin-top:110px; }
@@ -24,11 +28,19 @@
 .page-monitor section > h2 small { font-weight:400; color:var(--muted); font-size:13px; }
 .page-monitor .muted { color:var(--muted); }
 .page-monitor .small { font-size:13px; }
-/* an error: red text with the cross */
+/* a service lost now: red text with the cross */
 .page-monitor .err { color:var(--st-bad); font-weight:600; font-size:13px; overflow-wrap:anywhere; }
 .page-monitor .err::before, .page-monitor .tile.bad .k::before, .page-monitor .pill.bad::before, .page-monitor .stop::before, .page-monitor #banner::before {
   content:""; display:inline-block; width:12px; height:12px; margin-right:6px; vertical-align:-1px; background:currentColor;
   -webkit-mask:var(--x-mask) center / 100% no-repeat; mask:var(--x-mask) center / 100% no-repeat; }
+/* a caution (an error that is over, a limit reached that lifts by itself): amber words with the square */
+.page-monitor .cau { color:var(--st-warn-ink); font-weight:600; font-size:13px; overflow-wrap:anywhere; }
+.page-monitor .cau::before { content:""; display:inline-block; width:10px; height:10px; margin-right:6px; background:var(--st-warn); }
+/* blind (Deyao, 2026-11-17): the page cannot read this, so it may be fine or down: magenta words with the crossed eye */
+.page-monitor .blind { color:var(--st-blind); font-weight:600; font-size:13px; overflow-wrap:anywhere; }
+.page-monitor .blind::before, .page-monitor .pill.blind::before, .page-monitor .tile.blind .k::before {
+  content:""; display:inline-block; flex:none; width:12px; height:12px; margin-right:6px; vertical-align:-1px; background:currentColor;
+  -webkit-mask:var(--eye-mask) center / 100% no-repeat; mask:var(--eye-mask) center / 100% no-repeat; }
 /* tiles and cards: one ruled grid per group (house.css "clean lines"), every edge one shared 1px rule: the grid draws
    the top and left rules, each cell its right and bottom, so a short last row ends on its last cell. The figure in
    Archivo; bad = a 3px red frame inside the cell (the shared rules stay) + red label, warn = a 3px amber frame + amber square */
@@ -40,6 +52,8 @@
 .page-monitor .tile .s { font-size:13px; color:var(--muted); overflow-wrap:anywhere; }
 .page-monitor .tile.bad, .page-monitor .tile.warn { outline:3px solid var(--st-bad); outline-offset:-3px; }
 .page-monitor .tile.warn { outline-color:var(--st-warn); }
+.page-monitor .tile.blind { outline:3px solid var(--st-blind); outline-offset:-3px; }
+.page-monitor .tile.blind .k { color:var(--st-blind); font-weight:700; }
 .page-monitor .tile.bad .k, .page-monitor .tile.warn .k { color:var(--ink); font-weight:700; }
 .page-monitor .tile.bad .k { color:var(--st-bad); }
 .page-monitor .tile.warn .k::before { content:""; display:inline-block; width:12px; height:12px; background:var(--st-warn); margin-right:6px; vertical-align:-1px; }
@@ -63,6 +77,7 @@
 .page-monitor .pill.warn { font-weight:700; background:var(--st-warn); border-color:var(--st-warn); color:var(--st-on-warn); }
 .page-monitor .pill.bad { font-weight:700; background:var(--st-bad); border-color:var(--st-bad); color:var(--st-on-bad); }
 .page-monitor .pill.bad::before { flex:none; }
+.page-monitor .pill.blind { font-weight:700; background:var(--st-blind); border-color:var(--st-blind); color:var(--st-on-blind); }
 .page-monitor .pill.off { border-color:var(--rule); color:var(--muted); font-weight:500; }
 /* a stop: a red block with the cross (a master warning) */
 .page-monitor .stops { display:grid; gap:8px; margin:0 0 12px; }

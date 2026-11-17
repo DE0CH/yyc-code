@@ -125,6 +125,14 @@ def ai_fixtures():
                   (z(20), {"what": "egress", "kind": "model", "host": "openrouter.ai", "path": "/api/v1/messages", "status": 402,
                            "decision": "allow", "owner": "michelle.yeoh@yyc.hk"})):
         corpus.db().execute("INSERT INTO events (at, kind, data) VALUES (%s, 'ai', %s)", (at, json.dumps(d)))
+    sys_fixture()
+
+
+def sys_fixture(edit=None, age=0):
+    """kv live:sys as monitor.live_once writes it; `edit(snap, health)` changes the snapshot and the health area first
+    (test 3b's states), `age` makes it that many seconds old"""
+    t = datetime.now(timezone.utc)
+    z = lambda s: (t - timedelta(seconds=s)).isoformat(timespec="milliseconds").replace("+00:00", "Z")  # noqa: E731
     snap = {"at": z(5), "today": z(3600), "recentMinutes": 15, "errors": {},
             "health": {"state": "warming", "findings": [{"level": "warming", "text": "Host aws-1b2c3d booting (40 s)"}]},
             "service": {"deployments": [{"name": n, "ready": 2, "desired": 2, "state": "ok", "pods": [{"restarts": 0}]}
@@ -189,7 +197,10 @@ def ai_fixtures():
                                       {"name": "yyc-tiktok-videos", "objects": 390, "bytes": 4437131926}] +
                                      [{"name": f"yyc-extra-{i}", "objects": 10 + i, "bytes": 2 ** 30 * (3 - i * 0.2)} for i in range(9)],
                           "bytes": 285852083097, "objects": 15453, "computed_at": TODAY + "T16:00:00+08:00"}}
-    corpus.kv_set("live:sys", {"at": datetime.now(HKT).isoformat(timespec="seconds"), "ai": monitor.ai_slim(snap), "health": health})
+    if edit:
+        edit(snap, health)
+    corpus.kv_set("live:sys", {"at": (datetime.now(HKT) - timedelta(seconds=age)).isoformat(timespec="seconds"),
+                               "ai": monitor.ai_slim(snap), "health": health})
 
 
 class Server:
@@ -381,22 +392,30 @@ class LivePage(unittest.TestCase):
     def test_3_cards(self):
         ctx, page = open_page(self.br, "/app/live", 1440, 830)
         # the one-window box is too small for every Systems line in full: the compact form, every provider and check
-        # still there, problems in red, never a link to the rest (Deyao, 2026-11-17: "it should just fit")
+        # still there, each in its state's colour, never a link to the rest (Deyao, 2026-11-17: "it should just fit")
         sp = page.locator(".lp[data-panel=sys]")
         self.assertNotIn("more line", sp.inner_text())
         self.assertEqual(sp.locator("a").count(), 0)
-        self.assertEqual(sp.locator(".pc.why", has_text="AnyAPI").count(), 1)
-        for x in ("Postgres:", "Deployments", "CronJobs"):
-            self.assertEqual(sp.locator(".row.why", has_text=x).count(), 1, x)
+        # (Deyao, 2026-11-17) a provider's API that can't be read is blind (magenta), not red; a Deployment with no pod
+        # ready is red; free space under its floor and one failed CronJob run are cautions (amber)
+        self.assertEqual(sp.locator(".pc.blindc", has_text="AnyAPI").count(), 1)
+        self.assertEqual(sp.locator(".row.why", has_text="Deployments").count(), 1)
+        for x in ("Postgres:", "CronJobs"):
+            self.assertEqual(sp.locator(".row.warnc", has_text=x).count(), 1, x)
+            self.assertEqual(sp.locator(".row.why", has_text=x).count(), 0, x)
         t = lambda p: page.inner_text(f".lp[data-panel={p}]")  # noqa: E731
         self.assertIn("Ingested headline 29", t("ingest"))
         self.assertIn("香港電台", t("ingest"))
         self.assertIn("proxy", t("fulltext"))
         self.assertIn("4,321 characters", t("fulltext"))
         self.assertIn("第三行全文內容", t("fulltext"))
-        bad = page.locator(".lp[data-panel=fulltext] li.bad")
-        self.assertEqual(bad.count(), 1)
-        self.assertIn("HTTP Error 403", bad.inner_text())
+        # a news source's failure is quiet: most likely their end, outside our control (Deyao, 2026-11-17)
+        self.assertEqual(page.locator(".lp[data-panel=fulltext]").locator("li.bad, li.cau, .why, .warn, .badt").count(), 0)
+        failed = page.locator(".lp[data-panel=fulltext] li", has_text="not fetched")
+        self.assertEqual(failed.count(), 1)
+        self.assertIn("HTTP Error 403", failed.inner_text())
+        # an alert refused for good is a service lost: red
+        self.assertEqual(page.locator(".lp[data-panel=alert] li.bad", has_text="gateway down").count(), 1)
         self.assertIn("+12 new, 345 on the platform", t("comments"))
         for x in ("最多讚好的留言", "第二多讚好", "第三條留言"):
             self.assertIn(x, t("comments"))
@@ -432,7 +451,11 @@ class LivePage(unittest.TestCase):
                   "1 failed starts", "14 starts, 1 failed", "median 4.3 s", "model calls", "+7 calls", "sandbox start failed",
                   "host_boot_timeout", "model 402", "sandbox started"):
             self.assertIn(x, ai_)
-        self.assertEqual(page.locator(".lp[data-panel=ai] li.bad").count(), 2)  # the failed start, the 402
+        # errors that are over (the failed start, the 402) are cautions: amber, not red (Deyao, 2026-11-17)
+        self.assertEqual(page.locator(".lp[data-panel=ai] li.cau").count(), 2)
+        self.assertEqual(page.locator(".lp[data-panel=ai]").locator("li.bad, .badt, .why").count(), 0)
+        self.assertEqual(page.locator(".lp[data-panel=ai] li.cau .tag.warn", has_text="sandbox start failed").count(), 1)
+        self.assertEqual(page.locator("[data-ai-state] .row.warnc", has_text="1 failed starts").count(), 1)
         # warming up is an advisory, not a caution: blue (deyao-web-design status colours)
         self.assertEqual(page.locator("[data-ai-state] .tag.info", has_text="warming up").count(), 1)
         self.assertEqual(page.locator("[data-ai-state] .row.infoc", has_text="Host aws-1b2c3d booting").count(), 1)
@@ -440,7 +463,7 @@ class LivePage(unittest.TestCase):
         self.assertEqual(page.locator("a, button, input, select, textarea, [onclick], [role=button], [role=link]").count(), 0)
         sys_ = page.inner_text(".lp[data-panel=sys]")
         for x in ("OpenRouter", "credit USD 61.52", "yyc-chat USD 2.96 today · USD 25.30 month", "provider API", "TikHub",
-                  "balance USD 12.40, today USD 0.31", "yycstream left 3.2 GB", "AnyAPI", "error: HTTPError 500",
+                  "balance USD 12.40, today USD 0.31", "yycstream left 3.2 GB", "AnyAPI", "can't read: HTTPError 500",
                   "nodes: 5 of 5 ready", "short: wisers 0/1", "last run failed: forums",
                   "YYC AI pods: pigeon 2/2", "gateway", "AWS host", "1 of 12 sandboxes",
                   # Postgres, WiseSearch, object storage (Deyao, 2026-11-05)
@@ -451,10 +474,15 @@ class LivePage(unittest.TestCase):
                   "Object storage: 266.2 GiB in 15,453 objects, 12 buckets", "Hetzner's bucket stats", "yyc-pg-pitr 148.5 GiB, 8,194 objects",
                   "yyc-extra-8"):
             self.assertIn(x, sys_)
-        # under the free-space floor: the space line in red; the load and WiseSearch lines not
-        self.assertEqual(page.locator(".lp[data-panel=sys] .row.why", has_text="Postgres space").count(), 1)
-        self.assertEqual(page.locator(".lp[data-panel=sys] .row.why", has_text="Postgres load").count(), 0)
-        self.assertEqual(page.locator(".lp[data-panel=sys] .row.why", has_text="WiseSearch").count(), 0)
+        # under the free-space floor: the space line in amber (near a limit; nobody is stopped), never red; the load and
+        # WiseSearch lines quiet
+        self.assertEqual(page.locator(".lp[data-panel=sys] .row.warnc", has_text="Postgres space").count(), 1)
+        for x in ("Postgres space", "Postgres load", "WiseSearch"):
+            self.assertEqual(page.locator(".lp[data-panel=sys] .row.why", has_text=x).count(), 0, x)
+        self.assertEqual(page.locator(".lp[data-panel=sys]").locator(".row.warnc, .row.blindc", has_text="Postgres load").count(), 0)
+        self.assertEqual(page.locator(".lp[data-panel=sys] .row.blindc", has_text="AnyAPI").count(), 1)
+        self.assertEqual(page.locator(".lp[data-panel=sys] .row.why", has_text="wisers 0/1").count(), 1)
+        self.assertEqual(page.locator(".lp[data-panel=sys] .row.warnc", has_text="last run failed: forums").count(), 1)
         # a booting sandbox host is starting, not wrong: blue, never red, and no "not answering" (Deyao, 2026-11-12)
         self.assertEqual(page.locator(".lp[data-panel=sys] .row.infoc", has_text="aws-1b2c3d").count(), 1)
         self.assertEqual(page.locator(".lp[data-panel=sys] .row.why", has_text="aws-1b2c3d").count(), 0)
@@ -497,6 +525,71 @@ class LivePage(unittest.TestCase):
         cut = page.evaluate("[...document.querySelectorAll('.lp[data-panel=jarvis] .jn')].filter(e => e.scrollWidth > e.clientWidth).map(e => e.textContent)")
         self.assertEqual(cut, [])
         self.assertEqual(page.locator(".lp[data-panel=jarvis] .jn", has_text="Qwen Code PDF output differs; fix deliver file display").count(), 1)
+        ctx.close()
+
+    def test_3b_state_colours(self):
+        """Deyao, 2026-11-17: red = a service lost right now; a replica down with others serving, something near a
+        limit, a failing backup and an error that is over are amber; a read that failed and old figures are blind
+        (magenta); one person stopped is red"""
+        ctx, page = open_page(self.br, "/app/live?half=right", 1920, 1080)
+        page.wait_for_selector("[data-ai-state]", timeout=20000)
+        sp, ap = page.locator(".lp[data-panel=sys]"), page.locator("[data-ai-state]")
+
+        def amber(snap, h):
+            d = snap["service"]["deployments"]
+            d[0].update(ready=1, state="problem")  # a hermit from before "watch": short, the other pod serves
+            d[1].update(ready=1, state="watch")
+            snap["health"] = {"state": "blind", "findings": [{"level": "blind", "text": "Could not read budget: timeout"},
+                                                             {"level": "watch", "text": "pigeon: 1 of 2 pods ready"}]}
+            snap["hosts"]["list"][3].update(reachable=False, sandboxes=0)  # aws-a00000: nobody on it
+            h["deployments"] = {"n": 12, "ok": 11, "short": ["mcp 1/2"]}
+            h["nodes"][0]["ready"] = False
+            h["nodes"][1]["pressure"] = ["DiskPressure"]
+            h["postgres"]["connections"]["total"] = 290
+            h["postgres"]["archive"]["problems"] = ["the base backup failed at 03:57"]
+            h["wisers"].update(problems=["3 call(s) failed in the last 15 min (3 timeout)"], down=False)
+            h["storage"]["refresh_error"] = "HTTP 503"
+            h["storage"]["buckets"][0] = {"name": "yyc-pg-pitr", "error": "AccessDenied"}
+        sys_fixture(amber)
+        page.wait_for_selector(".lp[data-panel=sys] .row.warnc:has-text('mcp 1/2')", timeout=20000)
+        for x in ("YYC AI pods: pigeon 1/2, magpie 1/2", "aws-a00000", "mcp 1/2", "last run failed: forums", "nodes: 3 of 5 ready",
+                  "Postgres load: 290 of 300", "the base backup failed", "Postgres space", "WiseSearch: logged in"):
+            self.assertEqual(sp.locator(".row.warnc", has_text=x).count(), 1, x)
+        for x in ("AnyAPI", "Object storage:"):
+            self.assertEqual(sp.locator(".row.blindc", has_text=x).count(), 1, x)
+        self.assertEqual(sp.locator(".bk.blindc", has_text="yyc-pg-pitr can't read").count(), 1)
+        self.assertEqual(sp.locator(".why").count(), 0, sp.locator(".why").all_inner_texts())
+        self.assertEqual(ap.locator(".tag.blindt", has_text="can't see").count(), 1)
+        self.assertEqual(ap.locator(".row.blindc", has_text="Could not read budget").count(), 1)
+        self.assertEqual(ap.locator(".row.warnc", has_text="pigeon: 1 of 2 pods ready").count(), 1)
+        self.assertEqual(ap.locator(".why, .badt").count(), 0)
+        page.screenshot(path=os.path.join(SHOTS, "right-states-amber-blind.png"))
+
+        def red(snap, h):
+            snap["service"]["deployments"][0].update(ready=0, state="problem")
+            snap["health"] = {"state": "problem", "findings": [{"level": "problem", "text": "pigeon: 0 of 2 pods ready"}]}
+            snap["hosts"]["list"][0]["reachable"] = False  # the gateway
+            snap["hosts"]["list"][1]["reachable"] = False  # aws-922e69, with one sandbox on it
+            h["deployments"] = {"n": 12, "ok": 10, "short": ["wisers 0/1", "mcp 1/2"]}
+            h["cronjobs"].update(late=["forums"], failed=["forums"])
+            for n in h["nodes"]:
+                n["ready"] = False
+            h["wisers"].update(problems=["its health check failed 2 times in a row (timeout: )"], down=True)
+            h["postgres"] = {"error": "timeout"}
+        sys_fixture(red, age=180)
+        page.wait_for_selector(".lp[data-panel=sys] .row.why:has-text('pigeon 0/2')", timeout=20000)
+        for x in ("YYC AI pods: pigeon 0/2", "hermit-gw", "aws-922e69", "wisers 0/1", "late: forums", "nodes: 0 of 5 ready", "WiseSearch: logged in"):
+            self.assertEqual(sp.locator(".row.why", has_text=x).count(), 1, x)
+        self.assertEqual(sp.locator(".row.blindc", has_text="Postgres: can't read: timeout").count(), 1)
+        # the figures are three minutes old: blind, in the header of both panels
+        self.assertEqual(page.locator(".lp[data-panel=sys] > h2 .blind", has_text="no update since").count(), 1)
+        self.assertEqual(ap.locator(".tag.badt", has_text="problem").count(), 1)
+        self.assertEqual(ap.locator(".row.why", has_text="pigeon: 0 of 2 pods ready").count(), 1)
+        colour = lambda sel: page.locator(sel).first.evaluate("e => getComputedStyle(e).color")  # noqa: E731
+        self.assertEqual(colour(".lp[data-panel=sys] .row.blindc"), "rgb(244, 114, 208)")  # magenta, its own colour
+        self.assertEqual(colour(".lp[data-panel=sys] .row.why"), "rgb(255, 77, 90)")
+        page.screenshot(path=os.path.join(SHOTS, "right-states-red.png"))
+        sys_fixture()
         ctx.close()
 
     def test_4_one_at_a_time(self):

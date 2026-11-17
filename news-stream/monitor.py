@@ -392,6 +392,18 @@ def wisers_problems(d):
     """what is wrong with the relay from its stats (wisers/relay.py health()): its health check (one free WisersOne
     call every probe_secs) failed twice in a row or stopped, staff calls were refused as logged out, or several failed, in the last
     15 minutes. Logged out itself is the "wisers:session" alert, not repeated here."""
+    return [text for _, text in wisers_findings(d)]
+
+
+def wisers_down(d):
+    """staff cannot search right now (red on the pages; Deyao, 2026-11-17: red = a service lost now): the health check
+    failed twice in a row, or staff calls were refused as logged out. The relay's other problems (a few failed calls,
+    a health check that stopped) are cautions, amber"""
+    return any(down for down, _ in wisers_findings(d))
+
+
+def wisers_findings(d):
+    """[(down, text), …]: each problem of wisers_problems, down = staff cannot search because of it"""
     h, ss = d.get("health"), d.get("session") or {}
     if not h or ss.get("state") == "logged_out":
         return []
@@ -401,25 +413,25 @@ def wisers_problems(d):
     if not pr:
         started = _age_secs(h.get("started"))
         if every > 0 and started is not None and started > 2 * every + 120:
-            out.append(f"no health check since the relay started {round(started / 60)} min ago")
+            out.append((False, f"no health check since the relay started {round(started / 60)} min ago"))
     elif age is not None and age > 3 * every + 120:
-        out.append(f"no health check for {round(age / 60)} min (the last at {pr.get('at')})")
+        out.append((False, f"no health check for {round(age / 60)} min (the last at {pr.get('at')})"))
     elif not pr.get("ok") and int(pr.get("fails") or 2) >= 2:
         # one failed check alone is not a problem (2026-11-11: one in 10-25 timed out at 60 s, the next answered); the
         # relay checks again LOGIN_GAP (60 s) after a failure, so two in a row = about 2 min without an answer. A relay
         # that predates "fails" counts as two.
         n = int(pr.get("fails") or 2)
-        out.append(f"its health check failed{f' {n} times in a row' if pr.get('fails') else ''} "
-                   f"({pr.get('outcome')}: {str(pr.get('error') or '')[:160]})")
+        out.append((True, f"its health check failed{f' {n} times in a row' if pr.get('fails') else ''} "
+                          f"({pr.get('outcome')}: {str(pr.get('error') or '')[:160]})"))
         quiet = _age_secs(ss.get("last_ok"))
         if quiet is not None and quiet > 2 * every + 120:  # "held" alone hid nine hours of HTTP 401s (2026-11-06)
-            out.append(f"Wisers has answered no call for {round(quiet / 60)} min (the last at {ss.get('last_ok')})")
+            out.append((True, f"Wisers has answered no call for {round(quiet / 60)} min (the last at {ss.get('last_ok')})"))
     f = h.get("failures") or {}
     if f.get("logged_out"):
-        out.append(f"{f['logged_out']} staff call(s) refused as logged out in the last 15 min")
+        out.append((True, f"{f['logged_out']} staff call(s) refused as logged out in the last 15 min"))
     other = sum(v for k, v in f.items() if k != "logged_out")
     if other >= WISERS_ERRORS:
-        out.append(f"{other} call(s) failed in the last 15 min ({', '.join(f'{v} {k}' for k, v in f.items() if k != 'logged_out')})")
+        out.append((False, f"{other} call(s) failed in the last 15 min ({', '.join(f'{v} {k}' for k, v in f.items() if k != 'logged_out')})"))
     return out
 
 
@@ -452,7 +464,7 @@ def wisers():
                "-- tail /var/lib/wisers/events.jsonl. Monitor: https://newswatch.yyc-internal.com/app/monitor#wisers",
                f"YYC WiseSearch relay: healthy again ({_hm(now())}): its health check answers and no call failed in the "
                "last 15 min.")
-        d["health"] = dict(d["health"], problems=problems)
+        d["health"] = dict(d["health"], problems=problems, down=wisers_down(d))
     return dict(d, log="/app/wisers/log",
                 note="the relay's own count (searches.jsonl); WisersOne shows no search quota or remaining count")
 
@@ -2557,7 +2569,7 @@ def wisers_slim():
     return dict(s, state=ss.get("state"), since=ss.get("since"), last_ok=ss.get("last_ok"),
                 probe={k: pr.get(k) for k in ("at", "ok", "secs", "outcome")} if pr else None,
                 failures=h.get("failures") or {}, logins_1h=h.get("logins_1h"), failed_logins_1h=h.get("failed_logins_1h"),
-                problems=h.get("problems") or [])
+                problems=h.get("problems") or [], down=bool(h.get("down")))
 
 
 def _usd(v, d=2):

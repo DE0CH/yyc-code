@@ -235,7 +235,7 @@ export function LivePage() {
         <b>YYC live{half ? `, ${half}` : ""}</b>
         <span className="num">{now ? `${hhmmss(now)} HKT` : ""}</span>
         <span className="num">{s.lastPoll ? `last poll ${hhmm(s.lastPoll - s.skew)}` : ""}</span>
-        {s.failed && <span className="bad">read failed: {s.failed}</span>}
+        {s.failed && <span className="blind">read failed: {s.failed}</span>}
         <span className="dim">F full screen</span>
       </header>
       {layout.panels.map(b => b.id === "sys" ? <SysPanel key={b.id} box={b} sys={sys} now={now} />
@@ -269,12 +269,14 @@ function Panel({ box, st, streams, models, rate, sys, now }: { box: Box; st: Pan
 const s_ = (v: unknown) => (typeof v === "string" && v ? v : null);
 const n_ = (v: unknown) => (typeof v === "number" ? v : null);
 
-/** a row lit red: only failures that need someone; dark cockpit, so normal, recovered and the problem tile (mostly
- *  expected network failures that fix themselves) and Stage 2's one-off "no answer" (scored again next round) stay ink
- *  (Deyao, 2026-11-02) */
+/** a row's left line. Red only for a service lost now (Deyao, 2026-11-17: red = "immediate loss of service"): an alert
+ *  refused for good, YYC AI's status turning to problem. Amber for an error of ours that is over (a failed sandbox
+ *  start, a refused call, a host error). Quiet (ink): a news source's failure, such as one article's full text not
+ *  fetched: most likely their end, outside our control (Deyao, 2026-11-17); and, dark cockpit, normal, recovered, the
+ *  problem tile and Stage 2's one-off "no answer" (Deyao, 2026-11-02) */
 function cls(id: PanelId, c: Card) {
-  if ((id === "fulltext" || id === "alert") && c.ok === false) return "bad";
-  if (id === "ai") return aiBad(c) ? "bad" : undefined;  // dark cockpit: back to normal stays quiet
+  if (id === "alert" && c.ok === false) return "bad";
+  if (id === "ai") return aiBad(c) ? "bad" : aiPast(c) ? "cau" : undefined;  // dark cockpit: back to normal stays quiet
   return undefined;
 }
 
@@ -302,10 +304,10 @@ function CardBody({ id, c, streams, models }: { id: PanelId; c: Card; streams: S
         <Title v={c.title} ai={c.ait} />{s_(c.snippet) && s_(c.snippet) !== s_(c.title) ? <X k="dim">{s_(c.snippet)}</X> : null}</>;
     case "fulltext": {
       const ok = c.ok !== false;
-      return <><Meta c={c} extra={<><span className="tag">{s_(c.route)}</span>{ok && <span className="num">{n_(c.chars)?.toLocaleString("en")} characters</span>}{s_(c.via) && s_(c.via) !== "page" && <span className="dim">via {s_(c.via)}</span>}</>} />
+      return <><Meta c={c} extra={<><span className="tag">{s_(c.route)}</span>{!ok && <span className="tag">not fetched</span>}{ok && <span className="num">{n_(c.chars)?.toLocaleString("en")} characters</span>}{s_(c.via) && s_(c.via) !== "page" && <span className="dim">via {s_(c.via)}</span>}</>} />
         <Title v={c.title} ai={c.ait} lines={1} />
         {ok ? s_(c.head) && <X lines={5}>{s_(c.head)}</X>
-          : <X lines={2} k="why">{s_(c.reason)}{c.kept ? ", the text it had is kept" : ""}</X>}</>;
+          : <X lines={2}>{s_(c.reason)}{c.kept ? ", the text it had is kept" : ""}</X>}</>;
     }
     case "comments": {
       const top: Comment[] = Array.isArray(c.top) ? (c.top as Comment[]) : s_(c.top) ? [{ text: s_(c.top)!, author: s_(c.top_author), likes: n_(c.top_likes) }] : [];
@@ -379,14 +381,21 @@ const dur = (s: unknown) => {
 /** an e-mail address without a common mail domain, for the narrow lines */
 const who = (v: unknown) => (s_(v) ?? "?").replace(/@(gmail\.com|yyc\.hk)$/, m => (m === "@yyc.hk" ? "@yyc" : ""));
 const STATUS: Record<string, [string, string]> = {
-  ok: ["all fine", ""], warming: ["warming up", "info"], watch: ["needs a look", "warn"], problem: ["problem", "badt"] };
+  ok: ["all fine", ""], warming: ["warming up", "info"], watch: ["needs a look", "warn"], blind: ["can't see", "blindt"], problem: ["problem", "badt"] };
+/** a finding's row by its level (hermit health_verdict Level) */
+const FINDING: Record<string, string> = { problem: "why", blind: "blindc", warming: "infoc" };
 /** an ISO time → HH:MM:SS HKT */
 const clock = (v: unknown) => (s_(v) ? hhmmss(Date.parse(s_(v)!)) : "–");
 /** live:sys older than this: its areas say since when */
 const SYS_STALE_MS = 60_000;
 
+/** YYC AI's status turned to problem: the one activity card that says a service is lost now */
 function aiBad(c: Card) {
-  return (c.what === "start" && c.ok === false) || c.what === "egress" || (c.what === "host" && !!c.error) || (c.what === "status" && c.state === "problem");
+  return c.what === "status" && c.state === "problem";
+}
+/** an error that is over: a failed sandbox start, a refused or failed call, a host error (amber) */
+function aiPast(c: Card) {
+  return (c.what === "start" && c.ok === false) || c.what === "egress" || (c.what === "host" && !!c.error);
 }
 
 function AiCard({ c }: { c: Card }) {
@@ -400,34 +409,35 @@ function AiCard({ c }: { c: Card }) {
         {m.length ? <X k="dim">{m.map(([k, v]) => `${k} +${v}`).join(", ")}</X> : null}</>;
     }
     case "start":
-      return <><div className="m"><span className="num">{hhmmss(c.t)}</span>{c.ok === false ? tag("sandbox start failed", "badt") : tag("sandbox started")}<span>{who(c.owner)}</span></div>
+      return <><div className="m"><span className="num">{hhmmss(c.t)}</span>{c.ok === false ? tag("sandbox start failed", "warn") : tag("sandbox started")}<span>{who(c.owner)}</span></div>
         <X>{[s_(c.host) ? `host ${s_(c.host)}` : "no host", n_(c.ms) != null ? `${(n_(c.ms)! / 1000).toFixed(1)} s` : null].filter(Boolean).join(", ")}</X>
-        {s_(c.reason) && <X k="why">{s_(c.reason)}</X>}</>;
+        {s_(c.reason) && <X k={c.ok === false ? "warn" : "dim"}>{s_(c.reason)}</X>}</>;
     case "release":
       return <><div className="m"><span className="num">{hhmmss(c.t)}</span>{tag("sandbox released")}<span>{who(c.owner)}</span></div>
         <X>{s_(c.host) ? `host ${s_(c.host)}, ` : ""}lived {dur((n_(c.ms) ?? 0) / 1000)}</X>
         {s_(c.reason) && <X k="dim">{s_(c.reason)}</X>}</>;
     case "host":
-      return <><div className="m"><span className="num">{hhmmss(c.t)}</span>{tag(s_(c.kind) || "host", c.error ? "badt" : "")}<span>{s_(c.host)}</span>{s_(c.owner) && <span className="dim">{who(c.owner)}</span>}</div>
-        <X lines={2} k={c.error ? "why" : "dim"}>{s_(c.error) || s_(c.detail) || ""}</X></>;
+      return <><div className="m"><span className="num">{hhmmss(c.t)}</span>{tag(s_(c.kind) || "host", c.error ? "warn" : "")}<span>{s_(c.host)}</span>{s_(c.owner) && <span className="dim">{who(c.owner)}</span>}</div>
+        <X lines={2} k={c.error ? "warn" : "dim"}>{s_(c.error) || s_(c.detail) || ""}</X></>;
     case "egress":
-      return <><div className="m"><span className="num">{hhmmss(c.t)}</span>{tag(`${s_(c.kind) || "egress"} ${n_(c.status) ?? s_(c.decision) ?? ""}`, "badt")}<span>{who(c.owner)}</span></div>
-        <X lines={2} k="why">{s_(c.host)}{s_(c.path) ? s_(c.path) : ""}: {s_(c.decision)}</X></>;
+      return <><div className="m"><span className="num">{hhmmss(c.t)}</span>{tag(`${s_(c.kind) || "egress"} ${n_(c.status) ?? s_(c.decision) ?? ""}`, "warn")}<span>{who(c.owner)}</span></div>
+        <X lines={2} k="warn">{s_(c.host)}{s_(c.path) ? s_(c.path) : ""}: {s_(c.decision)}</X></>;
     case "status": {
       const [label, k] = STATUS[s_(c.state) || ""] || [s_(c.state) || "?", ""];
       const f = Array.isArray(c.findings) ? (c.findings as string[]) : [];
       return <><div className="m"><span className="num">{hhmmss(c.t)}</span>{tag(label, k)}<span className="dim">was {STATUS[s_(c.was) || ""]?.[0] ?? s_(c.was)}</span></div>
-        <X lines={2} k={k === "badt" ? "why" : undefined}>{f.join(", ") || "no findings"}</X></>;
+        <X lines={2} k={k === "badt" ? "why" : k === "blindt" ? "blind" : undefined}>{f.join(", ") || "no findings"}</X></>;
     }
   }
   return <><div className="m"><span className="num">{hhmmss(c.t)}</span>{tag(w || "?")}</div></>;
 }
 
-/** live:sys's age note: "as of HH:MM:SS" (red past SYS_STALE_MS) */
+/** live:sys's age note: "as of HH:MM:SS"; past SYS_STALE_MS "no update since" in the blind colour (Deyao, 2026-11-17:
+ * old figures mean the board no longer sees the present) */
 function Age({ at, now }: { at?: string; now: number }) {
   if (!at) return null;
   const t = Date.parse(at), old = now && now - t > SYS_STALE_MS;
-  return <span className={"num " + (old ? "warn" : "dim")}>{old ? "no update since " : "as of "}{hhmmss(t)}</span>;
+  return <span className={"num " + (old ? "blind" : "dim")}>{old ? "no update since " : "as of "}{hhmmss(t)}</span>;
 }
 
 const R = ({ k, children, title }: { k?: string; children: ReactNode; title?: string }) => <div className={"row" + (k ? " " + k : "")} title={title}>{children}</div>;
@@ -438,7 +448,7 @@ function AiState({ sys, now, w, h, side }: { sys: LiveSys | null; now: number; w
   const a = (sys?.ai || null) as J | null;
   const style = side ? { position: "absolute" as const, left: 0, top: HEADER + 1, width: w, height: h } : { height: h, flex: "none" as const };
   if (!a) return <div className="st" style={style}><R k="dim">{sys ? "no YYC AI data yet" : "Loading…"}</R></div>;
-  if (a.error) return <div className="st" style={style}><R k="why">YYC AI snapshot: {a.error}</R><Age at={sys?.at} now={now} /></div>;
+  if (a.error) return <div className="st" style={style}><R k="blindc">YYC AI snapshot: can't read: {a.error}</R><Age at={sys?.at} now={now} /></div>;
   const hl = (a.health || {}) as J, [label, k] = STATUS[hl.state] || [hl.state || "?", ""];
   const b = (a.budget || {}) as J, rec = (a.recent || {}) as J, st24 = (a.starts_24h || {}) as J;
   const sbx = (a.sandboxes || []) as J[];
@@ -446,8 +456,8 @@ function AiState({ sys, now, w, h, side }: { sys: LiveSys | null; now: number; w
   return (
     <div className="st" style={style} data-ai-state="">
       <R><span className={"tag " + k}>{label}</span><span className="dim">ai.yyc-internal.com</span><Age at={a.at} now={now} /></R>
-      {((hl.findings || []) as J[]).slice(0, 3).map((f, i) => <R key={i} k={f.level === "problem" ? "why" : f.level === "warming" ? "infoc" : "warnc"}>{f.text}</R>)}
-      {errs.map(([n, m]) => <R key={n} k="why">could not read {n}: {m}</R>)}
+      {((hl.findings || []) as J[]).slice(0, 3).map((f, i) => <R key={i} k={FINDING[f.level] || "warnc"}>{f.text}</R>)}
+      {errs.map(([n, m]) => <R key={n} k="blindc">could not read {n}: {m}</R>)}
       <Sec>Sandboxes now: {sbx.length}{a.max_active ? ` of ${a.max_active} max` : ""}, scaler {a.scaler?.available ?? "–"} free slots{a.scaler?.waiting ? `, ${a.scaler.waiting} waiting` : ""}</Sec>
       {sbx.length ? sbx.slice(0, 6).map((x, i) => (
         <R key={i} k={x.status === "starting" ? "infoc" : undefined}>
@@ -465,7 +475,7 @@ function AiState({ sys, now, w, h, side }: { sys: LiveSys | null; now: number; w
       })}
       {((a.by_model || []) as J[]).length ? <R k="dim">{((a.by_model || []) as J[]).slice(0, 3).map(m => `${m.model} ${m.calls} (${usd(m.today_usd)})`).join(", ")}</R> : null}
       <Sec>Errors in the last {a.recent_minutes ?? 15} min; sandbox starts in 24 h</Sec>
-      <R k={rec.failedStarts || rec.modelErrors || rec.hostErrors ? "why" : undefined}>
+      <R k={rec.failedStarts || rec.modelErrors || rec.hostErrors ? "warnc" : undefined}>
         {rec.failedStarts ?? "–"} failed starts, {rec.modelErrors ?? "–"} model/tool call errors, {rec.hostErrors ?? "–"} host errors, {rec.blocked ?? "–"} blocked hosts</R>
       <R>{st24.n ?? "–"} starts, {st24.failed ?? 0} failed, median {n_(st24.p50Ms) != null ? (st24.p50Ms / 1000).toFixed(1) + " s" : "–"}, p95 {n_(st24.p95Ms) != null ? (st24.p95Ms / 1000).toFixed(1) + " s" : "–"}</R>
       <R k="dim" title={s_(a.source) || undefined}>source: YYC AI operator snapshot (its Postgres, Kubernetes, the scaler)</R>
@@ -523,19 +533,20 @@ export function flow(items: Item[], n: number, px: number): Item[][] | null {
   return cols;
 }
 
-/** parts → lines: wide, each group's parts on one line (joined by "; "), the line red/amber when any part is; narrow,
+/** parts → lines: wide, each group's parts on one line (joined by "; "), the line in its worst part's colour; narrow,
  * one line per part */
 function lines(key: string, groups: Part[][], narrow: boolean): Item[] {
   const rows = narrow ? groups.flat().map(p => [p]) : groups;
   return rows.map((g, i) => {
-    const k = g.find(p => p.k === "why")?.k || g.find(p => p.k)?.k;
+    const k = g.find(p => p.k === "why")?.k || g.find(p => p.k === "blindc")?.k || g.find(p => p.k)?.k;
     return row(`${key}${i}`, k, <span>{g.map((p, j) => <span key={j}>{j ? "; " : ""}{p.n}</span>)}</span>);
   });
 }
 
-/** Postgres (monitor.py database panel): load, the longest transaction, WAL archiving and backups, space */
+/** Postgres (monitor.py database panel): load, the longest transaction, WAL archiving and backups, space. Near a limit
+ * (connections, space) and a failing backup are amber: nobody is stopped (Deyao, 2026-11-17) */
 function pgItems(pg: J, now: number, narrow: boolean): Item[] {
-  if (pg.error) return [row("pg", "why", <>Postgres: can't read: {pg.error}</>)];
+  if (pg.error) return [row("pg", "blindc", <>Postgres: can't read: {pg.error}</>)];
   const c = (pg.connections || {}) as J, by = (c.by_state || {}) as Record<string, number>;
   const busy = Object.entries(by).filter(([k]) => k !== "idle").sort((a, b) => b[1] - a[1]);
   const lt = pg.longest_transaction as J | null, a = (pg.archive || {}) as J, sp = (pg.space || {}) as J;
@@ -545,22 +556,24 @@ function pgItems(pg: J, now: number, narrow: boolean): Item[] {
   const probs = (a.problems || []) as string[];
   const mib = (v: unknown) => gib(n_(v) != null ? (v as number) * 2 ** 20 : null);
   return lines("pg", [
-    [{ k: full ? "why" : undefined, n: <>Postgres load: <b>{c.total ?? "–"}</b> of {c.max ?? "–"} connections{busy.length ? ` (${busy.map(([k, v]) => `${v} ${k}`).join(", ")})` : ""}, <b>{pg.tps ?? "–"}</b> transactions/s</> },
+    [{ k: full ? "warnc" : undefined, n: <>Postgres load: <b>{c.total ?? "–"}</b> of {c.max ?? "–"} connections{busy.length ? ` (${busy.map(([k, v]) => `${v} ${k}`).join(", ")})` : ""}, <b>{pg.tps ?? "–"}</b> transactions/s</> },
      { n: <>CPU <b>{pg.cpu_cores ?? "–"}</b> of {pg.node_cores ?? "–"} cores, memory <b>{mib(pg.memory_mib)}</b> of {mib(pg.memory_limit_mib)}</> }],
     [{ n: <>longest open transaction {lt ? <><b>{dur(lt.seconds)}</b> ({[lt.database, lt.application || lt.user, lt.state].filter(Boolean).join(", ")})</> : "none"}</> },
      { n: <>{c.waiting_on_locks ?? 0} waiting on locks</> }],
-    [{ k: probs.length ? "why" : undefined, n: <>WAL archive: last {n_(a.seconds_since_archived) != null ? `${dur(a.seconds_since_archived)} ago` : "–"}, {a.waiting ?? "–"} waiting{probs.length ? ": " + probs.join("; ") : a.last_failed ? `, last failure ${when(a.last_failed, now)}` : ""}</> },
+    [{ k: probs.length ? "warnc" : undefined, n: <>WAL archive: last {n_(a.seconds_since_archived) != null ? `${dur(a.seconds_since_archived)} ago` : "–"}, {a.waiting ?? "–"} waiting{probs.length ? ": " + probs.join("; ") : a.last_failed ? `, last failure ${when(a.last_failed, now)}` : ""}</> },
      { n: <>base backup {when(a.last_backup, now)}</> }],
-    [{ k: low ? "why" : undefined, n: <>Postgres space: <b>{gib(sp.free_bytes)}</b> free of {gib(sp.capacity_bytes)} (alert under {gib(sp.floor_bytes)})</> },
+    [{ k: low ? "warnc" : undefined, n: <>Postgres space: <b>{gib(sp.free_bytes)}</b> free of {gib(sp.capacity_bytes)} (alert under {gib(sp.floor_bytes)})</> },
      { n: <>databases {gib(dbTotal)}{dbs[0] ? ` (${dbs[0].name} ${gib(dbs[0].bytes)})` : ""}, WAL {gib(pg.wal_bytes)}, volume {sp.pvc ?? "–"}</> }],
   ], narrow);
 }
 
 /** the WiseSearch relay (monitor.py wisers panel; its detail on /app/monitor#wisers) */
 function wisersItems(w: J, now: number, narrow: boolean): Item[] {
-  if (w.error) return [row("ws", "why", <>WiseSearch: can't read: {w.error}</>)];
+  if (w.error) return [row("ws", "blindc", <>WiseSearch: can't read: {w.error}</>)];
   const pr = w.probe as J | null, f = Object.entries((w.failures || {}) as Record<string, number>);
-  const probs = (w.problems || []) as string[], bad = w.state === "logged_out" || probs.length ? "why" : undefined;
+  // red: staff cannot search (logged out, or the relay's health check failed twice in a row: monitor.py wisers_down);
+  // amber: a few failed calls, a health check that stopped
+  const probs = (w.problems || []) as string[], bad = w.state === "logged_out" || w.down ? "why" : probs.length ? "warnc" : undefined;
   return lines("ws", [[
     { k: bad, n: <>WiseSearch: <b>{WISERS_STATE[w.state] || w.state || "–"}</b>{w.since ? ` since ${when(w.since, now)}` : ""}, health check {!pr ? "none yet" : pr.ok ? <>ok ({pr.secs} s, {when(pr.at, now)})</> : <>failing ({pr.outcome})</>}{probs.length ? ": " + probs.join("; ") : ""}</> },
     { n: <>{f.length ? f.map(([k, v]) => `${v} ${k}`).join(", ") : "no"} failed calls in 15 min, {w.logins_1h ?? 0} logins in 1 h{w.failed_logins_1h ? ` (${w.failed_logins_1h} failed)` : ""}, {w.today ?? "–"} searches today</> },
@@ -570,13 +583,13 @@ function wisersItems(w: J, now: number, narrow: boolean): Item[] {
 /** YYC's Hetzner Object Storage buckets (monitor.py storage panel): Hetzner's own figures, as many buckets a line as
  * fit (one on a phone); a bucket that can't be read first, then the biggest */
 function storageItems(st: J, now: number, w: number): Item[] {
-  if (st.error) return [row("os", "why", <>Object storage: can't read: {st.error}</>)];
+  if (st.error) return [row("os", "blindc", <>Object storage: can't read: {st.error}</>)];
   const bs = [...((st.buckets || []) as J[])].sort((a, b) => (b.error ? 1 : 0) - (a.error ? 1 : 0) || (b.bytes || 0) - (a.bytes || 0));
   const per = Math.max(1, Math.floor((w - 8) / 306)), out: Item[] = [
-    row("os", st.refresh_error ? "warnc" : undefined, <><span>Object storage: <b>{gib(st.bytes)}</b> in {count(st.objects)} objects, {bs.length} buckets</span><span className="src dim">Hetzner's bucket stats, {when(st.computed_at, now)}</span></>, st.refresh_error || undefined)];
+    row("os", st.refresh_error ? "blindc" : undefined, <><span>Object storage: <b>{gib(st.bytes)}</b> in {count(st.objects)} objects, {bs.length} buckets</span><span className="src dim">Hetzner's bucket stats, {when(st.computed_at, now)}</span></>, st.refresh_error || undefined)];
   for (let i = 0; i < bs.length; i += per) {
     const p = bs.slice(i, i + per);
-    out.push(row(`bk${i}`, undefined, p.map(b => <span key={b.name} className={"bk" + (b.error ? " why" : "")}>{b.name} {b.error ? "can't read" : <><b>{gib(b.bytes)}</b>, {count(b.objects)} objects</>}</span>)));
+    out.push(row(`bk${i}`, undefined, p.map(b => <span key={b.name} className={"bk" + (b.error ? " blindc" : "")}>{b.name} {b.error ? "can't read" : <><b>{gib(b.bytes)}</b>, {count(b.objects)} objects</>}</span>)));
   }
   return out;
 }
@@ -586,7 +599,8 @@ function storageItems(st: J, now: number, w: number): Item[] {
 function hostItems(hosts: J[], fold: boolean, narrow = false): Item[] {
   // narrow (a phone, a column): the load and memory on a line of their own under the host
   const one = (x: J, i: number) => {
-    const k = x.status === "booting" ? "infoc" : !x.reachable ? "why" : undefined;
+    // not answering: red when someone's sandbox is on it (or it is the gateway: every sandbox's network), else amber
+    const k = x.status === "booting" ? "infoc" : !x.reachable ? (x.gateway || x.sandboxes ? "why" : "warnc") : undefined;
     const load = <span className="num dim">load {x.load1 ?? "–"} / {x.cpus} CPU, {x.mem_free_gib ?? "–"} of {x.mem_total_gib ?? "–"} GiB free</span>;
     const head = <>
       <span className="pn">{x.gateway ? "gateway" : x.kind === "aws" ? "AWS host" : x.kind}</span><span className="c2">{x.name}</span>
@@ -623,12 +637,22 @@ function SysPanel({ box, sys, now }: { box: Box; sys: LiveSys | null; now: numbe
   const ncol = Math.max(1, Math.floor((inner + COL_GAP) / (COL_MIN + COL_GAP)));
   const colW = Math.floor((inner - (ncol - 1) * COL_GAP) / ncol);
   const stopRows = () => stops.map((x, i) => row(`stop${i}`, "why", <>{x.name}: {x.tag || "requests failing"}{x.error ? `, ${x.error}` : ""}{x.since ? `, since ${clock(x.since)}` : ""}</>));
-  const nodesRow = () => row("nodes", nodeErr || notReady.length ? "why" : undefined, <>nodes: {nodeErr ? `can't read: ${nodeErr}` : `${nodes.length - notReady.length} of ${nodes.length} ready`}
+  // a node down or under pressure is amber (its pods move; what is really down shows on its own line); red when none is ready
+  const nodesK = nodeErr ? "blindc" : nodes.length && nodes.every(n => !n.ready) ? "why" : notReady.length ? "warnc" : undefined;
+  const nodesRow = () => row("nodes", nodesK, <>nodes: {nodeErr ? `can't read: ${nodeErr}` : `${nodes.length - notReady.length} of ${nodes.length} ready`}
     {notReady.map(n => `; ${n.name}${n.ready ? "" : " not ready"}${n.pressure?.length ? " " + n.pressure.join(", ") : ""}${n.unschedulable ? " cordoned" : ""}`).join("")}</>);
-  const depsRow = () => row("deps", (deps.short || []).length ? "why" : undefined, <>news stream Deployments: {deps.ok ?? "–"} of {deps.n ?? "–"} with every pod ready{(deps.short || []).length ? "; short: " + deps.short.join(", ") : ""}</>);
-  const cjK = (cj.failed || []).length ? "why" : (cj.late || []).length ? "warnc" : undefined;
+  // a Deployment with some pods ready still serves: amber; red when one has none ("name 0/2")
+  const depsK = (deps.short || []).some((x: string) => / 0\/\d+$/.test(x)) ? "why" : (deps.short || []).length ? "warnc" : undefined;
+  const depsRow = () => row("deps", depsK, <>news stream Deployments: {deps.ok ?? "–"} of {deps.n ?? "–"} with every pod ready{(deps.short || []).length ? "; short: " + deps.short.join(", ") : ""}</>);
+  // late (no success for three of its intervals) is red: the job's work is not being done; one failed run is amber, it
+  // runs again (Deyao, 2026-11-17)
+  const cjK = (cj.late || []).length ? "why" : (cj.failed || []).length ? "warnc" : undefined;
   const cjRow = () => row("cj", cjK, <>CronJobs: {cj.n ?? "–"} on, {cj.running ?? 0} running{(cj.late || []).length ? "; late: " + cj.late.join(", ") : ""}{(cj.failed || []).length ? "; last run failed: " + cj.failed.join(", ") : ""}{cj.off ? `, ${cj.off} off` : ""}</>);
-  const podsK = svc.some(x => x.state === "problem") ? "why" : svc.some(x => x.state === "warming") ? "infoc" : undefined;
+  // red: a Deployment with no pod ready (or missing); amber: fewer ready than asked, the others serve (hermit's "watch";
+  // a hermit from before that state says "problem" with ready pods); blue: rolling out
+  const podDown = (x: J) => x.state === "problem" && !(x.ready > 0);
+  const podShort = (x: J) => x.state === "watch" || (x.state === "problem" && x.ready > 0);
+  const podsK = svc.some(podDown) ? "why" : svc.some(podShort) ? "warnc" : svc.some(x => x.state === "warming") ? "infoc" : !svc.length && ai.error ? "blindc" : undefined;
   const podsRow = () => row("pods", podsK, <>YYC AI pods: {svc.length ? svc.map(x => `${x.name} ${x.ready}/${x.desired}${x.restarts ? ` (${x.restarts} restarts)` : ""}`).join(", ") : ai.error ? "snapshot unreadable" : "–"}</>);
   const noHosts = () => (!hosts.length && !ai.error ? [row("nohosts", "dim", "no sandbox hosts")] : []);
   /** every line, for a column `w` px wide (the box's width less nothing: as SYS_NARROW and storageItems count it) */
@@ -640,8 +664,8 @@ function SysPanel({ box, sys, now }: { box: Box; sys: LiveSys | null; now: numbe
       ...providers.flatMap(p => {
         const figs = (p.figs || []) as [string, string][];
         const bad = p.status !== "ok", rest = figs.length > 1 && figs[1][0] === "today" ? 2 : 1;
-        return [row(`p${p.id}`, bad ? (p.status === "error" ? "why" : "dim") : undefined, <><span className="pn" data-provider={p.id}>{p.name}</span>
-            {bad ? <span>{p.status === "not_connected" ? "not connected" : "error"}: {s_(p.error)}</span>
+        return [row(`p${p.id}`, bad ? (p.status === "error" ? "blindc" : "dim") : undefined, <><span className="pn" data-provider={p.id}>{p.name}</span>
+            {bad ? <span>{p.status === "not_connected" ? "not connected" : "can't read"}: {s_(p.error)}</span>
               : figs.length ? <span>{figs[0][0]} <b>{figs[0][1]}</b>{rest === 2 ? <>, today <b>{figs[1][1]}</b></> : null}</span> : null}
             <span className="src dim">{srcShort(p.source)}</span></>, s_(p.source) || undefined),
           ...(bad ? [] : figs.slice(rest).map(([l, v], i) => row(`p${p.id}-${i}`, undefined, <><span className={narrow ? "ind" : "pn"} /><span>{l} <b>{v}</b></span></>)))];
@@ -657,27 +681,27 @@ function SysPanel({ box, sys, now }: { box: Box; sys: LiveSys | null; now: numbe
     ];
   };
   /** the compact form: each provider's first figure in a cell, several a line; the healthy cluster checks on one line
-   * (a check with a problem keeps its own); Postgres, WiseSearch and object storage a line each (a problem in red) */
+   * (a check with a problem keeps its own); Postgres, WiseSearch and object storage a line each (in its state's colour) */
   const compact = (w: number, heads: boolean): Item[] => {
     const per = Math.max(1, Math.floor((w + 6) / (PC_W + 6))), cw = Math.floor((w - (per - 1) * 6) / per);
     const cells = providers.map(p => {
       const figs = (p.figs || []) as [string, string][], bad = p.status !== "ok";
-      return <span key={p.id} className={"pc" + (bad ? (p.status === "error" ? " why" : " dim") : "")} style={{ width: cw }} title={s_(p.source) || undefined}>
-        <span data-provider={p.id}>{s_(p.name)?.split(" (")[0]}</span> {bad ? (p.status === "not_connected" ? "not connected" : `error: ${s_(p.error)}`)
+      return <span key={p.id} className={"pc" + (bad ? (p.status === "error" ? " blindc" : " dim") : "")} style={{ width: cw }} title={s_(p.source) || undefined}>
+        <span data-provider={p.id}>{s_(p.name)?.split(" (")[0]}</span> {bad ? (p.status === "not_connected" ? "not connected" : `can't read: ${s_(p.error)}`)
           : figs.length ? <>{figs[0][0]} <b>{figs[0][1]}</b></> : null}</span>;
     });
     const provRows: Item[] = [];
     for (let i = 0; i < cells.length; i += per) provRows.push(row(`pc${i}`, undefined, cells.slice(i, i + per)));
     const ok: string[] = [], probs: Item[] = [];
-    if (nodeErr || notReady.length) probs.push(nodesRow()); else ok.push(`nodes ${nodes.length} of ${nodes.length} ready`);
+    if (nodesK) probs.push(nodesRow()); else ok.push(`nodes ${nodes.length} of ${nodes.length} ready`);
     if ((deps.short || []).length) probs.push(depsRow()); else ok.push(`Deployments ${deps.ok ?? "–"} of ${deps.n ?? "–"}`);
     if (cjK) probs.push(cjRow()); else ok.push(`CronJobs ${cj.n ?? "–"} on, ${cj.running ?? 0} running`);
     if (podsK || !svc.length) probs.push(podsRow());
     else ok.push(`YYC AI pods ${svc.reduce((t, x) => t + (x.ready || 0), 0)} of ${svc.reduce((t, x) => t + (x.desired || 0), 0)} ready`);
     const c = (pg.connections || {}) as J, sp = (pg.space || {}) as J, pp = ((pg.archive || {}) as J).problems as string[] || [];
     const low = typeof sp.free_bytes === "number" && sp.free_bytes < sp.floor_bytes, busy = c.max && c.total >= 0.8 * c.max;
-    const pgRow = pg.error ? row("pg", "why", <>Postgres: can't read: {pg.error}</>)
-      : row("pg", low || busy || pp.length ? "why" : undefined, <span>Postgres: <b>{c.total ?? "–"}</b> of {c.max ?? "–"} connections, <b>{pg.tps ?? "–"}</b> transactions/s, <b>{gib(sp.free_bytes)}</b> free{low ? ` (alert under ${gib(sp.floor_bytes)})` : ""}{pp.length ? "; WAL archive: " + pp.join("; ") : ""}</span>);
+    const pgRow = pg.error ? row("pg", "blindc", <>Postgres: can't read: {pg.error}</>)
+      : row("pg", low || busy || pp.length ? "warnc" : undefined, <span>Postgres: <b>{c.total ?? "–"}</b> of {c.max ?? "–"} connections, <b>{pg.tps ?? "–"}</b> transactions/s, <b>{gib(sp.free_bytes)}</b> free{low ? ` (alert under ${gib(sp.floor_bytes)})` : ""}{pp.length ? "; WAL archive: " + pp.join("; ") : ""}</span>);
     const bad = ((storage.buckets || []) as J[]).filter(b => b.error).map(b => b.name);
     return [
       ...stopRows(),
@@ -691,11 +715,11 @@ function SysPanel({ box, sys, now }: { box: Box; sys: LiveSys | null; now: numbe
       pgRow,
       ...wisersItems(wisers, now, true).slice(0, 1),
       ...storageItems(storage, now, w).slice(0, 1),
-      ...(bad.length ? [row("bkbad", "why", <>buckets that can't be read: {bad.join(", ")}</>)] : []),
+      ...(bad.length ? [row("bkbad", "blindc", <>buckets that can't be read: {bad.join(", ")}</>)] : []),
     ];
   };
   let cols: Item[][] | null = null, cw = inner;
-  if (!hh || hh.error) cols = [[!hh ? row("x", "dim", sys ? "no health data yet" : "Loading…") : row("x", "why", s_(hh.error))]];
+  if (!hh || hh.error) cols = [[!hh ? row("x", "dim", sys ? "no health data yet" : "Loading…") : row("x", "blindc", <>can't read: {s_(hh.error)}</>)]];
   else {
     const tries: [number, () => Item[]][] = [[1, () => full(box.w, false)]];
     if (ncol > 1) tries.push([ncol, () => full(colW + 8, false)]);
@@ -740,7 +764,7 @@ function JarvisPanel({ box, j, now }: { box: Box; j: JarvisLive | null; now: num
     <section className="lp" data-panel="jarvis" aria-label={PANEL_NAMES.jarvis} style={{ left: box.x, top: box.y, width: box.w, height: box.h }}>
       <h2 style={{ height: HEADER }}><span>{PANEL_NAMES.jarvis}</span>
         <span className="hr">{more > 0 ? <span className="dim">{more} more, </span> : null}
-          {j ? <span className={"num " + (old ? "warn" : "dim")}>{old ? "no update since " : "as of "}{hhmmss(j.got)}</span> : null}</span></h2>
+          {j ? <span className={"num " + (old ? "blind" : "dim")}>{old ? "no update since " : "as of "}{hhmmss(j.got)}</span> : null}</span></h2>
       <div className="js" style={{ gridTemplateColumns: `repeat(${g.cols}, ${Math.floor((box.w - 2) / g.cols)}px)`, gridTemplateRows: `repeat(${g.rows}, ${JARVIS_ROW_H}px)` }}>
         {!j ? <div className="jr dim">{sys0(now)}</div> : !list.length ? <div className="jr dim">no session running</div>
           : list.map((x, i) => {
@@ -756,4 +780,4 @@ function JarvisPanel({ box, j, now }: { box: Box; j: JarvisLive | null; now: num
   );
 }
 const sys0 = (now: number) => now ? "no report from Jarvis 4 yet" : "Loading…";
-const JARVIS_STALE_MS = 60_000;  // the router pushes every 5 s: a minute without one is amber
+const JARVIS_STALE_MS = 60_000;  // the router pushes every 5 s: a minute without one is blind (magenta)
