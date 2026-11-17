@@ -3,19 +3,14 @@
 # DESIGN 15.2 N8). Run by .github/workflows/talos-nodes.yml as gha:talos-nodes; from a session it works the same with
 # the admin kubeconfig. Every change runs as a Job in talos-ops (node-work.yaml) whose talosctl has role os:admin.
 #
-#   node-work.sh upgrade [--node NAME] [--gateway-runbook] [--dry-run]
+#   node-work.sh upgrade [--node NAME] [--dry-run]
 #       every node whose Talos version differs from release.env's TALOS_VERSION: control nodes first, then the
 #       workers, one at a time (talosctl upgrade drains, upgrades, reboots and waits; then the node must be Ready at
 #       the new version and talosctl health green before the next). --node: only that node.
-#   node-work.sh upgrade-k8s --to VERSION [--gateway-runbook] [--dry-run]
+#   node-work.sh upgrade-k8s --to VERSION [--dry-run]
 #       talosctl upgrade-k8s (control plane one node at a time, then every kubelet); --dry-run is talosctl's own plan.
 #
 # Rules (N8), checked before every node:
-#   - the gateway node (label hermit.yyc/gateway=true) is touched only with --gateway-runbook, i.e. as step 3 of
-#     hermit's gateway-maintenance runbook (hermit 14.7: hermit-admin.sh gateway-maintenance --node-work
-#     gateway-node-work.sh, which dispatches talos-nodes.yml with gateway_runbook=true and waits for the run); otherwise
-#     it is skipped, and
-#     upgrade-k8s (which restarts every kubelet) does not run at all while a gateway node exists.
 #   - a node not Ready (other than the one being upgraded) stops the run red: never two nodes down.
 #   - a Deployment a PodDisruptionBudget does not let go (a singleton) is moved off the node first by its own rolling
 #     update; one that cannot move stops the run red with the node uncordoned and untouched.
@@ -26,15 +21,13 @@ here=$(cd "$(dirname "$0")" && pwd)
 # shellcheck source=release.env
 . "$here/release.env"
 NS=talos-ops
-GW_LABEL=hermit.yyc/gateway
 TALOSCTL_IMAGE=ghcr.io/siderolabs/talosctl:$TALOS_VERSION
 
 action=${1:-}; shift || true
-node_only= gateway_runbook= dry= k8s_to=
+node_only= dry= k8s_to=
 while [ $# -gt 0 ]; do
   case "$1" in
     --node) node_only=$2; shift 2 ;;
-    --gateway-runbook) gateway_runbook=1; shift ;;
     --dry-run) dry=1; shift ;;
     --to) k8s_to=$2; shift 2 ;;
     *) echo "unknown argument $1" >&2; exit 2 ;;
@@ -45,20 +38,18 @@ case "$action" in upgrade|upgrade-k8s) ;; *) sed -n 2,20p "$0"; exit 2 ;; esac
 notice() { echo "::notice::$*"; }
 
 nodes_json=$(kubectl get nodes -o json)
-# name ip version role gateway, control nodes first, then by name
+# name ip version role, control nodes first, then by name
 # the nodes of the CloudNativePG primaries: they go last among the workers, so a Cluster switches over once (to an
 # instance on a node already done) instead of once per node (yyc-talos, 2026-11-17: db1, db2, db3 in name order moved
 # Cluster pg's primary three times in three minutes)
 primary_nodes=$(kubectl get pods -A -l cnpg.io/instanceRole=primary -o json | jq -c '[.items[].spec.nodeName] | unique')
-mapfile -t NODES < <(jq -r --arg gw "$GW_LABEL" --argjson pri "$primary_nodes" '.items
+mapfile -t NODES < <(jq -r --argjson pri "$primary_nodes" '.items
   | map({n: .metadata.name,
          ip: ([.status.addresses[] | select(.type == "InternalIP") | .address][0]),
          v: (.status.nodeInfo.osImage | capture("\\((?<v>v[^)]+)\\)").v // "unknown"),
-         cp: (.metadata.labels | has("node-role.kubernetes.io/control-plane")),
-         gw: ((.metadata.labels[$gw] // "") == "true")})
+         cp: (.metadata.labels | has("node-role.kubernetes.io/control-plane"))})
   | sort_by((if .cp then 0 else 1 end), (if (.n | IN($pri[])) then 1 else 0 end), .n)[]
-  | "\(.n) \(.ip) \(.v) \(if .cp then "control" else "worker" end) \(.gw)"' <<< "$nodes_json")
-gateway_exists=$(jq -r --arg gw "$GW_LABEL" '[.items[] | select((.metadata.labels[$gw] // "") == "true")] | length' <<< "$nodes_json")
+  | "\(.n) \(.ip) \(.v) \(if .cp then "control" else "worker" end)"' <<< "$nodes_json")
 cp_ips=$(printf '%s\n' "${NODES[@]}" | awk '$4 == "control" {print $2}')
 
 other_cp() { awk -v x="$1" '$0 != x {print; exit}' <<< "$cp_ips"; }
@@ -154,10 +145,6 @@ stamp=$(date -u +%Y%m%d%H%M%S)
 
 if [ "$action" = upgrade-k8s ]; then
   [ -n "$k8s_to" ] || { echo "upgrade-k8s needs --to VERSION" >&2; exit 2; }
-  if [ "$gateway_exists" != 0 ] && [ -z "$gateway_runbook" ]; then
-    notice "upgrade-k8s restarts every kubelet, the gateway node's too: run it only as step 3 of hermit's gateway-maintenance runbook (gateway_runbook=true). Nothing done."
-    exit 0
-  fi
   cp=$(head -1 <<< "$cp_ips")
   cp_name=$(printf '%s\n' "${NODES[@]}" | awk -v ip="$cp" '$2 == ip {print $1}')
   args=$(jq -nc --arg n "$cp" --arg to "$k8s_to" --arg d "${dry:+--dry-run}" '["-n", $n, "upgrade-k8s", "--to", $to] + (if $d != "" then [$d] else [] end)')
@@ -176,14 +163,9 @@ esac
 image="$TALOS_INSTALLER:$TALOS_VERSION"
 did=0
 for line in "${NODES[@]}"; do
-  read -r name ip ver role gw <<< "$line"
+  read -r name ip ver role <<< "$line"
   if [ -n "$node_only" ] && [ "$name" != "$node_only" ]; then continue; fi
   if [ "$ver" = "$target" ]; then echo "$name ($role): at $target"; continue; fi
-  if [ "$gw" = true ] && [ -z "$gateway_runbook" ]; then
-    notice "$name: the sandbox gateway node; it is upgraded only through hermit's gateway-maintenance runbook (hermit 14.7, gateway_runbook=true, node=$name). Skipped."
-    continue
-  fi
-  if [ "$gw" != true ] && [ -n "$gateway_runbook" ] && [ -z "$node_only" ]; then continue; fi
   if [ -n "$dry" ]; then
     echo "$name ($role, $ip): would upgrade $ver -> $target ($image)$(singletons "$name" | sed 's/^/; first moves /' | tr -d '\n')"
     continue

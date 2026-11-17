@@ -98,24 +98,6 @@ nodes' `KubeTalosAPIAccessConfig` first, which creates the `talos.dev` ServiceAc
    requests plus the CronJobs' worst overlapping minute (each run lasting its activeDeadlineSeconds) must fit, replicas
    on different nodes; on 2026-11-08 that was 7.5 GiB steady + 6.1 GiB of jobs, 5 x cx23 with 2.3 GiB to spare.
 
-## The gateway node
-
-`yyc-talos-gw1` (10.0.0.7, x86 cx23 in fsn1, public IPv6 2a01:4f8:c014:702d::/64, firewall `yyc-talos-gateway`: ICMP,
-udp 51820 and udp 51821 from anywhere) is hermit's sandbox gateway (DESIGN N7): `talos.sh gen yyc-talos-gw1 gateway`
-(worker labels, `public.yaml`, `gateway.yaml`'s DHCP on eth0, its own WARP `YYC_TALOS_WARP_GW1`), then aviary
-`fabric/host/gateway-net.sh yyc-talos-gw1` (route 10.202.0.0/15 to 10.0.0.7, the label `hermit.yyc/gateway=true`). It
-was the old k3s worker `yyc-pool-small-worker5` (drained, snapshot 452284716), recreated on its own primary IPv6
-(the account's primary IP limit is full): a server rebuilt in place keeps its old user-data, so Talos never got its
-config; deleting it with the primary IP kept (auto-delete off) and creating it again on that IP did.
-
-**Its WARP link can drop large IPv4 replies** (2026-11-12; claude-env lessons/93): pings answer, but TLS to ghcr.io,
-api.github.com and EC2 times out in the handshake, so the gateway cannot pull a new sandbox image (`POST /v1/images`
-500 in its log) and every sandbox on a new image fails with `sandboxd_500: curl | tar … 404`. Check: `kubectl -n
-yyc-ai-fabric exec ds/hermit-gateway -- sh -c 'timeout 40 crane digest ghcr.io/de0ch/pigeon:<sha12>'`. Fix, with no
-reboot and no effect on sandbox traffic (which never uses `warp0`): give the link another local port, which makes a
-new session: `talosctl -n 10.0.0.7 patch machineconfig --mode=no-reboot --patch @p.yaml` with `p.yaml` = `apiVersion:
-v1alpha1`, `kind: WireguardConfig`, `name: warp0`, `listenPort: <another port>` (now 51978).
-
 ## Workers without public IPs
 
 Hetzner counts every primary IP, IPv6 ones too, against the account's limit (16 across all projects), and the limit
@@ -171,12 +153,8 @@ control nodes) or on yyc-nat1 (a network box). Image tag: `images:` in kustomiza
   metadata fetch timing out, `talosctl patch mc --mode=no-reboot --patch @patches/eth0-dhcp.yaml`; then `talosctl
   upgrade --image <hcloud-installer>:<version>` (the old entry is booted once only; the bad UKI stays the default
   until replaced).
-- **The gateway node:** the sandbox gateway node (`hermit.yyc/gateway=true`) is upgraded only through hermit's
-  gateway-maintenance runbook (hermit 14.7, aviary `fabric/host/gateway-maintenance.md`): `hermit-admin.sh
-  gateway-maintenance --node-work news-stream/deploy/clusters/talos/gateway-node-work.sh` (new sandboxes off, wait for
-  no busy sandbox, then `gateway-node-work.sh` dispatches with `gateway_runbook=true mode=apply node=<gateway>` and
-  waits for that run, then sandboxes on once the gateway answers again; `--k8s VERSION` for `upgrade-k8s`, which
-  restarts every kubelet, so it runs only that way while a gateway node exists).
+- **The sandbox gateway** is no node of this cluster (the plain server `yyc-sbx-gw1`, 10.0.0.8, DE0CH/yyc-code
+  `yyc-ai/infra/gateway.sh`): node work never stops the sandboxes' network.
 - **Path:** the runner reaches the API through tunnel `yyc-deploy` (deploy-workflows 3) as `gha:talos-nodes` (its own
   GitHub environment `talos-nodes` with the Access secrets `YYC_DEPLOY_ACCESS_CLIENT_ID`/`_SECRET`; the authenticator in
   `patches/controlplane.yaml`; RBAC in `node-work.yaml`: nodes read, Jobs in `talos-ops`). Each upgrade is a Job in
@@ -190,7 +168,7 @@ PENDING lines are the tests that need probe pods, a GitHub run or the gateway im
 
 ## Still to do (T1-T2, DESIGN 15.2)
 
-Workers (N5, N7, N12); the gateway node; `gha:talos-cluster` in the control nodes' authenticator (patches/controlplane.yaml),
+Workers (N5, N7, N12); `gha:talos-cluster` in the control nodes' authenticator (patches/controlplane.yaml),
 then `talos-cluster.yml`'s push trigger on; `talos-ready.sh` green.
 
 ## Cluster workflow (`.github/workflows/talos-cluster.yml`)

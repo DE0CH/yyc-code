@@ -1,7 +1,7 @@
 #!/bin/bash
 # talos.sh: YYC's Talos cluster yyc-talos (README). Machine configs are rendered here from the store, never committed.
 #
-#   talos.sh gen NODE ROLE        render ~/talos/NODE.yaml (ROLE controlplane|gateway|news|db|worker) from YYC_TALOS_SECRETS, the
+#   talos.sh gen NODE ROLE        render ~/talos/NODE.yaml (ROLE controlplane|news|db|worker) from YYC_TALOS_SECRETS, the
 #                                 patches (common; controlplane+public, worker+public or worker+private by role) and the
 #                                 node's WARP key (not for a worker)
 #                                 YYC_TALOS_WARP_<NODE suffix> (warp-register.py), at release.env's Talos version
@@ -51,16 +51,15 @@ peers:
     persistentKeepaliveInterval: 25s""")
 PY
     case $role in worker|news-private|db-private) ;; *) false ;; esac || chmod 600 "$OUT/$node.patch.yaml"
-    # roles: controlplane and gateway have a public IPv6 and WARP (public.yaml + warp0); a worker has no public IP and
-    # goes out through yyc-nat1 (private.yaml, nat/nat.sh); the gateway is a worker with its own labels (gateway.yaml)
+    # roles: controlplane has a public IPv6 and WARP (public.yaml + warp0); a worker has no public IP and goes out
+    # through yyc-nat1 (private.yaml, nat/nat.sh)
     case $role in
       controlplane) out=controlplane patches=(controlplane public eth0-dhcp) ;;
-      gateway) out=worker patches=(public eth0-dhcp gateway) ;;
       news|db) out=worker patches=(public eth0-dhcp ../node-patches/$role) ;;  # old x86 servers (plan talos-apps-move.md)
       worker) out=worker patches=(worker private) ;;
       news-private) out=worker patches=(private ../node-patches/news) ;;  # a news node with no public IP (yyc-nat1)
       db-private) out=worker patches=(private ../node-patches/db) ;;  # a database node with no public IP (yyc-nat1)
-      *) echo "role: controlplane|gateway|news|news-private|db|db-private|worker" >&2; exit 2 ;;
+      *) echo "role: controlplane|news|news-private|db|db-private|worker" >&2; exit 2 ;;
     esac
     args=(--config-patch @"$here/patches/common.yaml")
     for p in "${patches[@]}"; do args+=(--config-patch @"$here/patches/$p.yaml"); done

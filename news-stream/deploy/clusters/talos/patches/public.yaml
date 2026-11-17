@@ -1,4 +1,4 @@
-# Nodes with a public IPv6 (the control nodes and the gateway node; talos.sh gen adds this and their WARP warp0):
+# Nodes with a public IPv6 (the control nodes; talos.sh gen adds this and their WARP warp0):
 # eth0 is the public link (Talos's hcloud platform), network `yyc` is eth1; DNS is Hetzner's resolvers over IPv6, never
 # through WARP (lessons/91). Nodes with no public IP take private.yaml instead.
 apiVersion: v1alpha1

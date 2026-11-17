@@ -7,11 +7,11 @@
 #   and namespace aiwatch: every pod, as on the old cluster (where 10.244.0.0/16 admitted every pod)
 # - namespace yyc-ai: hermit, egress, tools (DESIGN 15.8); kube-system: the JuiceFS mount pods
 # - namespace feishu-index: the indexer (database feishu_index, ./feishu-index-db.yaml)
-# - the new fabric's AWS hosts' and hermit's JuiceFS metadata: they dial pg-shared's NodePort 30433 on the gateway node.
-#   kube-proxy masquerades it to the node's cilium_host address, but Cilium tunnels the forwarded packet with identity
-#   world (not remote-node), so pg-ingress-nodes below admits world on 5432 too (2026-11-08: with host/remote-node
-#   only, every sandbox start failed "juicefs quota get: no answer in 60 s"). No node has a public address: world here
-#   is only what reaches a NodePort over the private network, and each role still needs its password.
+# - pg-ingress-nodes below admits host, remote-node and world on 5432: what reaches the database through a node
+#   (a connection forwarded by kube-proxy arrives with identity world, not remote-node: 2026-11-08, when the sandbox
+#   hosts dialled a NodePort). YYC AI's sandbox hosts come through pg-forward's pods since 2026-11-17 and need it no
+#   more; it stays until it is known that nothing else arrives that way. No node has a public address, and each role
+#   still needs its password.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:

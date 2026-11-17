@@ -1,22 +1,12 @@
-# db/pg-shared (DESIGN 15.5 B3, 15.8): the old cluster's Cluster pg under a name of this cluster. Selector-less, with a
-# manual EndpointSlice to pg-hosts' NodePort on yyc-pool-db-worker1 (10.0.0.2:30432, externalTrafficPolicy Local on
-# the old side), so every database URL and JuiceFS metaurl of the new stack names pg-shared.db.svc.cluster.local:5432
-# and no component names a cluster. NodePort 30433 (Cluster): the new fabric's AWS hosts reach the JuiceFS metadata
-# at <gateway node's private IP>:30433 over wg0; kube-proxy forwards and masquerades it to 10.0.0.2:30432, so the old
-# pg-ingress sees a node address (its 10.0.0.0/16 rule).
-#
-# T5 (after A6; the builder's CloudNativePG replica cluster pg promoted here): ONE commit sets
-# `selector: {cnpg.io/cluster: pg, cnpg.io/instanceRole: primary}` and `targetPort: 5432`, and deletes EndpointSlice
-# pg-shared-manual (the EndpointSlice controller leaves a foreign slice alone, so a selector alone would spread
-# connections over the demoted old primary and the new one). Check right after: `kubectl -n db get endpointslices -l
-# kubernetes.io/service-name=pg-shared` lists exactly one ready address, the new primary's pod on 5432.
+# db/pg-shared: Cluster pg's primary under one name, pg-shared.db.svc.cluster.local:5432, which every database URL
+# and JuiceFS metaurl in the cluster names (never pg-rw.db). YYC AI's sandbox hosts reach it from outside the
+# cluster through the balancer's port 10.0.0.50:5432 and the pg-forward pods (yyc-ai/deploy/hermit/pg-forward.yaml).
 apiVersion: v1
 kind: Service
 metadata:
   name: pg-shared
   namespace: db
 spec:
-  type: NodePort
-  externalTrafficPolicy: Cluster
+  type: ClusterIP
   selector: {cnpg.io/cluster: pg, cnpg.io/instanceRole: primary}
-  ports: [{name: postgres, port: 5432, targetPort: 5432, nodePort: 30433, protocol: TCP}]
+  ports: [{name: postgres, port: 5432, targetPort: 5432, protocol: TCP}]
