@@ -118,7 +118,6 @@ html.live-doc.live-phone, html.live-doc.live-phone body { overflow-x:hidden; ove
 .lp .js .j1 { display:flex; gap:6px; align-items:center; height:14px; white-space:nowrap; overflow:hidden; }
 .lp .js .j1 .tag { margin-left:0; flex:none; }
 .lp .js .jn { color:var(--ink); overflow:hidden; text-overflow:ellipsis; min-width:0; }
-.lp .js .idle .jn { color:var(--sub); }
 .lp .js .j2 { height:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--mut); }
 .lp .tag.inkf { background:var(--ink); color:var(--panel); border-color:var(--ink); }  /* Jarvis 4 working: ink-filled, no hue (normal) */
 .lp li .x b { color:var(--ink); }

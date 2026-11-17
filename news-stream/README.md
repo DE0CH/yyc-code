@@ -1484,10 +1484,10 @@ them (their events too), Full text went from two columns to one.
   `router/livepush.go`) POSTs his running sessions, and the paused ones that will wake by themselves, every 5 s to `/live/jarvis` with `X-Jarvis-Secret` (Worker secret
   `JARVIS_LIVE_SECRET` = store key `YYC_JARVIS_LIVE_SECRET`); the LiveHub Durable Object keeps the last push
   (`server/jarvis.ts`; never Postgres) and `/app/live/data` returns it as `jarvis`. Each session: its state word
-  (working ink-filled, needs you amber, background, scheduled and booting blue, idle quiet), its title, how long in
+  (working ink-filled, needs you and idle amber (Deyao, 2026-11-17), background, scheduled and booting blue), its title, how long in
   that state and its background jobs and subagents; scheduled (Deyao, 2026-11-17: "it should also show scheduled as
   blue, similar to background") = paused or idle with a wakeup, cron or watch armed, as the Jarvis 4 app's Scheduled,
-  with its next wake in HKT ("next 14:30", "watching" for a watch alone); at most 32 (16 in one window), the most active first, "N more"
+  with its next wake in HKT ("next 14:30", "watching" for a watch alone); at most 32 (16 in one window), in the router's order (needs you, idle, working, background, scheduled, booting), "N more"
   in the header, amber "no update since" after a minute without a push. YYC holds no Jarvis 4 credential.
 - **View only (Deyao, 2026-11-17:** "there can't be any clickable element on the monitor … it's a view only live
   monitor"): no links, buttons or inputs anywhere on /app/live (YYC AI's Schedules link was removed; test 3 counts

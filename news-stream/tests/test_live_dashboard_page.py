@@ -465,13 +465,14 @@ class LivePage(unittest.TestCase):
         for x in ("AWS (account yyc)", "month USD 1,237.31 · yesterday USD 105.29", "by service EC2 1,128.80 · Tax 206.22 · EC2 other 101.61",
                   "running now 12 × m7i.xlarge, 2 × m7i.2xlarge, 1 × t3.large"):
             self.assertIn(x, sys_)
-        # Jarvis 4 (Deyao, 2026-11-12; 32 on the right display since 2026-11-17): most active first, each its state word
+        # Jarvis 4 (Deyao, 2026-11-12; 32 on the right display since 2026-11-17): in the router's order, each its state word
         # in its colour, the 2 more of the 34 in the header
         jp = page.locator(".lp[data-panel=jarvis]")
         self.assertEqual(jp.locator(".jr").count(), 32)
         self.assertIn("2 more", jp.locator("h2").inner_text())
         self.assertEqual(jp.locator(".jr[data-state=working] .tag.inkf", has_text="working").count(), 2)
         self.assertEqual(jp.locator(".jr[data-state=waiting] .tag.warn", has_text="needs you").count(), 1)
+        self.assertEqual(jp.locator(".jr[data-state=idle] .tag.warn", has_text="idle").count(), 25)  # amber (Deyao, 2026-11-17)
         self.assertEqual(jp.locator(".jr[data-state=background] .tag.info", has_text="background").count(), 1)
         self.assertEqual(jp.locator(".jr[data-state=booting] .tag.info", has_text="booting").count(), 1)
         # scheduled is blue like background, with its next wake (HKT) or "watching" (Deyao, 2026-11-17)

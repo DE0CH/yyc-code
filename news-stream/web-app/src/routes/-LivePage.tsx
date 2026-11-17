@@ -717,10 +717,10 @@ function SysPanel({ box, sys, now }: { box: Box; sys: LiveSys | null; now: numbe
   );
 }
 
-/** Jarvis 4's state words and their colour (the flight deck's: working is normal and stays ink; waiting asks Deyao,
- * amber; background jobs, a schedule (Deyao, 2026-11-17) and booting go on by themselves, blue; idle is quiet) */
+/** Jarvis 4's state words and their colour (the flight deck's: working is normal and stays ink; waiting and idle are
+ * amber (Deyao, 2026-11-17); background jobs, a schedule (Deyao, 2026-11-17) and booting go on by themselves, blue) */
 const JARVIS_TAG: Record<JarvisSession["state"], [string, string]> = {
-  working: ["working", "inkf"], waiting: ["needs you", "warn"], background: ["background", "info"], scheduled: ["scheduled", "info"], idle: ["idle", ""], booting: ["booting", "info"],
+  working: ["working", "inkf"], waiting: ["needs you", "warn"], background: ["background", "info"], scheduled: ["scheduled", "info"], idle: ["idle", "warn"], booting: ["booting", "info"],
 };
 /** "2 background jobs, 1 subagent" */
 const workersText = (x: JarvisSession) => [x.jobs ? `${x.jobs} background ${x.jobs === 1 ? "job" : "jobs"}` : "",
@@ -731,7 +731,7 @@ const wakeAt = (ms: number, now: number) => {
   const d = (t: number) => new Date(t + 8 * 3600e3).toISOString();
   return (d(ms).slice(0, 10) === d(now).slice(0, 10) ? "" : d(ms).slice(5, 10) + " ") + hhmm(ms);
 };
-/** panel 11: Deyao's running Jarvis 4 sessions, most active first, one fixed cell each (liveLayout jarvisGrid) */
+/** panel 11: Deyao's running Jarvis 4 sessions in the router's order (amber first), one fixed cell each (liveLayout jarvisGrid) */
 function JarvisPanel({ box, j, now }: { box: Box; j: JarvisLive | null; now: number }) {
   const g = jarvisGrid(box), list = (j?.sessions || []).slice(0, g.n);
   const more = j ? j.total - list.length : 0;
@@ -745,7 +745,7 @@ function JarvisPanel({ box, j, now }: { box: Box; j: JarvisLive | null; now: num
         {!j ? <div className="jr dim">{sys0(now)}</div> : !list.length ? <div className="jr dim">no session running</div>
           : list.map((x, i) => {
             const [word, k] = JARVIS_TAG[x.state];
-            return <div key={i} className={"jr" + (x.state === "idle" ? " idle" : "") + (i >= g.rows ? " c2nd" : "")} data-state={x.state}>
+            return <div key={i} className={"jr" + (i >= g.rows ? " c2nd" : "")} data-state={x.state}>
               <div className="j1"><span className={"tag " + k}>{word}</span><span className="jn">{x.name}</span></div>
               <div className="j2 num">{x.state === "scheduled" ? (x.next ? `next ${wakeAt(x.next, now || j.got)}` : "watching")
                 : <>{x.since ? `for ${dur(Math.max(0, (now || j.got) - x.since) / 1000)}` : ""}{workersText(x) ? `${x.since ? ", " : ""}${workersText(x)}` : ""}</>}</div>
