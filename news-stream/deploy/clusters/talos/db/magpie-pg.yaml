@@ -81,6 +81,23 @@ spec:
       isWALArchiver: true
       parameters: {barmanObjectName: pg-pitr, serverName: magpie-pg}
 ---
+# magpie's database (made by initdb above) with pgvector, created by the operator (role magpie can't create an
+# extension): magpie's conversation search keeps its vectors there (aviary migration 0042_embeddings.sql), so this
+# lands before a magpie pin that has it
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: magpie
+  namespace: db
+spec:
+  cluster: {name: magpie-pg}
+  name: magpie
+  owner: magpie
+  ensure: present
+  databaseReclaimPolicy: retain
+  extensions:
+    - {name: vector, ensure: present}
+---
 apiVersion: postgresql.cnpg.io/v1
 kind: ScheduledBackup
 metadata:
