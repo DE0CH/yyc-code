@@ -15,8 +15,9 @@
 // new build instead of a client-side transition: a link, or a page change the page makes itself (a form, Back). That is
 // the moment the reader expects a new page anyway (SvelteKit's `updated` + beforeNavigate pattern, Next.js's hard
 // navigation on a deployment-id mismatch). The page is never reloaded in place by itself: a reload would take a
-// full-screen page out of full screen and show the loading bar. A page nobody navigates (the live dashboard) stays on its
-// build until someone does.
+// full-screen page out of full screen and show the loading bar. The live dashboard, which nobody navigates, is a shell (/app/live)
+// holding full screen around the dashboard in a frame; the shell swaps the frame for one of the new build once it has
+// drawn (-LivePage.tsx LiveShell; Deyao, 2026-11-17), so it updates without a reload.
 //
 // Only when the page truly cannot go on with the new site (a data request fails while a newer build is waiting) does it
 // show a small note, 已有更新 · 點此重新載入 at the bottom (no popup); a tap reloads, keeping URL and scroll. A file of

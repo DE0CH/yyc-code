@@ -22,7 +22,9 @@
 // text as written. Read-only.
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useSearch } from "@tanstack/react-router";
+import { BUILD_ID } from "../lib/build";
 import { monoEmoji } from "../lib/monoEmoji";
+import { subscribeUpdate } from "../lib/update";
 import type { Card, LiveData, LiveSys, PanelId } from "../server/live";
 import type { JarvisLive, JarvisSession } from "../server/jarvis";
 import { CARD_H, HEADER, JARVIS_ROW_H, LAYOUTS, PANEL_NAMES, PHONE_MAX, POLL_MS, RATES_EVERY, aiSplit, behind, jarvisGrid, cardsIn, enqueue, gapAt, hhmm, hhmmss, newPace,
@@ -30,9 +32,11 @@ import { CARD_H, HEADER, JARVIS_ROW_H, LAYOUTS, PANEL_NAMES, PHONE_MAX, POLL_MS,
 
 type FsDoc = Document & { webkitFullscreenElement?: Element | null; webkitExitFullscreen?: () => Promise<void> | void };
 type FsEl = HTMLElement & { webkitRequestFullscreen?: () => Promise<void> | void };
-const fsElement = () => (document as FsDoc).fullscreenElement ?? (document as FsDoc).webkitFullscreenElement ?? null;
+/** the top page's document: full screen belongs to the shell (LiveShell), also when F is pressed inside the frame */
+const topDoc = () => { try { return (window.top || window).document; } catch { return document; } };
+const fsElement = () => (topDoc() as FsDoc).fullscreenElement ?? (topDoc() as FsDoc).webkitFullscreenElement ?? null;
 async function toggleFullscreen() {
-  const d = document as FsDoc, el = document.documentElement as FsEl;
+  const d = topDoc() as FsDoc, el = d.documentElement as FsEl;
   if (fsElement()) await (d.exitFullscreen ? d.exitFullscreen() : d.webkitExitFullscreen?.());
   else await (el.requestFullscreen ? el.requestFullscreen() : el.webkitRequestFullscreen?.());
 }
@@ -48,7 +52,7 @@ function useWakeLock() {
   useEffect(() => {
     type WL = { release(): Promise<void> };
     const nav = navigator as Navigator & { wakeLock?: { request(t: "screen"): Promise<WL> } };
-    if (!nav.wakeLock) return;
+    if (!nav.wakeLock || window.top !== window) return;  // in the frame: the shell holds it
     let lock: WL | null = null, gone = false;
     const take = () => { if (document.visibilityState === "visible" && !gone) nav.wakeLock!.request("screen").then(l => { lock = l; }).catch(() => {}); };
     take();
@@ -69,6 +73,71 @@ function usePhoneWidth(on: boolean) {
     return () => removeEventListener("resize", f);
   }, [on]);
   return w;
+}
+
+/** the shell at /app/live: the dashboard (/app/live?frame=1) in a frame filling the window; it holds full screen (F) and
+ * the wake lock. When the site runs a newer build than the frame (/version, asked every minute and whenever this page's
+ * update module hears of one: lib/update.ts), a second frame loads the new build out of sight and replaces the first
+ * once it has drawn its data, so nothing blinks and the browser never reloads the page: full screen stays (Deyao,
+ * 2026-11-17). The shell itself is never replaced: what it does is only this. */
+export function LiveShell() {
+  const { half } = useSearch({ from: "/app/live" });
+  const src = "/app/live?" + new URLSearchParams({ ...(half ? { half } : {}), frame: "1" });
+  const [frames, setFrames] = useState<{ id: number; shown: boolean }[]>([{ id: 0, shown: true }]);
+  const els = useRef(new Map<number, HTMLIFrameElement>());
+  const fr = useRef(frames);  // the same, for the listeners
+  fr.current = frames;
+  useWakeLock();
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey || e.isComposing) return;
+      if (e.key === "f" || e.key === "F") { e.preventDefault(); toggleFullscreen().catch(() => {}); }
+    };
+    addEventListener("keydown", k);
+    return () => removeEventListener("keydown", k);
+  }, []);
+  useEffect(() => { document.documentElement.classList.add("live-doc"); return () => document.documentElement.classList.remove("live-doc"); }, []);
+  useEffect(() => {
+    let gone = false, pending: number | null = null, timer = 0, next = 1;
+    const tries = new Map<string, number>();
+    const shownId = () => fr.current.find(x => x.shown)?.id ?? 0;
+    const frameBuild = (id: number) => { try { return els.current.get(id)?.contentDocument?.documentElement.dataset.build || ""; } catch { return ""; } };
+    const drop = (id: number) => setFrames(f => f.filter(x => x.id !== id));
+    const check = async () => {
+      if (gone || pending != null) return;
+      let v = "";
+      try { const r = await fetch("/version", { cache: "no-store" }); if (r.ok) v = (await r.text()).trim(); } catch { return; }
+      const have = frameBuild(shownId());
+      if (gone || pending != null || !v || !have || v === have) return;
+      const n = (tries.get(v) || 0) + 1;  // a build the edge doesn't serve yet: at most 5 tries, a minute apart
+      if (n > 5) return;
+      tries.set(v, n);
+      const id = next++;
+      pending = id;
+      setFrames(f => [...f, { id, shown: false }]);
+      timer = window.setTimeout(() => { if (pending === id) { pending = null; drop(id); } }, 90_000);  // never drew: keep the old one
+    };
+    const msg = (e: MessageEvent) => {
+      if (e.origin !== location.origin || (e.data as { live?: string } | null)?.live !== "drawn" || pending == null) return;
+      const id = pending;
+      if (els.current.get(id)?.contentWindow !== e.source) return;
+      pending = null;
+      clearTimeout(timer);
+      setFrames([{ id, shown: true }]);
+    };
+    addEventListener("message", msg);
+    const off = subscribeUpdate(() => { if (document.documentElement.dataset.update !== "current") void check(); });
+    const poll = window.setInterval(check, 60_000);
+    const vis = () => { if (document.visibilityState === "visible") void check(); };
+    document.addEventListener("visibilitychange", vis);
+    return () => { gone = true; removeEventListener("message", msg); off(); clearInterval(poll); clearTimeout(timer); document.removeEventListener("visibilitychange", vis); };
+  }, []);
+  return (
+    <div className="live-shell" data-frames={frames.length}>
+      {frames.map(f => <iframe key={f.id} ref={el => { if (el) els.current.set(f.id, el); else els.current.delete(f.id); }} src={src}
+        title="YYC live" data-frame={f.id} className={f.shown ? "on" : "off"} allow="fullscreen" />)}
+    </div>
+  );
 }
 
 export function LivePage() {
@@ -115,6 +184,8 @@ export function LivePage() {
           else next[k] = { ...old[k]!, pace: enqueue(old[k]!.pace, got, t) };
         }
         put(next);
+        // the shell shows a new build's frame once it has drawn its first data (LiveShell)
+        if (first && window.parent !== window) window.parent.postMessage({ live: "drawn", build: BUILD_ID }, location.origin);
       } catch (e) {
         s.failed = e instanceof Error ? e.message : String(e);
       } finally {

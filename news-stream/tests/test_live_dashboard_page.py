@@ -265,6 +265,8 @@ def push_jarvis(doc, secret=JARVIS_SECRET):
 
 
 def open_page(br, path, w, h, errors=None):
+    """the dashboard itself: /app/live?frame=1[&half=…] (what the shell at /app/live shows in its frame)"""
+    path = path + ("&" if "?" in path else "?") + "frame=1" if path.startswith("/app/live") and "frame=" not in path else path
     ctx = br.new_context(viewport={"width": w, "height": h})
     tok = ops.token(ops.DEYAO)  # signed in on the site only (a header on Google Fonts' requests fails their CORS check)
     ctx.route(ops.BASE + "/**", lambda r: r.continue_(headers={**r.request.headers, "cf-access-jwt-assertion": tok}))
@@ -618,6 +620,41 @@ class LivePage(unittest.TestCase):
                 for x in ("by service EC2 1,128.80", "running now 12 × m7i.xlarge", "yyc-extra-8", "longest open transaction"):
                     self.assertIn(x, text)
             ctx.close()
+
+
+    def test_8_new_build_without_reload(self):
+        """Deyao, 2026-11-17: "a pushed update can update the page (for example, an embedded frame) without causing a
+        refresh on the browser (which makes the tab exit full screen)": /app/live is a shell with the dashboard in a frame;
+        when /version names a newer build, a second frame loads it out of sight and replaces the first once it has drawn,
+        the top page is never reloaded and stays full screen; F works from inside the frame; the shell holds the wake lock"""
+        ctx = self.br.new_context(viewport={"width": 1920, "height": 1080})
+        tok = ops.token(ops.DEYAO)
+        ctx.route(ops.BASE + "/**", lambda r: r.continue_(headers={**r.request.headers, "cf-access-jwt-assertion": tok}))
+        ctx.add_init_script("""window.__wake = 0; Object.defineProperty(navigator, 'wakeLock', { configurable: true,
+            value: { request: () => { window.__wake++; return Promise.resolve({ release: () => Promise.resolve() }); } } });""")
+        page = ctx.new_page()
+        page.goto(ops.BASE + "/app/live?half=right", wait_until="domcontentloaded", timeout=180000)
+        page.wait_for_selector(".live-shell iframe[data-frame='0'].on", timeout=60000)
+        first = page.frame_locator("iframe[data-frame='0']")
+        first.locator(".lp li:not(.dim)").first.wait_for(timeout=60000)
+        self.assertEqual(first.locator(".live").first.get_attribute("data-mode"), "right")
+        page.evaluate("window.__mark = 1")
+        self.assertGreaterEqual(page.evaluate("window.__wake"), 1)
+        page.keyboard.press("f")
+        page.wait_for_function("!!document.fullscreenElement", timeout=5000)
+        # a deploy: /version names another build
+        page.route("**/version", lambda r: r.fulfill(status=200, body="a-newer-build", headers={"content-type": "text/plain"}))
+        page.evaluate("document.dispatchEvent(new Event('visibilitychange'))")
+        page.wait_for_selector(".live-shell iframe[data-frame='1'].on", state="attached", timeout=90000)
+        page.wait_for_selector(".live-shell[data-frames='1']", state="attached", timeout=10000)
+        page.frame_locator("iframe[data-frame='1']").locator(".lp li:not(.dim)").first.wait_for(timeout=30000)
+        self.assertEqual(page.evaluate("window.__mark"), 1)  # the top page was not reloaded
+        self.assertTrue(page.evaluate("!!document.fullscreenElement"))  # and is still full screen
+        # F pressed inside the frame leaves full screen (the shell's)
+        page.frame_locator("iframe[data-frame='1']").locator(".live").first.click(position={"x": 5, "y": 5})
+        page.keyboard.press("f")
+        page.wait_for_function("!document.fullscreenElement", timeout=5000)
+        ctx.close()
 
 
 @unittest.skipUnless(REAL, "set LIVE_PG to screenshot live data")

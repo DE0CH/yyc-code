@@ -128,8 +128,8 @@ the same test fails on the previous code, which reloaded). Live check: `tests/li
   reads the live site's `/build-assets.json` (every hashed file and the last time a deploy had it), copies each file of
   the last 14 days that the new build lacks into `dist/client/assets/`, and writes the new list. A tab still on an older
   build loads its lazy files as before. An `/assets/` file nobody has answers a plain 404 (`server.ts`).
-- **Old pages keep reading data.** A page that nobody navigates (the live dashboard on its two displays) runs its build
-  for as long as it stays open, against the newest server. Its reads are the server functions (`fns*.ts`, URL
+- **Old pages keep reading data.** A page that nobody navigates runs its build for as long as it stays open (the live
+  dashboard swaps its frame for the new build within a minute, but its frame of the old build reads until then), against the newest server. Its reads are the server functions (`fns*.ts`, URL
   `/_serverFn/<sha256 of file and export name>`: the same id in every build) and plain routes (`/app/live/data`,
   `/api/…`). So a change to what one of them takes or returns stays readable by the previous build for the 14 days its
   files are kept (add fields, never rename or drop one), or it gets a new name and the old one stays for those 14 days.

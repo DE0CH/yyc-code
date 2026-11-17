@@ -61,7 +61,8 @@ are), never a second box. The box hides, it does not guard: data only Deyao may 
   users quite quickly"; 2026-10-22: "new ui shouldn't refresh the page, because refreshing the page makes my live stream
   exit full screen, and shows the loading bar").** Every open page knows of a new build within seconds (the LiveHub
   socket; `/version`) and keeps running as it is: its next link (or Back inside the app) is a full load of the new
-  build. A page nobody navigates (the live dashboard) stays on its build. Only a page whose data reads fail with a newer
+  build. The live dashboard, which nobody navigates, swaps itself: /app/live is a shell holding full screen with the
+  dashboard in a frame, and a new build's frame replaces the old one once drawn (Deyao, 2026-11-17). Only a page whose data reads fail with a newer
   build live shows 已有更新 · 點此重新載入 at the bottom (a tap reloads). Documents are never served from a cache without
   asking; old hashed files stay for 14 days and the data reads stay compatible, so a tab on the previous build never
   breaks. web-app/README.md "Updates reach open pages".
