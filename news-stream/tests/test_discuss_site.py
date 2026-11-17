@@ -448,6 +448,35 @@ class Capture(unittest.TestCase):
         self.assertEqual(corpus.kv_get(f"proxy:bytes:discuss:{day}", 0), resi_before)
         self.assertEqual(corpus.kv_get(f"isp:bytes:{day}", 0) - isp_before, 2 * (1000 + 800))
 
+    def test_5g_printable_view_walled_reads_the_mobile_pages(self):
+        """the ISP IP, 17 Nov 2026: the printable view behind Cloudflare's challenge, the mobile pages answering: a
+        thread is read from its mobile pages, page 1 on, and the run asks no other printable view"""
+        s = Site()
+        s.boards = {54: "香港及世界新聞"}
+        corpus.kv_set("replies:discuss:boards", {"at": time.time(), "boards": {"54": "香港及世界新聞"}})
+        run(s)  # the baseline listing
+        s.thread(9101, 54, "新帖一", 20, words="李家超")
+        s.thread(9102, 54, "新帖二", 3)
+
+        class Walled(Px):
+            def get(self, u, headers=None, walled=None):
+                if "action=printable" in u:
+                    self.site.requests.append(u)
+                    raise replies_fetch.Blocked(u + ": 403")
+                return self.site.get(u)
+        with mock.patch.object(replies_fetch, "Proxied", lambda name, direct=False, isp=False: Walled(s)), \
+                mock.patch.object(replies_fetch, "discuss_route", lambda: "isp"):
+            res = replies_fetch.run("discuss", 3 * 3600)
+        self.assertFalse(res["blocked"])
+        self.assertEqual(sum("action=printable" in u for u in s.requests), 1)
+        rows = {r["url"]: r for r in corpus.db().execute("SELECT url, thread, text FROM posts WHERE url LIKE %s",
+                                                           ("%discuss.com.hk%",)).fetchall()}
+        self.assertIn(url(9101), rows)
+        self.assertIn("開帖內容", rows[url(9101)]["text"])
+        replies = corpus.db().execute("SELECT count(*) FROM posts WHERE thread = %s", (url(9101),)).fetchone()[0]
+        self.assertEqual(replies, 20)
+        self.assertEqual(replies_fetch.state("discuss", 9102)["read"], 4)
+
     def test_5c_one_connection_for_the_run(self):
         """each request opened a new connection through the proxy (CONNECT + TLS: 1.25 s a request measured in the
         cluster, 2026-10-15, against 0.43 s on a kept-alive connection): requests share one session, its cookies (the
@@ -456,16 +485,18 @@ class Capture(unittest.TestCase):
 
         class Sess:
             def __init__(self, **kw):
-                self.calls = []
+                self.calls, self.sent = [], []
                 made.append(self)
 
-            def get(self, u, headers=None, proxies=None, timeout=None, allow_redirects=True):
+            def get(self, u, headers=None, proxies=None, timeout=None, allow_redirects=True, impersonate=None):
                 self.calls.append(("get", u, proxies))
+                self.sent.append((headers or {}, impersonate))
                 return mock.Mock(status_code=200, text="<html>ok</html>", content=b"<html>ok</html>", download_size=15,
                                  headers={})
 
             def post(self, u, data=None, headers=None, proxies=None, timeout=None, allow_redirects=True):
                 self.calls.append(("post", u, proxies))
+                self.sent.append((headers or {}, None))
                 return mock.Mock(status_code=302, text="", content=b"", download_size=0, headers={})
         from curl_cffi import requests as cr
         with mock.patch.object(cr, "Session", Sess), mock.patch.object(replies_fetch.time, "sleep", lambda s: None):
@@ -475,6 +506,10 @@ class Capture(unittest.TestCase):
             px.get("https://www.discuss.com.hk/b", headers={"User-Agent": replies_fetch.MUA})
             self.assertEqual(len(made), 1)
             self.assertEqual([c[0] for c in made[0].calls], ["get", "post", "get"])
+            # the impersonated browser's own User-Agent, never ours (a Chrome 141 UA over curl_cffi's newer Chrome
+            # handshake got the reCAPTCHA wall, 17 Nov 2026); the iPhone page as iOS Safari, in the same session
+            self.assertFalse(any("User-Agent" in h for h, _ in made[0].sent))
+            self.assertEqual([imp for _, imp in made[0].sent], [None, None, "safari_ios"])
             self.assertTrue(all(c[2] and c[2]["https"] == px.proxy() for c in made[0].calls))
             px.rotate()
             px.get("https://www.discuss.com.hk/c")

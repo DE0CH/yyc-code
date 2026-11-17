@@ -149,11 +149,12 @@ class Proxied:
         self.device = lihkg_api.device()
         self.chrome = None  # LIHKG: a curl_cffi session (its own cookies), made on the first request
 
-    def fetch_chrome(self, url, headers, data=None):
+    def fetch_chrome(self, url, headers, data=None, impersonate=None):
         """curl_cffi impersonating Chrome (as sources.fetch_chrome for the stream's 時事台), one session per jar so
         the cookies carry over and the connection is kept alive. LIHKG answers urllib's TLS handshake with 429 from the
         cluster (2026-10-14); 香港討論區 through the proxy took 1.25 s a request on a new connection each time and
-        0.43 s on a kept-alive one (2026-10-15). data: a form POST in the same session"""
+        0.43 s on a kept-alive one (2026-10-15). data: a form POST in the same session. impersonate: another browser
+        for this request (香港討論區's mobile pages: iOS Safari), in the same session (its cookies)"""
         from curl_cffi import requests as cr
         if self.chrome is None:
             self.chrome = cr.Session(impersonate="chrome")
@@ -161,6 +162,8 @@ class Proxied:
         h.update(headers)
         proxy = None if self.direct else self.proxy()
         kw = dict(headers=h, proxies={"http": proxy, "https": proxy} if proxy else None, timeout=40, allow_redirects=False)
+        if impersonate:
+            kw["impersonate"] = impersonate
         with self.isp_turn():
             r = self.chrome.post(url, data=data, **kw) if data is not None else self.chrome.get(url, **kw)
         size = getattr(r, "download_size", None)  # bytes on the wire (compressed); else the body
@@ -198,9 +201,13 @@ class Proxied:
         if self.site == "lihkg":
             return self.fetch_chrome(url, headers)
         if self.site == "discuss":
-            h = {"User-Agent": UA, "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"}
-            h.update(headers)
-            return self.fetch_chrome(url, h)
+            # the User-Agent is the impersonated browser's own: a Chrome 141 UA over curl_cffi's newer Chrome
+            # handshake got the site's reCAPTCHA wall (HTTP 202) on the ISP IP, every time, where curl_cffi's own UA
+            # got the page (17 Nov 2026); an iPhone page (MUA) goes as iOS Safari
+            mobile = headers.get("User-Agent") == MUA
+            h = {"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"}
+            h.update({k: v for k, v in headers.items() if k != "User-Agent"})
+            return self.fetch_chrome(url, h, impersonate="safari_ios" if mobile else None)
         h = {"User-Agent": UA, "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
              "Accept-Language": "zh-HK,zh;q=0.9,en;q=0.8", "Accept-Encoding": "gzip, deflate"}
         h.update(headers)
@@ -222,7 +229,7 @@ class Proxied:
         """a form POST in this session (香港討論區's 18+ notice), with the jar's cookies; one try"""
         if self.site == "discuss":
             try:
-                _, text = self.fetch_chrome(url, {"User-Agent": UA, "Referer": url}, data=data)
+                _, text = self.fetch_chrome(url, {"Referer": url}, data=data)  # the browser's own User-Agent (fetch)
             except Exception as e:
                 if not self.direct and proxy_out(e):
                     raise out(self.site, e)
@@ -653,7 +660,8 @@ def discuss_thread(px, tid, info, allowed):
     (~5-14 KB), later ones from the mobile thread pages (15 posts, ~30 KB each). The listing's 回覆 count excludes the
     opening post. A reply's id is its post number (#c<n>). info["force"]: read its newest page even when no listing
     showed it grew (its second scoring is due: twopass). A thread's first full read marks it captured (twopass), a
-    later complete read re-read."""
+    later complete read re-read. When the printable view is walled (Cloudflare's challenge on the ISP IP while the
+    mobile pages answer, 17 Nov 2026), the run reads every thread from its mobile pages, page 1 on (RUN printable_walled)."""
     st = state("discuss", tid)
     total = info.get("replies")
     if not info.get("force") and not due(st, total):
@@ -679,9 +687,16 @@ def discuss_thread(px, tid, info, allowed):
         st["read"] = max([c["id"] for c in comments] + [st["read"], 1])
 
     more = True
-    if st["read"] < PRINTABLE_MAX:
+    text = None
+    if st["read"] < PRINTABLE_MAX and not RUN.get("printable_walled"):
         printable = f"https://www.discuss.com.hk/viewthread.php?action=printable&tid={tid}"
-        text = px.get(printable, walled=discuss_walled)
+        try:
+            text = px.get(printable, walled=discuss_walled)
+        except (Blocked, Wall) as e:  # the mobile pages may still answer: they say (a wall there ends the run)
+            print("discuss printable view walled; mobile pages this run:", repr(e)[:120], flush=True)
+            RUN["printable_walled"] = True
+            pages += 1
+    if text is not None:
         gate = re.search(r'action="agreement18\.php".*?name="catid" value="(\d+)"', text, re.S)
         if gate:  # a betting board's 18+ notice: agree (the session's cookie keeps it) and read again
             px.post("https://www.discuss.com.hk/agreement18.php", {"catid": gate.group(1), "adult": "agreed"})
@@ -704,6 +719,13 @@ def discuss_thread(px, tid, info, allowed):
                       headers={"User-Agent": MUA}, walled=discuss_walled)
         pages += 1
         meta, posts = discuss_page(text)
+        if page == 1 and RUN.get("printable_walled"):  # the mobile page in the printable view's place
+            if not posts:
+                st["checked"] = time.time()
+                save_state("discuss", tid, dict(st, total=total))  # deleted, hidden or moved: as the printable view
+                return 0, pages
+            if capture:
+                twopass.reading(url)
         item["title"] = item["title"] or meta["title"]
         item["section"] = (RUN.get("boards") or DISCUSS_FIDS).get(meta["fid"]) or item["section"] or meta["board"]
         item["published"] = item["published"] or meta["published"]
