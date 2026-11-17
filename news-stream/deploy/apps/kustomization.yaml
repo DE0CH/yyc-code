@@ -40,7 +40,7 @@ images:
     newTag: '6944bec2041e'
   - name: yyc-mcp
     newName: ghcr.io/de0ch/yyc-mcp
-    newTag: '933d298a7444'
+    newTag: '00d13ca47a76'
   - name: yyc-socks
     newName: ghcr.io/de0ch/yyc-socks
     newTag: '0dbbbd60afa5'
