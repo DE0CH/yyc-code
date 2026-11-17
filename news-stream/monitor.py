@@ -8,7 +8,7 @@ Two halves:
            data from Postgres (kv monitor:data, below): nothing on the read path calls this service.
   this     `gunicorn monitor:application` in the Deployment `monitor` (deploy/apps/monitor.yaml), which computes the
            panels and publishes each snapshot into kv monitor:data. It holds the provider keys the web side doesn't
-           (IPROYAL_API, HETZNER_YYC_READ, CLOUDFLARE_YYC_MONITOR_TOKEN), reads the cluster with a read-only
+           (IPROYAL_API, HETZNER_YYC_READ, AWS_YYC_MONITOR_*, CLOUDFLARE_YYC_MONITOR_TOKEN), reads the cluster with a read-only
            ServiceAccount, and nothing reaches it over the network (no Service; NetworkPolicy with no ingress). GET /data (its own copy), /healthz
            and /readyz answer only inside the pod (the probes, kubectl exec).
 
@@ -27,7 +27,7 @@ until something later worked (settle(), error_current, state_current): the page 
 
   python3 monitor.py            print the JSON once (in a pod with the keys)
 """
-import csv, io, json, os, re, ssl, sys, threading, time, urllib.error, urllib.request
+import csv, io, json, os, re, ssl, sys, threading, time, urllib.error, urllib.parse, urllib.request
 from datetime import datetime, timedelta, timezone
 
 import corpus
@@ -1477,6 +1477,159 @@ def bal_hetzner():
             "servers": rows, "ipv4": n4, "ipv4_ips": ip_rows, "list_monthly_net": round(total, 4), "vat_rate": pricing["vat_rate"]}
 
 
+# ---- AWS (YYC's member account 551897326524: YYC AI's sandbox hosts, their AMI and image bucket) ----
+# Cost: Cost Explorer's GetCostAndUsage, AWS's own billed figures (UnblendedCost per UTC day and service; a member
+# account sees its own costs only). AWS charges USD 0.01 a request and brings its cost data up to date at most three
+# times a day, so one request is read every AWS_CE_TTL and kept (in this process, and in the published snapshot for a
+# new pod); the instances are read with every balances round (EC2 DescribeInstances, free).
+# Credential: IAM user yyc-monitor (infra/aws-monitor-iam.py: ce:GetCostAndUsage and ec2:DescribeInstances, nothing
+# else), AWS_YYC_MONITOR_ACCESS_KEY_ID / AWS_YYC_MONITOR_SECRET_ACCESS_KEY in Secret monitor-keys.
+AWS_NAME = "AWS (account yyc)"
+AWS_CE_TTL = 6 * 3600
+AWS_REGIONS = [r for r in os.environ.get("AWS_YYC_REGIONS", "eu-central-1").split(",") if r]  # where YYC's instances run
+AWS_SHORT = {"Amazon Elastic Compute Cloud - Compute": "EC2", "EC2 - Other": "EC2 other (disks, traffic)",
+             "Amazon Simple Storage Service": "S3", "Amazon Virtual Private Cloud": "VPC (public IPv4)",
+             "AWS Cost Explorer": "Cost Explorer", "AWS Key Management Service": "KMS", "AmazonCloudWatch": "CloudWatch",
+             "AWS Data Transfer": "Data transfer"}
+_aws = {"costs": None}
+
+
+def aws_post(service, region, body, headers, ak, sk, timeout=25):
+    """one signed POST to an AWS API (Signature Version 4, as s3.py) → the response text; an error carries AWS's own
+    message"""
+    import hashlib, hmac
+    import s3
+    host = f"{service}.{region}.amazonaws.com"
+    t = datetime.now(timezone.utc)
+    amz, day = t.strftime("%Y%m%dT%H%M%SZ"), t.strftime("%Y%m%d")
+    h = dict({k.lower(): v for k, v in headers.items()}, **{"host": host, "x-amz-date": amz})
+    names = sorted(h)
+    canon = "\n".join(["POST", "/", "", "".join(f"{n}:{h[n]}\n" for n in names), ";".join(names),
+                       hashlib.sha256(body).hexdigest()])
+    scope = f"{day}/{region}/{service}/aws4_request"
+    sts = "\n".join(["AWS4-HMAC-SHA256", amz, scope, hashlib.sha256(canon.encode()).hexdigest()])
+    sig = hmac.new(s3.signing_key(sk, day, region, service), sts.encode(), hashlib.sha256).hexdigest()
+    h["authorization"] = f"AWS4-HMAC-SHA256 Credential={ak}/{scope}, SignedHeaders={';'.join(names)}, Signature={sig}"
+    h.pop("host")
+    h["User-Agent"] = UA
+    try:
+        with urllib.request.urlopen(urllib.request.Request(f"https://{host}/", data=body, method="POST", headers=h),
+                                    timeout=timeout) as r:
+            return r.read().decode("utf-8", "replace")
+    except urllib.error.HTTPError as e:
+        raise RuntimeError(f"AWS {service} HTTP {e.code}: {e.read().decode('utf-8', 'replace')[:300]}") from None
+
+
+def aws_costs(ak, sk, start, end):
+    """Cost Explorer: UnblendedCost per UTC day and service for [start, end) (dates) → {"days": {day: {service:
+    usd}}, "estimated": [days AWS still marks as estimated], "requests": n}"""
+    days, est, token, n = {}, [], None, 0
+    while True:
+        body = {"TimePeriod": {"Start": start.isoformat(), "End": end.isoformat()}, "Granularity": "DAILY",
+                "Metrics": ["UnblendedCost"], "GroupBy": [{"Type": "DIMENSION", "Key": "SERVICE"}]}
+        if token:
+            body["NextPageToken"] = token
+        j = json.loads(aws_post("ce", "us-east-1", json.dumps(body).encode(), {
+            "content-type": "application/x-amz-json-1.1", "x-amz-target": "AWSInsightsIndexService.GetCostAndUsage"}, ak, sk))
+        n += 1
+        for r in j.get("ResultsByTime") or []:
+            d = days.setdefault(r["TimePeriod"]["Start"], {})
+            for g in r.get("Groups") or []:
+                usd = float(g["Metrics"]["UnblendedCost"]["Amount"])
+                if usd:
+                    d[g["Keys"][0]] = d.get(g["Keys"][0], 0.0) + usd
+            if r.get("Estimated") and r["TimePeriod"]["Start"] not in est:
+                est.append(r["TimePeriod"]["Start"])
+        token = j.get("NextPageToken")
+        if not token or n >= 20:
+            return {"days": days, "estimated": est, "requests": n}
+
+
+def aws_instances(ak, sk, region):
+    """EC2 DescribeInstances in one region → every instance not terminated: name, type, state, launch time, spot or
+    on-demand"""
+    import xml.etree.ElementTree as ET
+    out, token = [], None
+    while True:
+        q = {"Action": "DescribeInstances", "Version": "2016-11-15", "MaxResults": "1000"}
+        if token:
+            q["NextToken"] = token
+        x = aws_post("ec2", region, urllib.parse.urlencode(q).encode(),
+                     {"content-type": "application/x-www-form-urlencoded; charset=utf-8"}, ak, sk)
+        root = ET.fromstring(re.sub(r'\sxmlns="[^"]+"', "", x, count=1))
+        for i in root.iter("instancesSet"):
+            for it in i.findall("item"):
+                state = it.findtext("instanceState/name")
+                if state in ("terminated", "shutting-down"):
+                    continue
+                tags = {t.findtext("key"): t.findtext("value") for t in it.findall("tagSet/item")}
+                out.append({"id": it.findtext("instanceId"), "name": tags.get("Name") or tags.get("app") or "",
+                            "type": it.findtext("instanceType"), "state": state, "launched": it.findtext("launchTime"),
+                            "market": it.findtext("instanceLifecycle") or "on-demand", "region": region})
+        token = root.findtext("nextToken")
+        if not token:
+            return out
+
+
+def aws_costs_cached(ak, sk):
+    """the kept Cost Explorer answer, read again once it is AWS_CE_TTL old; a new pod takes the published snapshot's.
+    A failed read keeps the last answer and says why → (costs, error or None)"""
+    c = _aws["costs"]
+    if c is None:
+        prev = next((p for p in ((stored("balances") or (0, {}))[1].get("providers") or []) if p.get("id") == "aws"), {})
+        if prev.get("costs"):
+            c = _aws["costs"] = prev["costs"]
+    if c and time.time() - c["at"] < AWS_CE_TTL:
+        return c, None
+    today = datetime.now(timezone.utc).date()
+    try:
+        got = aws_costs(ak, sk, min(today.replace(day=1), today - timedelta(days=30)), today + timedelta(days=1))
+    except Exception as e:  # noqa: BLE001
+        if c:
+            return c, repr(e)[:300]
+        raise
+    c = _aws["costs"] = dict(got, at=time.time(), read=iso(now()))
+    return c, None
+
+
+def bal_aws():
+    """YYC's AWS account: what AWS has billed this month, yesterday and today so far (UTC days), per service, and the
+    instances running now"""
+    ak, sk = os.environ.get("AWS_YYC_MONITOR_ACCESS_KEY_ID"), os.environ.get("AWS_YYC_MONITOR_SECRET_ACCESS_KEY")
+    if not (ak and sk):
+        return not_connected("aws", AWS_NAME, "the access key of IAM user yyc-monitor (infra/aws-monitor-iam.py: Cost "
+                                              "Explorer and EC2 read only) as AWS_YYC_MONITOR_ACCESS_KEY_ID and "
+                                              "AWS_YYC_MONITOR_SECRET_ACCESS_KEY in Secret monitor-keys")
+    costs, err = aws_costs_cached(ak, sk)
+    inst = [i for r in AWS_REGIONS for i in aws_instances(ak, sk, r)]
+    today = datetime.now(timezone.utc).date()
+    month, yday = today.strftime("%Y-%m"), (today - timedelta(days=1)).isoformat()
+    by_day = {d: round(sum(s.values()), 6) for d, s in sorted(costs["days"].items())}
+    svc = lambda ds: sorted(({"name": AWS_SHORT.get(k, re.sub(r"^(Amazon|AWS)\s+", "", k)), "usd": round(v, 6)}  # noqa: E731
+                             for k, v in ds.items()), key=lambda x: -x["usd"])
+    by_service = {}
+    for d, s in costs["days"].items():
+        if d.startswith(month):
+            for k, v in s.items():
+                by_service[k] = by_service.get(k, 0.0) + v
+    running = [i for i in inst if i["state"] == "running"]
+    types = {}
+    for i in running:
+        types[i["type"]] = types.get(i["type"], 0) + 1
+    return {"id": "aws", "name": AWS_NAME, "status": "ok",
+            "account": "YYC's AWS member account 551897326524 (its own invoice)", "month": month,
+            "month_usd": round(sum(v for d, v in by_day.items() if d.startswith(month)), 6),
+            "yesterday": yday, "yesterday_usd": by_day.get(yday), "today_usd": by_day.get(today.isoformat()),
+            "by_day_usd": by_day, "services_month": svc(by_service), "services_yesterday": svc(costs["days"].get(yday) or {}),
+            "estimated_days": costs.get("estimated") or [], "costs_read": costs.get("read"), "costs_error": err,
+            "costs": costs, "instances": sorted(inst, key=lambda i: i.get("launched") or ""), "running": len(running),
+            "running_types": [{"type": k, "n": v} for k, v in sorted(types.items(), key=lambda x: -x[1])],
+            "regions": AWS_REGIONS,
+            "source": f"provider API (Cost Explorer GetCostAndUsage: UnblendedCost per UTC day and service, read every "
+                      f"{AWS_CE_TTL // 3600} h at USD 0.01 a request; EC2 DescribeInstances in {', '.join(AWS_REGIONS)}); "
+                      f"AWS completes a day's cost up to 24 h after it ends"}
+
+
 # Workers Paid: what the plan includes each month and the list price beyond it, per million units
 # (developers.cloudflare.com/workers/platform/pricing, read 2026-10-16). Durable Objects' duration is billed at 128 MB.
 CF_PRICE_BASIS = ("Workers Paid included amounts and list prices beyond them: "
@@ -1603,7 +1756,7 @@ def bal_exa():
 def balances():
     out = []
     for f in (bal_openrouter, bal_tikhub, bal_anyapi, bal_iproyal, bal_capsolver, bal_2captcha, bal_hetzner,
-              bal_cloudflare, bal_exa):
+              bal_aws, bal_cloudflare, bal_exa):
         try:
             out.append(f())
         except Exception as e:
@@ -1713,6 +1866,24 @@ def hetzner_window(het, start, end, rate, rate_basis):
             "cost_note": None if rate else "no USD figure: " + str(rate_basis)}
 
 
+def aws_window(aws, start, end):
+    """AWS for a window: Cost Explorer's figures are per UTC day and a day is complete up to 24 h after it ends, so a
+    window is costed at the rate of the latest day AWS has closed (yesterday, UTC), per service; the month's and
+    each day's own figures are in the history"""
+    if aws.get("status") != "ok" or aws.get("yesterday_usd") is None:
+        return None
+    hours = (end - start).total_seconds() / 3600
+    subs = [{"name": x["name"], "kind": "service", "app_usd": None, "provider_usd": x["usd"] / 24 * hours,
+             "cost_usd": x["usd"] / 24 * hours} for x in aws.get("services_yesterday") or [] if x["usd"] > 0]
+    usd = sum(x["cost_usd"] for x in subs)
+    for x in subs:
+        x["share_of_component"] = x["cost_usd"] / usd if usd else 0
+    return {"id": "aws", "name": AWS_NAME, "provider_usd": usd, "app_usd": None, "cost_usd": usd,
+            "cost_source": "provider API (daily rate)", "provider_coverage": 1.0, "app_basis": None, "cost_note": None,
+            "provider_basis": f"AWS Cost Explorer: the UnblendedCost of {aws.get('yesterday')} (UTC, the latest day AWS "
+                              f"has closed) per service, spread over its 24 h, for the window's hours", "subs": subs}
+
+
 def exa_window(start, end):
     """Exa for a window: Exa's own charged cost per call (costDollars.total, tool_spend; as the Exa card)"""
     try:
@@ -1797,7 +1968,7 @@ def ai_parts(cp, windows, first, end, state, current):
     return out
 
 
-def spend_bars(cp, raws, first, end, series, breakdown, om, ipr, het, cf, exa, rate, rate_basis, jobs, current):
+def spend_bars(cp, raws, first, end, series, breakdown, om, ipr, het, cf, exa, rate, rate_basis, jobs, current, aws=None):
     """every spending item for the bar view (Deyao, 2026-10-21: "all the spending should get a bar graph … ordered by
     value … the bar should be 24h average"): per provider and per part (purpose × model, site (job), job · endpoint,
     solver · site, resource), each with its last 24 h and 6 h cost and this month's (HKT, our log; Hetzner and
@@ -1869,6 +2040,8 @@ def spend_bars(cp, raws, first, end, series, breakdown, om, ipr, het, cf, exa, r
                 if cid == "hetzner":
                     it.update(h24_eur=(s24 or {}).get("eur"), month_usd=None,
                               month_text=f"EUR {x.get('monthly_eur', 0):.2f}/month (list)")
+                if cid == "aws":  # this month per service: Cost Explorer's own figure
+                    it["month_usd"] = next((s["usd"] for s in (aws or {}).get("services_month") or [] if s["name"] == n), None)
                 if cid == "cloudflare":
                     it.update(month_usd=None, month_text=("USD 5.00/month (subscription)" if n.startswith("subscriptions")
                                                           else f"USD {float(cf.get('overage_usd') or 0):.4f} this billing period"))
@@ -1905,6 +2078,8 @@ def spend_bars(cp, raws, first, end, series, breakdown, om, ipr, het, cf, exa, r
         if cid == "hetzner":
             row.update(month_usd=None, h24_eur=c24.get("cost_eur"),
                        month_text=f"EUR {float(het.get('list_monthly_net') or 0):.2f}/month (list)")
+        if cid == "aws":  # the month as AWS bills it (services with no cost yesterday included)
+            row.update(month_usd=(aws or {}).get("month_usd"))
         if cid == "cloudflare":
             row.update(month_usd=None, month_text=f"USD {float(cf.get('subscriptions_monthly_usd') or 0):.2f}/month + usage "
                                                   f"USD {float(cf.get('overage_usd') or 0):.4f}")
@@ -1925,7 +2100,8 @@ def spend_bars(cp, raws, first, end, series, breakdown, om, ipr, het, cf, exa, r
                            "row: its running parts (the history below has the providers' own month figures); Hetzner "
                            "and Cloudflare: their monthly price",
             "basis": "bar = the last 24 h (the cost profile: the provider's own counter where its snapshots cover the "
-                     "window, split over parts by our log; Hetzner: list prices spread over the hours)"}
+                     "window, split over parts by our log; Hetzner: list prices spread over the hours; AWS: the latest closed "
+                     "day's cost spread over its 24 h)"}
 
 
 def spending():
@@ -1973,6 +2149,13 @@ def spending():
     else:
         series.append({"id": "iproyal", "name": "IPRoyal (proxy traffic)", "by_day": {}, "mtd_usd": None,
                        "source": "not connected: " + str(ipr.get("needs") or ipr.get("error"))})
+    aws = bal.get("aws") or {}
+    if aws.get("status") == "ok":
+        usd = {d: round(v, 4) for d, v in (aws.get("by_day_usd") or {}).items()}
+        series.append({"id": "aws", "name": "AWS (YYC AI's sandbox hosts)", "by_day": usd,
+                       "mtd_usd": round(aws.get("month_usd") or 0, 4), "mtd_provider_usd": aws.get("month_usd"),
+                       "source": "provider figures: AWS Cost Explorer (UnblendedCost per UTC day; the last day or two "
+                                 "are still filling in)"})
     het = bal.get("hetzner") or {}
     fixed = []
     if het.get("status") == "ok":
@@ -1991,10 +2174,10 @@ def spending():
     rate, rate_basis = eur_usd()
     for h in WINDOWS:
         p = cp.profile(end - timedelta(hours=h), end, tikhub_prices=prices)
-        # Hetzner and Exa: their own figures for the window (hetzner_window, exa_window), not the profile's
+        # Hetzner, AWS and Exa: their own figures for the window (hetzner_window, aws_window, exa_window), not the profile's
         extra = [x for x in (hetzner_window(het, end - timedelta(hours=h), end, rate, rate_basis),
-                             exa_window(end - timedelta(hours=h), end)) if x]
-        p["components"] = [x for x in p["components"] if x["id"] != "hetzner"] + extra
+                             aws_window(aws, end - timedelta(hours=h), end), exa_window(end - timedelta(hours=h), end)) if x]
+        p["components"] = [x for x in p["components"] if x["id"] not in ("hetzner", "aws")] + extra
         comps = [slim(x) for x in p["components"]]
         windows.append({"hours": h, "start": p["start"], "end": p["end"], "components": comps,
                         "total_usd": round(sum(x["cost_usd"] or 0 for x in comps), 6)})
@@ -2019,7 +2202,7 @@ def spending():
     except Exception:
         jobs_now = {}
     bars = spend_bars(cp, raws, first, end, series, breakdown, om, ipr, het, cf, bal.get("exa") or {}, rate, rate_basis,
-                      jobs_now, models)
+                      jobs_now, models, aws)
     return {"month": t.strftime("%Y-%m"), "days": days, "series": series, "fixed": fixed, "bars": bars,
             "total_mtd_usd": round(sum(x["mtd_usd"] or 0 for x in series), 4),
             "windows": windows, "models": models, "ai_models": ai_models, "breakdown": breakdown,
@@ -2027,7 +2210,7 @@ def spending():
                            "note": "bytes, in decimal units as IPRoyal counts them (its GB is what a 10 GB top-up buys): "
                                    "1 GB = 1,000,000,000 bytes, 1 MB = 1,000,000 bytes"},
             "now_basis": "last 6 h / 24 h: infra/cost-profile.py's profile (the provider's own counter where its "
-                         "snapshots cover the window, else our log; Hetzner: its list prices spread over the hours, Exa: its charged cost per call). Rate now: a "
+                         "snapshots cover the window, else our log; Hetzner: its list prices spread over the hours, AWS: the latest closed day's cost spread over its 24 h, Exa: its charged cost per call). Rate now: a "
                          "purpose's spend since its current model took over, over at most the last 24 h (our log: ai_runs)",
             "note": "USD; days are HKT except IPRoyal's report days and OpenRouter's month (UTC)"}
 
@@ -2410,6 +2593,15 @@ def provider_line(p):
             f.append(["today", f"{today} GB"])
     elif i == "hetzner":
         f.append(["servers", f"{len(p.get('servers') or [])} · list {p.get('currency', 'EUR')} {p.get('list_monthly_net')}/month net"])
+    elif i == "aws":
+        # one short line (it must fit a phone's width beside the name), then two that give way first when the panel is full
+        f.append(["month", f"{_usd(p.get('month_usd'))} · yesterday {_usd(p.get('yesterday_usd') or 0)}"])
+        top = (p.get("services_month") or [])[:3]
+        if top:
+            f.append(["by service", " · ".join(f"{x['name'].split(' (')[0]} {float(x['usd']):,.2f}" for x in top)])
+        types = p.get("running_types") or []
+        f.append(["running now", (", ".join(f"{x['n']} × {x['type']}" for x in types[:3]) or "no instance") +
+                  (f", +{len(types) - 3} more types" if len(types) > 3 else "")])
     elif i == "cloudflare":
         f.append(["plan", f"{p.get('plan')} · overage {_usd(p.get('overage_usd'))}"])
     elif i == "exa":

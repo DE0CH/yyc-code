@@ -96,6 +96,7 @@ html.live-doc.live-phone, html.live-doc.live-phone body { overflow-x:hidden; ove
 .lp .st a.ops { color:var(--ink); text-decoration:underline; text-underline-offset:2px; }  /* a link to YYC AI's operator page */
 .lp .st .c2 { width:84px; overflow:hidden; text-overflow:ellipsis; }
 .lp .st .pn { width:120px; overflow:hidden; text-overflow:ellipsis; color:var(--ink); }
+.lp .st .ind { width:8px; }  /* a provider's further figures in a narrow box (a phone): a small indent, not the name column's width */
 .lp .st .src { margin-left:auto; }
 .lp .st .bk { width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }  /* Systems: two buckets a line */
 .lp .st .bk.why { color:var(--bad); }

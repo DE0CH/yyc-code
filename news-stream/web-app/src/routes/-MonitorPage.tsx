@@ -130,6 +130,15 @@ function make(D: D, c: Ctx) {
         <dt>Price</dt><dd>${usd(x.price_per_gb_usd, 4)} per GB <span class="muted">(${esc(x.price_basis)})</span></dd></dl>`;
       } else if (x.id === "hetzner") {
         body = `<div class="big">${esc(x.currency)} ${Number(x.list_monthly_net).toFixed(2)} / month</div><dl class="kv">${(x.servers || []).map((s: D) => `<dt>${esc(s.name)}</dt><dd>${esc(s.type)} ${esc(s.location)} ${esc(s.status)}, ${esc(x.currency)} ${s.monthly_net}${s.backups_net ? " + backups " + s.backups_net : ""}</dd>`).join("")}<dt>IPv4</dt><dd>${x.ipv4}</dd></dl>`;
+      } else if (x.id === "aws") {
+        const svc = (l: D[]) => (l || []).map((v: D) => `${esc(v.name)} ${usd(v.usd, 4)}`).join("<br>") || "–";
+        const est = (x.estimated_days || []).length;
+        body = `<div class="big">${usd(x.month_usd)} <span class="small muted">billed this month (${esc(x.month)}, UTC)</span></div><dl class="kv"><dt>Account</dt><dd>${esc(x.account)}</dd>
+        <dt>Yesterday</dt><dd>${usd(x.yesterday_usd ?? 0, 4)} <span class="muted">(${esc(x.yesterday)}, UTC)</span></dd>
+        <dt>Today so far</dt><dd>${x.today_usd != null ? usd(x.today_usd, 4) : "–"} <span class="muted">(as far as AWS has billed it)</span></dd>
+        <dt>This month by service</dt><dd>${svc(x.services_month)}</dd>
+        <dt>Instances now</dt><dd>${(x.instances || []).map((i: D) => `${esc(i.name || i.id)}: ${esc(i.type)} ${esc(i.market)}, ${esc(i.state)} since ${hkt(i.launched)} <span class="muted">(${esc(i.region)})</span>`).join("<br>") || "none"}</dd>
+        <dt>Cost figures read</dt><dd>${hkt(x.costs_read)}${est ? ` <span class="muted">(AWS's estimates until the month's invoice)</span>` : ""}${x.costs_error ? `<br><span class="err">the last read failed: ${esc(x.costs_error)}</span>` : ""}</dd></dl>`;
       } else if (x.id === "cloudflare") {
         const pct = (u: D) => u.included ? ` (${Math.round(u.used / u.included * 100)}%)` : "";
         body = `<div class="big">${usd(x.subscriptions_monthly_usd)} / month <span class="small muted">${esc(x.plan || "")}</span></div><dl class="kv"><dt>Account</dt><dd>${esc(x.account)}</dd>
@@ -143,12 +152,12 @@ function make(D: D, c: Ctx) {
         <dt>Calls</dt><dd>${num(x.calls_month)} this month, ${num(x.calls_today)} today (${usd(x.exa_charged_today_usd, 4)})</dd>
         <dt>Plan</dt><dd>${esc(String(x.plan || "").split(":")[0])}</dd></dl><div class="src">Plan: ${esc(x.plan)}. Balance: ${esc(x.usage_api)}</div>`;
       }
-      return `<div class="card${x.id === "iproyal" || x.id === "cloudflare" ? " wide" : ""}">${head(body)}<div class="src">Source: ${esc(x.source)}</div></div>`;
+      return `<div class="card${x.id === "iproyal" || x.id === "cloudflare" || x.id === "aws" ? " wide" : ""}">${head(body)}<div class="src">Source: ${esc(x.source)}</div></div>`;
     }).join("");
   }
 
   // one hue per provider (house.css --p-*; the chart's legend names them). Never red, amber or green: those are status
-  const COLORS: Record<string, string> = { openrouter: "var(--p-1)", social: "var(--p-2)", tikhub: "var(--p-2)", anyapi: "var(--p-3)", iproyal: "var(--p-4)", solvers: "var(--p-5)", hetzner: "var(--p-6)", cloudflare: "var(--ink)", exa: "var(--muted)" };
+  const COLORS: Record<string, string> = { openrouter: "var(--p-1)", social: "var(--p-2)", tikhub: "var(--p-2)", anyapi: "var(--p-3)", iproyal: "var(--p-4)", solvers: "var(--p-5)", hetzner: "var(--p-6)", aws: "var(--p-6)" /* servers, as Hetzner: the chart has no Hetzner series */, cloudflare: "var(--ink)", exa: "var(--muted)" };
   /** one bar row (Deyao, 2026-10-21: every spend as a bar, the bar = the last 24 h, rows ordered by it, one scale per
    *  section): the label (and a muted detail), the bar, the 24 h figure and the month's under it */
   const pct = (v: number, max: number) => max > 0 ? Math.max(0, Math.min(100, 100 * v / max)) : 0;
@@ -226,7 +235,7 @@ function make(D: D, c: Ctx) {
       ${it24.slice(0, TOP).map(itemRow).join("") || '<p class="muted small">No spend in the last 24 h.</p>'}
       ${it24.length > TOP ? `<details class="days"><summary>${it24.length - TOP} more items with spend in the last 24 h</summary>${it24.slice(TOP).map(itemRow).join("")}</details>` : ""}
       ${rest(it0.map(itemRow), "items")}
-      <p class="note">${esc(bars.basis || "")}. Parts: AI purpose × model, IPRoyal site (job), TikHub / AnyAPI job × endpoint, captcha solver × site, Hetzner resource.${bars.eur_usd ? ` EUR → USD ${esc(String(bars.eur_usd))} (${esc(bars.eur_usd_basis || "")}).` : bars.eur_usd_basis ? " " + esc(bars.eur_usd_basis) + "." : ""}</p></div>`;
+      <p class="note">${esc(bars.basis || "")}. Parts: AI purpose × model, IPRoyal site (job), TikHub / AnyAPI job × endpoint, captcha solver × site, Hetzner resource, AWS service.${bars.eur_usd ? ` EUR → USD ${esc(String(bars.eur_usd))} (${esc(bars.eur_usd_basis || "")}).` : bars.eur_usd_basis ? " " + esc(bars.eur_usd_basis) + "." : ""}</p></div>`;
     // 3. per job (Deyao, 2026-10-16): IPRoyal traffic in MB/GB only, TikHub / AnyAPI / OpenRouter USD; each job a bar
     // (the last 24 h), its sites / endpoints behind a tap on the same scale; 6 h, 24 h and this month as text
     const bd: D[] = sp.breakdown || [];
@@ -325,8 +334,9 @@ function make(D: D, c: Ctx) {
     const amSorted = am.slice().sort((x, y) => (y.last_24h_usd || 0) - (x.last_24h_usd || 0) || (y.usd || 0) - (x.usd || 0));
     const [am24, am0] = split(amSorted, a => a.last_24h_usd || 0);
     const aiRows = am24.map(aiRow).join("") + rest(am0.map(aiRow), "purpose × model rows");
-    // 6. the smaller providers' parts (captcha solvers, Cloudflare, Hetzner, Exa): same rows, one scale each
+    // 6. the smaller providers' parts (captcha solvers, Hetzner, AWS, Cloudflare, Exa): same rows, one scale each
     const small = ([["solvers", "Captcha solvers", "(solver × site; Deyao's own accounts, our log)"], ["hetzner", "Hetzner Cloud (project yyc)", "(resources now, list prices)"],
+      ["aws", "AWS (account yyc)", "(per service; the latest closed day's cost spread over its 24 h, Cost Explorer)"],
       ["cloudflare", "Cloudflare (account YYC)", "(subscription spread over the hours + usage beyond included)"], ["exa", "Exa", "(the data API's web search; within the free tier's monthly credit)"]] as const).map(([id, t, s]) => {
       const rows: D[] = items.filter(r => r.id === id);
       const p = provs.find(x => x.id === id);

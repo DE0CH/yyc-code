@@ -85,7 +85,19 @@ def bw(key, label, f):
 AT = ago(seconds=0)
 SNAP = {
     "stops": {"stored_at": NOW - 30, "value": {"providers": [], "computed_at": AT}},
-    "balances": {"stored_at": NOW - 60, "value": {"providers": [], "computed_at": AT}},
+    # AWS as monitor.bal_aws gives it (Deyao, 2026-11-17; YYC's account that day)
+    "balances": {"stored_at": NOW - 60, "value": {"computed_at": AT, "providers": [
+        {"id": "aws", "name": "AWS (account yyc)", "status": "ok", "account": "YYC's AWS member account 551897326524 (its own invoice)",
+         "month": "2026-11", "month_usd": 37.312328, "yesterday": "2026-11-16", "yesterday_usd": 5.290205, "today_usd": 0.41,
+         "services_month": [{"name": "EC2", "usd": 28.803596}, {"name": "Tax", "usd": 6.22}, {"name": "EC2 other (disks, traffic)", "usd": 1.612112},
+                            {"name": "VPC (public IPv4)", "usd": 0.62385}, {"name": "Cost Explorer", "usd": 0.05}, {"name": "S3", "usd": 0.002769}],
+         "estimated_days": ["2026-11-16", "2026-11-17"], "costs_read": ago(hours=2), "costs_error": None, "running": 2,
+         "instances": [{"id": "i-0d902cfc4ee9ac471", "name": "hermit-host-aws-ce4ebc", "type": "m7i.xlarge", "state": "running",
+                        "launched": ago(hours=5), "market": "on-demand", "region": "eu-central-1"},
+                       {"id": "i-015b4be35dca3a40a", "name": "hermit-host-ami-build", "type": "t3.large", "state": "stopped",
+                        "launched": ago(hours=4), "market": "on-demand", "region": "eu-central-1"}],
+         "source": "provider API (Cost Explorer GetCostAndUsage: UnblendedCost per UTC day and service, read every 6 h at USD 0.01 a "
+                   "request; EC2 DescribeInstances in eu-central-1); AWS completes a day's cost up to 24 h after it ends"}]}},
     "telegram": {"stored_at": NOW - 20, "value": {"computed_at": AT, "note": "backlog = items filed after the last one sent",
         "streams": [{"stream": "CEHK", "name": "特首", "channel": True, "items": 900, "last_sent_id": 2150, "backlog": 0,
                      "last_sent_item_seen": ago(minutes=9), "last_sent_at": ago(minutes=8)}],
@@ -213,6 +225,19 @@ class MonitorNow(unittest.TestCase):
                 self.assertRegex(wa, r"item 2150, sent \d+ min ago")
                 self.assertEqual(p.locator("#whatsapp .item:has-text('Linked device') .err").count(), 0)
                 self.assertIn("socket closed", p.inner_text("#whatsapp .err"))  # current: no send after it
+                # 1b. AWS's card (Deyao, 2026-11-17): the month, yesterday, the services, the instances, inside the page's width
+                card = p.locator("#bal .card:has-text('AWS (account yyc)')")
+                aw = card.inner_text()
+                for s in ("connected", "USD 37.31", "billed this month (2026-11, UTC)", "USD 5.2902", "2026-11-16", "USD 0.4100",
+                          "EC2 USD 28.8036", "Tax USD 6.2200", "hermit-host-aws-ce4ebc: m7i.xlarge on-demand, running since",
+                          "hermit-host-ami-build: t3.large on-demand, stopped since", "AWS's estimates until the month's invoice",
+                          "Source: provider API (Cost Explorer"):
+                    self.assertIn(s, aw, (name, s))
+                self.assertEqual(card.locator(".err").count(), 0)
+                box = card.bounding_box()
+                self.assertLessEqual(box["x"] + box["width"], p.viewport_size["width"], name)
+                self.assertTrue(card.evaluate("e => e.scrollWidth <= e.clientWidth"), name)
+                card.screenshot(path=os.path.join(SHOTS, f"aws-card-{name}.png"))
                 # 2. spending now
                 sp = p.inner_text("#spending")
                 for s in ("Last 6 h", "Last 24 h", "USD 9.60", "qwen/qwen3-asr-1.7b", "USD 0.6271/h", "google/gemini-4-argon",

@@ -152,7 +152,13 @@ def ai_fixtures():
             "keys": [{"name": "yyc-chat", "usage_today_usd": 2.96, "usage_month_usd": 25.30}, {"name": "yyc-stream", "usage_today_usd": 1.54, "usage_month_usd": 339.28}]},
            {"id": "tikhub", "name": "TikHub", "status": "ok", "balance_usd": 12.4, "usage_today_usd": 0.31, "source": "provider API (user/get_user_info)"},
            {"id": "iproyal", "name": "IPRoyal (residential)", "status": "ok", "left_gb": 3.2, "unallocated_gb": 0, "source": "provider API (/v1/me)"},
-           {"id": "anyapi", "name": "AnyAPI", "status": "error", "error": "HTTPError 500"}]
+           {"id": "anyapi", "name": "AnyAPI", "status": "error", "error": "HTTPError 500"},
+           # AWS as monitor.bal_aws gives it (YYC's account on 2026-11-17: its real figures and source)
+           {"id": "aws", "name": "AWS (account yyc)", "status": "ok", "month_usd": 1237.31, "yesterday_usd": 105.29,
+            "services_month": [{"name": "EC2", "usd": 1128.80}, {"name": "Tax", "usd": 206.22}, {"name": "EC2 other (disks, traffic)", "usd": 101.61}],
+            "running_types": [{"type": "m7i.xlarge", "n": 12}, {"type": "m7i.2xlarge", "n": 2}, {"type": "t3.large", "n": 1}],
+            "source": "provider API (Cost Explorer GetCostAndUsage: UnblendedCost per UTC day and service, read every 6 h at "
+                      "USD 0.01 a request; EC2 DescribeInstances in eu-central-1); AWS completes a day's cost up to 24 h after it ends"}]
     health = {"balances_at": z(120), "providers": [{"id": p["id"], "name": p["name"], "status": p["status"], "figs": monitor.provider_line(p),
                                                     "source": p.get("source"), "error": p.get("error")} for p in bal],
               "stops": [], "deployments": {"n": 12, "ok": 11, "short": ["wisers 0/1"]},
@@ -402,7 +408,7 @@ class LivePage(unittest.TestCase):
         ctx, page = open_page(self.br, "/app/live?half=right", 1920, 1080)
         page.wait_for_selector("[data-ai-state]", timeout=20000)
         ai_ = page.inner_text(".lp[data-panel=ai]")
-        for x in ("warming up", "Host aws-1b2c3d booting", "Sandboxes now: 2 of 10 max", "chunsi@yyc", "active now", "idle 15 min",
+        for x in ("warming up", "Host aws-1b2c3d booting", "Sandboxes now: 2 of 10 max", "michelle.yeoh@yyc", "active now", "idle 15 min",
                   "USD 2.96", "225 model calls", "budget: USD 23.07 of USD 100 used since 10-21", "2 conversations today",
                   "1 failed starts", "14 starts, 1 failed", "median 4.3 s", "model calls", "+7 calls", "sandbox start failed",
                   "host_boot_timeout", "model 402", "sandbox started"):
@@ -438,6 +444,10 @@ class LivePage(unittest.TestCase):
         self.assertNotIn("not answering", page.locator(".lp[data-panel=sys] .row", has_text="aws-1b2c3d").inner_text())
         self.assertEqual(page.locator(".lp[data-panel=sys] .row.why", has_text="aws-922e69").count(), 0)
         self.assertNotIn("more lines", sys_)
+        # AWS (Deyao, 2026-11-17): the month and yesterday on the provider's line, then the services and the instances
+        for x in ("AWS (account yyc)", "month USD 1,237.31 · yesterday USD 105.29", "by service EC2 1,128.80 · Tax 206.22 · EC2 other 101.61",
+                  "running now 12 × m7i.xlarge, 2 × m7i.2xlarge, 1 × t3.large"):
+            self.assertIn(x, sys_)
         # Jarvis 4 (Deyao, 2026-11-12): 16 sessions, most active first, each its state word in its colour, "2 more"
         jp = page.locator(".lp[data-panel=jarvis]")
         self.assertEqual(jp.locator(".jr").count(), 16)
@@ -535,6 +545,43 @@ class LivePage(unittest.TestCase):
         page.keyboard.press("f")
         page.wait_for_function("!document.fullscreenElement", timeout=5000)
         ctx.close()
+
+    def test_7_systems_lines_fit(self):
+        """Deyao, 2026-11-17 ("add aws usage tracking …, make sure it doesn't overflow"): in every layout the Systems
+        panel's lines end inside its box (none below its bottom edge), no part of a line is cut at the right edge, and
+        AWS's figures are shown whole (no ellipsis) wherever their line is shown"""
+        for path, w, h in (("/app/live?half=right", 1920, 1080), ("/app/live", 1440, 830), ("/app/live", 390, 844)):
+            ctx, page = open_page(self.br, path, w, h)
+            page.wait_for_selector(".lp[data-panel=sys] [data-provider=aws]", timeout=20000)
+            got = page.evaluate("""() => {
+                const p = document.querySelector('.lp[data-panel=sys]'), st = p.querySelector('.st');
+                const box = p.getBoundingClientRect(), out = { below: [], cut: [], aws: [], spill: st.scrollHeight - st.clientHeight };
+                let aws = false;
+                for (const r of st.children) {
+                    const rr = r.getBoundingClientRect(), text = r.innerText.replace(/\\s+/g, ' ').slice(0, 60);
+                    if (rr.bottom > box.bottom + 0.5) out.below.push(text);
+                    if (!r.classList.contains('row')) { aws = false; continue; }
+                    const kids = [...r.children], named = r.querySelector('.pn');
+                    if (named && named.textContent) aws = named.dataset.provider === 'aws';
+                    else if (!named) aws = false;
+                    // every part but the last is fixed: it must end inside the row; the last one shrinks with an ellipsis
+                    kids.slice(0, -1).forEach(k => { if (k.getBoundingClientRect().right > rr.right + 0.5) out.cut.push(text); });
+                    if (aws) {
+                        const fig = named.textContent ? kids[1] : kids[kids.length - 1];
+                        out.aws.push({ text, whole: fig.scrollWidth <= fig.clientWidth && fig.getBoundingClientRect().right <= rr.right + 0.5 });
+                    }
+                }
+                return out;
+            }""")
+            page.screenshot(path=os.path.join(SHOTS, f"systems-aws-{w}x{h}.png"), full_page=w == 390)
+            self.assertEqual(got["below"], [], (w, h))
+            self.assertLessEqual(got["spill"], 0, (w, h))
+            self.assertEqual(got["cut"], [], (w, h))
+            self.assertTrue(got["aws"] and got["aws"][0]["text"].startswith("AWS (account yyc)"), (w, h, got["aws"]))
+            self.assertEqual([x["text"] for x in got["aws"] if not x["whole"]], [], (w, h))
+            if w == 1920:  # the right display has room for all three
+                self.assertEqual(len(got["aws"]), 3, got["aws"])
+            ctx.close()
 
 
 @unittest.skipUnless(REAL, "set LIVE_PG to screenshot live data")

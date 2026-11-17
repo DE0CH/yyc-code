@@ -43,7 +43,9 @@ DISCORD_WEBHOOK (notify.py: the `yyc-alerts` channel's webhook in Deyao's Discor
 `monitor-keys` (the monitor pod's alone: IPROYAL_API, CAPSOLVER_API, and
 OPENROUTER_MANAGEMENT_KEY = OpenRouter management key `yyc-monitor`, also `YYC_OPENROUTER_MANAGEMENT_KEY` in the store
 `yyc`, which reads the account's credit; HETZNER_YYC_READ = Hetzner token `yyc-monitor` of project yyc, Read only
-(`YYC_HETZNER_READ` in the store); CLOUDFLARE_YYC_MONITOR_TOKEN = Cloudflare token `yyc-monitor` on account YYC only,
+(`YYC_HETZNER_READ` in the store); AWS_YYC_MONITOR_ACCESS_KEY_ID / AWS_YYC_MONITOR_SECRET_ACCESS_KEY = the access key
+of IAM user `yyc-monitor` in YYC's AWS account, ce:GetCostAndUsage and ec2:DescribeInstances only
+(`news-stream/infra/aws-monitor-iam.py`; `YYC_AWS_MONITOR_*` in the store); CLOUDFLARE_YYC_MONITOR_TOKEN = Cloudflare token `yyc-monitor` on account YYC only,
 Account Analytics Read + Billing Read (`YYC_CF_MONITOR_TOKEN` in the store), with CLOUDFLARE_YYC_ACCOUNT_ID; never in
 `app-env`),
 `db-app` (key `uri` = YYC_DB_APP_URI: role `app` on YYC's Postgres, Service `pg-rw.db`; every workload's `DATABASE_URL`),

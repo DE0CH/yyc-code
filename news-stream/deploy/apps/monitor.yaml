@@ -3,7 +3,7 @@
 # backups from its metrics exporter and kubelet, the object storage buckets: Role monitor-db-read, nodes/stats). The page is
 # /app/monitor (Deyao's Access identity only), on the edge app and web.py, which read the data from Postgres: this
 # Deployment computes each panel and publishes it into kv monitor:data. It holds the provider keys nothing else has
-# (Secret monitor-keys: IPROYAL_API, NEON_API_KEY, OPENROUTER_MANAGEMENT_KEY, TWOCAPTCHA_API, HETZNER_YYC_READ, CLOUDFLARE_YYC_*), reads the
+# (Secret monitor-keys: IPROYAL_API, NEON_API_KEY, OPENROUTER_MANAGEMENT_KEY, TWOCAPTCHA_API, HETZNER_YYC_READ, AWS_YYC_MONITOR_*, CLOUDFLARE_YYC_*), reads the
 # namespace with a read-only ServiceAccount, and nothing reaches it over the network: no Service, and the NetworkPolicy
 # below admits no ingress (the probes run inside the pod). A rollout starts the new pod and waits for its readiness
 # (every panel's first snapshot, /readyz) before the old one goes; a panel the new pod can't compute yet keeps the old
@@ -108,7 +108,7 @@ spec:
           envFrom:
             - secretRef: {name: app-env}  # OPENROUTER_API (key yyc-stream), TIKHUB_API
             - secretRef: {name: ai-tools, optional: true}  # ANYAPI_API_KEY
-            - secretRef: {name: monitor-keys}  # HERMIT_OPS_TOKEN (YYC AI hermit's monitor pair token: its operator snapshot for the live dashboard, through bridge B4, Service hermit-bridge), IPROYAL_API, NEON_API_KEY, OPENROUTER_MANAGEMENT_KEY (management key yyc-monitor: the account's credit), HETZNER_YYC_READ (read-only token yyc-monitor of project yyc), CLOUDFLARE_YYC_MONITOR_TOKEN + CLOUDFLARE_YYC_ACCOUNT_ID (token yyc-monitor on account YYC)
+            - secretRef: {name: monitor-keys}  # HERMIT_OPS_TOKEN (YYC AI hermit's monitor pair token: its operator snapshot for the live dashboard, through bridge B4, Service hermit-bridge), IPROYAL_API, NEON_API_KEY, OPENROUTER_MANAGEMENT_KEY (management key yyc-monitor: the account's credit), HETZNER_YYC_READ (read-only token yyc-monitor of project yyc), AWS_YYC_MONITOR_ACCESS_KEY_ID + AWS_YYC_MONITOR_SECRET_ACCESS_KEY (IAM user yyc-monitor of YYC's AWS account: its billed cost and instances, read only), CLOUDFLARE_YYC_MONITOR_TOKEN + CLOUDFLARE_YYC_ACCOUNT_ID (token yyc-monitor on account YYC)
           env:
             - {name: DATABASE_URL, valueFrom: {secretKeyRef: {name: db-app, key: uri}}}
             - {name: MONITOR_WARM, value: "1"}  # one background loop per panel; /data only serves their snapshots

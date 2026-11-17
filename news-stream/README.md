@@ -1342,7 +1342,17 @@ time (`monitor.settle`, `error_current`, `state_current`). Panels:
   and key yyc-stream's own spend (this month and today, the last 24 h hourly rate); no projection or run-out date.
   TikHub (balance, today's usage), AnyAPI (balance), IPRoyal (sub-user
   yycstream's traffic used/left, per-day usage report, the last order's per-GB price, and our own count of its bytes
-  per site, kv `proxy:bytes:<site>`). Hetzner
+  per site, kv `proxy:bytes:<site>`). AWS (Deyao, 2026-11-17: YYC's member account 551897326524, where YYC AI's
+  sandbox hosts run; `monitor.bal_aws`): what AWS has billed this month, yesterday and today so far and the month per
+  service, from Cost Explorer (`GetCostAndUsage`, UnblendedCost per UTC day and service; AWS marks the days as
+  estimates until the month's invoice and completes a day up to 24 h after it ends), and the instances there now (EC2
+  `DescribeInstances` in `AWS_YYC_REGIONS`, default eu-central-1). Cost Explorer charges USD 0.01 a request and its
+  data changes at most three times a day, so it is read once every 6 h (`AWS_CE_TTL`) and kept (a new pod takes the
+  published snapshot's figures; a failed read keeps the last ones and says why); the instances are read every round.
+  Key: IAM user `yyc-monitor` (`infra/aws-monitor-iam.py`: those two read calls and nothing else),
+  `AWS_YYC_MONITOR_ACCESS_KEY_ID` / `AWS_YYC_MONITOR_SECRET_ACCESS_KEY` in Secret `monitor-keys`. In Spending, AWS is
+  a series of the history (its own days), and its bar is the latest closed day's cost spread over its 24 h, per service
+  (`aws_window`: Cost Explorer has no finer figure than a day). Hetzner
   (needs a read-only project token `HETZNER_YYC_READ`; its API has list prices, not billing), Exa (needs a service
   key) and Cloudflare account YYC (needs an analytics/billing token) show "not connected" and what they need.
 - **Spending** tracks what things cost now (Deyao, 2026-10-16: after transcription moved to Qwen3-ASR-1.7B on
@@ -1461,7 +1471,10 @@ them (their events too), Full text went from two columns to one.
 - **Systems fits its box (Deyao, 2026-11-12:** Postgres, WiseSearch and object storage fell off the bottom of the
   screen): its lines are a list of fixed heights (`fitItems`), cut to the box it has. Red and amber lines always stay;
   when not everything fits, the healthy AWS hosts share one line, then bucket lines, extra provider figures and the
-  other lines give way, and a last line says how many are on /app/monitor.
+  other lines give way, and a last line says how many are on /app/monitor. A provider's first line is short enough
+  for a phone's width beside its name (AWS: the month and yesterday; its services and running instances are two extra
+  figures, which give way early); `tests/test_live_dashboard_page.py` test 7 measures, at each layout's size, that no
+  line ends below the box, no part of a line is cut at its right edge and AWS's figures are shown whole.
 - **Jarvis 4 (Deyao, 2026-11-12:** "a panel for my jarvis 4 status, i just need to know limited information like if
   session is working, idle, or with background … at most 12-16 sessions"): Jarvis 4's router (DE0CH/jarvis4
   `router/livepush.go`) POSTs his running sessions every 5 s to `/live/jarvis` with `X-Jarvis-Secret` (Worker secret
@@ -1495,7 +1508,7 @@ them (their events too), Full text went from two columns to one.
 | 7 | Alerts | events `alert`: Telegram / WhatsApp, stream, the post, sent or the refusal | `telegram_alerts.send_due`, `whatsapp_alerts.send_due` |
 | 8 | Problems | events `problem`: a poller source failing 2 polls in a row and its recovery (`app.note_problem`); a CronJob late, a Deployment short of pods, the WiseSearch session (the monitor's Discord alerts, `monitor._alert`) | as named |
 | 9 | YYC AI | state: kv `live:sys` `ai` (the status and its reasons, live sandboxes with owner, host, age and "active now" / idle, today's model calls and spend per person and model, the budget used of its limit, errors of the last 15 min, sandbox starts of 24 h with median and p95); cards: events `ai` (model calls per person since the last snapshot with their cost, sandbox started / failed / released, host events, egress errors, a verdict change) | `monitor.live_once` from YYC AI's operator snapshot (below) |
-| 10 | Systems | kv `live:sys` `health`: every provider's own figures with the source (OpenRouter credit and each `yyc-*` key's usage today and this month, TikHub, AnyAPI, IPRoyal `yycstream`, CapSolver, 2Captcha, Hetzner list prices, Cloudflare, Exa), the stops, the cluster's nodes, Postgres connections and size, the news stream's Deployments and CronJobs, YYC AI's pods and sandbox hosts (gateway, AWS hosts: sandboxes of slots, load, memory) | `monitor.live_once` (its own balances, stops and jobs panels; nodes; Postgres; the snapshot) |
+| 10 | Systems | kv `live:sys` `health`: every provider's own figures with the source (OpenRouter credit and each `yyc-*` key's usage today and this month, TikHub, AnyAPI, IPRoyal `yycstream`, CapSolver, 2Captcha, Hetzner list prices, AWS's billed cost this month and yesterday with its services and running instances, Cloudflare, Exa), the stops, the cluster's nodes, Postgres connections and size, the news stream's Deployments and CronJobs, YYC AI's pods and sandbox hosts (gateway, AWS hosts: sandboxes of slots, load, memory) | `monitor.live_once` (its own balances, stops and jobs panels; nodes; Postgres; the snapshot) |
 
 **`live:sys` and events `ai`** (monitor.py `live_once`, a loop of the monitor Deployment every 10 s, not a panel, so it
 never holds `/readyz` up): reads YYC AI's operator snapshot, hermit `GET /ops/snapshot?tz=Asia/Hong_Kong` (the data

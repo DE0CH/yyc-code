@@ -550,7 +550,7 @@ function SysPanel({ box, sys, now }: { box: Box; sys: LiveSys | null; now: numbe
           {bad ? <span>{p.status === "not_connected" ? "not connected" : "error"}: {s_(p.error)}</span>
             : figs.length ? <span>{figs[0][0]} <b>{figs[0][1]}</b>{rest === 2 ? <>, today <b>{figs[1][1]}</b></> : null}</span> : null}
           <span className="src dim">{srcShort(p.source)}</span></>, 1, s_(p.source) || undefined),
-        ...(bad ? [] : figs.slice(rest).map(([l, v], i) => row(`p${p.id}-${i}`, undefined, <><span className="pn" /><span>{l} <b>{v}</b></span></>, 3)))];
+        ...(bad ? [] : figs.slice(rest).map(([l, v], i) => row(`p${p.id}-${i}`, undefined, <><span className={narrow ? "ind" : "pn"} /><span>{l} <b>{v}</b></span></>, 3)))];
     }),
     sec("s2", "Cluster, news stream, YYC AI"),
     row("nodes", nodeErr || notReady.length ? "why" : undefined, <>nodes: {nodeErr ? `can't read: ${nodeErr}` : `${nodes.length - notReady.length} of ${nodes.length} ready`}

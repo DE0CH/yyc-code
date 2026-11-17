@@ -37,7 +37,8 @@ sys.path.insert(0, HERE)
 os.environ["DATABASE_URL"] = os.environ.get("TEST_DATABASE_URL") or sys.exit("TEST_DATABASE_URL is not set")
 os.environ.pop("ADMIN_DEV", None)
 for k in ("OPENROUTER_API", "OPENROUTER_MANAGEMENT_KEY", "TIKHUB_API", "ANYAPI_API_KEY", "IPROYAL_API", "HETZNER_YYC_READ",
-          "CAPSOLVER_API", "TWOCAPTCHA_API", "KUBERNETES_SERVICE_HOST", "MONITOR_WARM"):
+          "CAPSOLVER_API", "TWOCAPTCHA_API", "KUBERNETES_SERVICE_HOST", "MONITOR_WARM", "AWS_YYC_MONITOR_ACCESS_KEY_ID",
+          "AWS_YYC_MONITOR_SECRET_ACCESS_KEY"):
     os.environ.pop(k, None)
 os.chdir(HERE)
 import app, monitor, web  # noqa: E402
@@ -142,7 +143,7 @@ class Service(unittest.TestCase):
             self.assertNotIn("error", d[k], k)
         self.assertIn("error", d["jobs"])  # not in a cluster: said, not faked
         provs = {b["id"]: b for b in d["balances"]["providers"]}
-        for pid in ("openrouter", "tikhub", "anyapi", "iproyal", "hetzner", "exa", "cloudflare"):
+        for pid in ("openrouter", "tikhub", "anyapi", "iproyal", "hetzner", "aws", "exa", "cloudflare"):
             self.assertEqual(provs[pid]["status"], "not_connected", pid)
             self.assertTrue(provs[pid]["needs"])
             self.assertFalse(any(k.endswith(("_usd", "_gb")) for k in provs[pid]), pid)
