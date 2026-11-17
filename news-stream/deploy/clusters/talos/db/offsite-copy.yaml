@@ -53,9 +53,12 @@ spec:
                     rclone copy "hz:yyc-pg-pitr/$p/base" "r2:yyc-pg-offsite/pitr/$p/base" --ignore-existing --min-age 6h $flags
                   done
                   rclone copy hz:yyc-pg-backups/dumps r2:yyc-pg-offsite/dumps --max-age 15d --ignore-existing $flags
-                  # retention: past the bucket's 14-day lock only
-                  rclone delete r2:yyc-pg-offsite/pitr --min-age 22d -v
-                  rclone delete r2:yyc-pg-offsite/dumps --min-age 15d -v
+                  # retention: past the bucket's 14-day lock only. The age is the upload's (--use-server-modtime), as
+                  # the lock's is: by the file's own date, dumps made before the bucket existed (uploaded
+                  # 2026-11-09) were "15 days old" from 2026-11-11 while locked until 2026-11-23, the delete was
+                  # refused (409 ObjectLockedByBucketPolicy) and every hourly run ended red after copying.
+                  rclone delete r2:yyc-pg-offsite/pitr --min-age 22d --use-server-modtime -v
+                  rclone delete r2:yyc-pg-offsite/dumps --min-age 15d --use-server-modtime -v
                   echo "off-site copy done"
               env:
                 - {name: RCLONE_CONFIG_HZ_TYPE, value: s3}
