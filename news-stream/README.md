@@ -1501,11 +1501,12 @@ them (their events too), Full text went from two columns to one.
   is instant: no highlight, fade or animation (Deyao: "no highlight, too busy"); the oldest card leaves at the bottom.
   No unseen counts, no acknowledge key, no sound.
 - **State colours (Deyao, 2026-11-17), on /app/live and /app/monitor:** red is only a service lost right now ("immediate
-  loss of service"): a Deployment with no pod ready, a CronJob with no success for three of its intervals ("late"), the
+  loss of service"): a Deployment people work through with no pod ready, a CronJob with no success for three of its intervals ("late"), the
   gateway or a host with someone's sandbox on it not answering, a provider stopped for credit or a limit, WiseSearch
   logged out or its health check failed twice in a row (`monitor.wisers_down`), an alert refused for good, YYC AI's
   status "problem". Amber is a caution, still serving: a Deployment short of pods whose others serve ("1 of 2
-  ready"), one failed CronJob run, a node not ready or under pressure, an empty host not answering, Postgres near its
+  ready"), the monitor with none ready (it serves nobody; its process keeps writing live:sys while /readyz waits on a
+  slow panel; `healthStates.ts` SERVES_NOBODY), one failed CronJob run, a node not ready or under pressure, an empty host not answering, Postgres near its
   connection limit or under its free-space floor, a failing WAL archive or base backup, and errors that are over (a
   failed sandbox start, a refused call, the counts of the last 15 minutes). Magenta is blind: the page cannot read
   something (a provider's API, Postgres figures, the node list, a bucket, YYC AI's snapshot) or its figures are old
@@ -1575,8 +1576,8 @@ English, read only (no link, button or input), dark, the wall's pixel font and s
 
   | State | Hue | Marker | Lines |
   |---|---|---|---|
-  | lost | red | red block with a cross | a Deployment with no pod ready, a late CronJob, the gateway or a host with someone's sandbox not answering, a provider stop, WiseSearch logged out or down, YYC AI "problem" and its red findings (one person's sandbox stuck), the budget used up |
-  | caution | amber | amber block | some pods short with others serving, one failed CronJob run, a node not ready or under pressure, an empty host not answering, Postgres at 80% of its connections or under its free-space floor, WAL archive or base backup failing, a few failed WiseSearch calls, the last 15 minutes' errors (over), YYC AI "needs a look"; Jarvis 4 needs you |
+  | lost | red | red block with a cross | a Deployment with no pod ready (not the monitor), a late CronJob, the gateway or a host with someone's sandbox not answering, a provider stop, WiseSearch logged out or down, YYC AI "problem" and its red findings (one person's sandbox stuck), the budget used up |
+  | caution | amber | amber block | some pods short with others serving, the monitor with none ready, one failed CronJob run, a node not ready or under pressure, an empty host not answering, Postgres at 80% of its connections or under its free-space floor, WAL archive or base backup failing, a few failed WiseSearch calls, the last 15 minutes' errors (over), YYC AI "needs a look"; Jarvis 4 needs you |
   | caution, word only | amber | none | an idle Jarvis 4 session (amber, as on the wall; no block, the block is for what needs him or is wrong) |
   | blind | magenta | crossed eye | a read that failed (a provider, Postgres, nodes, a bucket, YYC AI's snapshot), "no update since" a minute on, YYC AI "can't see" |
   | advisory | blue | blue outline | a host booting, a sandbox starting, YYC AI "warming up", a rollout; Jarvis 4 background, scheduled, booting |

@@ -226,7 +226,8 @@ class HealthPage(unittest.TestCase):
         rule and his answers in that day's colour audit)"""
         out = L.node("""import * as S from './src/lib/healthStates.ts';
           console.log(JSON.stringify({
-            dep: [S.deployments([]), S.deployments(['poller 1/2']), S.deployments(['wisers 0/1', 'poller 1/2'])],
+            dep: [S.deployments([]), S.deployments(['poller 1/2']), S.deployments(['wisers 0/1', 'poller 1/2']),
+                  S.deployments(['monitor 0/1']), S.deployments(['monitor 0/1', 'wisers 0/1'])],
             cron: [S.cronjobs([], []), S.cronjobs([], ['forums']), S.cronjobs(['digest'], ['forums'])],
             nodes: [S.nodes([{ ready: true }]), S.nodes([{ ready: true }, { ready: false }]), S.nodes([{ ready: false }]), S.nodes(null),
                     S.nodes([{ ready: true, pressure: ['DiskPressure'] }])],
@@ -246,7 +247,8 @@ class HealthPage(unittest.TestCase):
                    S.stale(59_000), S.stale(61_000), S.unread({ error: 'x' })],
             jarvis: ['waiting', 'idle', 'working', 'background', 'scheduled', 'booting'].map(x => [S.jarvis(x), S.jarvisMarker(x)]),
           }));""")
-        self.assertEqual(out["dep"], ["ok", "warn", "bad"])          # red only with no pod ready
+        self.assertEqual(out["dep"], ["ok", "warn", "bad", "warn", "bad"])  # red only with no pod ready, and never for the
+        # monitor: it serves nobody, and its process keeps writing this page while /readyz waits on a slow panel (Deyao, 2026-11-17)
         self.assertEqual(out["cron"], ["ok", "warn", "bad"])         # one failed run amber, late red (swapped, his answer)
         self.assertEqual(out["nodes"], ["ok", "warn", "bad", "blind", "warn"])
         self.assertEqual(out["pod"], ["ok", "warn", "warn", "bad", "info"])

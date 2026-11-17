@@ -26,8 +26,13 @@ export const PART_STALE_MS = 60_000;
 export const stale = (ageMs: number | null) => (ageMs != null && ageMs > PART_STALE_MS ? "blind" : "ok") as St;
 
 // ---- the cluster ----
-/** a news-stream Deployment short of pods ("name 1/2"): none ready → lost; some → caution */
-export const deployments = (short: string[]): St => (short.some(x => / 0\/\d+$/.test(x)) ? "bad" : short.length ? "warn" : "ok");
+/** Deployments nobody works through: none ready stops nobody → caution at worst. The monitor (Deyao, 2026-11-17: its
+ * 0/1 is amber, not red) is his own view, and its process keeps writing live:sys while /readyz waits on a slow panel */
+export const SERVES_NOBODY = new Set(["monitor"]);
+/** a news-stream Deployment with none ready ("name 0/2") that someone works through */
+export const deploymentLost = (x: string) => / 0\/\d+$/.test(x) && !SERVES_NOBODY.has(x.split(" ")[0]);
+/** news-stream Deployments short of pods ("name 1/2"): one lost → lost; else any short → caution */
+export const deployments = (short: string[]): St => (short.some(deploymentLost) ? "bad" : short.length ? "warn" : "ok");
 /** CronJobs: no success for three of its intervals ("late") → lost; one failed run (it runs again) → caution */
 export const cronjobs = (late: string[], failed: string[]): St => (late.length ? "bad" : failed.length ? "warn" : "ok");
 /** nodes: none ready → lost; one not ready, under pressure or cordoned (its pods move) → caution; unreadable → blind */

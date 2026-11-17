@@ -23,6 +23,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useSearch } from "@tanstack/react-router";
 import { BUILD_ID } from "../lib/build";
+import { deploymentLost } from "../lib/healthStates";
 import { monoEmoji } from "../lib/monoEmoji";
 import { subscribeUpdate } from "../lib/update";
 import type { Card, LiveData, LiveSys, PanelId } from "../server/live";
@@ -649,8 +650,9 @@ function SysPanel({ box, sys, now }: { box: Box; sys: LiveSys | null; now: numbe
   const nodesK = nodeErr ? "blindc" : nodes.length && nodes.every(n => !n.ready) ? "why" : notReady.length ? "warnc" : undefined;
   const nodesRow = () => row("nodes", nodesK, <>nodes: {nodeErr ? `can't read: ${nodeErr}` : `${nodes.length - notReady.length} of ${nodes.length} ready`}
     {notReady.map(n => `; ${n.name}${n.ready ? "" : " not ready"}${n.pressure?.length ? " " + n.pressure.join(", ") : ""}${n.unschedulable ? " cordoned" : ""}`).join("")}</>);
-  // a Deployment with some pods ready still serves: amber; red when one has none ("name 0/2")
-  const depsK = (deps.short || []).some((x: string) => / 0\/\d+$/.test(x)) ? "why" : (deps.short || []).length ? "warnc" : undefined;
+  // a Deployment with some pods ready still serves: amber; red when one people work through has none ("name 0/2"),
+  // never the monitor (healthStates.ts deploymentLost)
+  const depsK = (deps.short || []).some(deploymentLost) ? "why" : (deps.short || []).length ? "warnc" : undefined;
   const depsRow = () => row("deps", depsK, <>news stream Deployments: {deps.ok ?? "–"} of {deps.n ?? "–"} with every pod ready{(deps.short || []).length ? "; short: " + deps.short.join(", ") : ""}</>);
   // late (no success for three of its intervals) is red: the job's work is not being done; one failed run is amber, it
   // runs again (Deyao, 2026-11-17)
