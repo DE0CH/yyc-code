@@ -12,13 +12,14 @@ import { BUILD_ID } from "../lib/build";
 import { monoEmoji } from "../lib/monoEmoji";
 import { POLL_MS, STALE_MS, hhmm, hhmmss } from "../lib/liveLayout";
 import { COL_RULE, JARVIS_ORDER, ROW, columns, fit, jarvisFold, frame, type FitLine, type FitSection } from "../lib/healthFit";
+import * as S from "../lib/healthStates";
+import type { St } from "../lib/healthStates";
 import type { LiveSys } from "../server/live";
 import type { JarvisLive, JarvisSession } from "../server/jarvis";
 
 type J = Record<string, any>;  // eslint-disable-line @typescript-eslint/no-explicit-any
 export interface HealthData { now: number; sys: LiveSys | null; jarvis: JarvisLive | null }
 
-const PART_STALE_MS = 60_000;  // kv live:sys is written every 10 s, Jarvis 4 pushes every 5 s
 
 // ---- formatting (as the wall's -LivePage.tsx) ----
 const s_ = (v: unknown) => (typeof v === "string" && v ? v : null);
@@ -40,11 +41,16 @@ const wakeAt = (ms: number, now: number) => {
 };
 
 // ---- lines: each a fixed 14 px row with a level (lib/healthFit.ts) ----
-type St = "ok" | "warn" | "bad" | "blind" | "info" | "ink";
 type Line = FitLine & { key: string; node: ReactNode };
 const K: Record<St, string> = { ok: "", warn: " warn", bad: " bad", blind: " blind", info: " info", ink: "" };
-const Mk = ({ st }: { st: St }) => st === "blind"
-  ? <i className="hp-mk blind"><svg viewBox="0 0 6 6" aria-hidden="true"><path d="M0 0h1v1h1v1h2V1h1V0h1v1H5v1H4v2h1v1h1v1H5V5H4V4H2v1H1v1H0V5h1V4h1V2H1V1H0z" /></svg></i>
+/** a state's marker (lib/healthStates.ts): lost a red block with a cross, caution an amber block, blind a crossed eye,
+ * advisory a blue outline, working an ink block, normal none; 8 x 8 px pixel shapes */
+const CROSS = "M1 1h1v1h1v1h2V2h1V1h1v1H6v1H5v2h1v1h1v1H6V6H5V5H3v1H2v1H1V6h1V5h1V3H2V2H1z";
+const EYE = "M2 1h4v1H2zM1 2h1v1H1zM6 2h1v1H6zM0 3h1v2H0zM7 3h1v2H7zM3 3h2v2H3zM1 5h1v1H1zM6 5h1v1H6zM2 6h4v1H2z";
+const SLASH = "M7 0h1v1H7zM6 1h1v1H6zM5 2h1v1H5zM4 3h1v1H4zM3 4h1v1H3zM2 5h1v1H2zM1 6h1v1H1zM0 7h1v1H0z";
+const Mk = ({ st }: { st: St }) => st === "bad"
+  ? <i className="hp-mk bad"><svg viewBox="0 0 8 8" aria-hidden="true"><path className="cut" d={CROSS} /></svg></i>
+  : st === "blind" ? <i className="hp-mk blind"><svg viewBox="0 0 8 8" aria-hidden="true"><path d={EYE} /><path d={SLASH} /></svg></i>
   : <i className={"hp-mk " + st} />;
 /** a check: its marker, its name, its figure on the right */
 const kv = (key: string, level: Line["level"], st: St, k: ReactNode, v: ReactNode, group?: string): Line =>
@@ -57,7 +63,6 @@ const sub = (key: string, level: Line["level"], t: ReactNode, group?: string, st
   ({ key, level, group, node: <div className={"hp-l hp-sub" + K[st]}>{t}</div> });
 
 // ---- Jarvis 4 ----
-const JMK: Record<JarvisSession["state"], St> = { waiting: "warn", idle: "warn", working: "ink", background: "info", scheduled: "info", booting: "info" };
 const workers = (x: JarvisSession) => [x.jobs ? `${x.jobs} background ${x.jobs === 1 ? "job" : "jobs"}` : "",
   x.subagents ? `${x.subagents} ${x.subagents === 1 ? "subagent" : "subagents"}` : ""].filter(Boolean).join(", ");
 const shortWorkers = (x: JarvisSession) => [x.jobs ? `${x.jobs} ${x.jobs === 1 ? "job" : "jobs"}` : "", x.subagents ? `${x.subagents} sub` : ""].filter(Boolean).join(", ");
@@ -90,8 +95,7 @@ function jarvisLines(j: JarvisLive, now: number, rows: number): Line[] {
       if (x === idle[idle.length - 1]) out.push(ln("jfold", 0, "ok", <span className="dim">+{fold} idle, longest {x.since ? dur((now - x.since) / 1000) : "–"}</span>));
       return;
     }
-    // idle: the amber word alone, as the wall's outlined tag (Deyao, 2026-11-17: dark cockpit); a block is for what needs him
-    out.push({ key: "j" + i, level: 0, node: <div className={"hp-l hp-j" + K[JMK[x.state]]} data-state={x.state}><Mk st={x.state === "idle" ? "ok" : JMK[x.state]} />
+    out.push({ key: "j" + i, level: 0, node: <div className={"hp-l hp-j" + K[S.jarvis(x.state)]} data-state={x.state}><Mk st={S.jarvisMarker(x.state)} />
       <span className="n">{x.name}</span><span className="w">{jRight(x, now)}</span></div> });
     if (x.state === "waiting" || x.state === "working" || x.state === "background") {
       const d = jDetail(x, now);
@@ -107,20 +111,20 @@ function clusterLines(h: J | null, ai: J): Line[] {
   if (!h) return [ln("noh", 0, "blind", "no systems data yet")];
   const out: Line[] = [];
   for (const [i, x] of ((h.stops || []) as J[]).entries())
-    out.push(ln("stop" + i, 0, "bad", <>{x.name}: {x.tag || "requests failing"}{x.since ? `, since ${hhmm(Date.parse(x.since))}` : ""}</>));
+    out.push(ln("stop" + i, 0, S.stop(), <>{x.name}: {x.tag || "requests failing"}{x.since ? `, since ${hhmm(Date.parse(x.since))}` : ""}</>));
   const cj = (h.cronjobs || {}) as J, late = (cj.late || []) as string[], failed = (cj.failed || []) as string[];
-  const cjSt: St = late.length ? "bad" : failed.length ? "warn" : "ok";
+  const cjSt = S.cronjobs(late, failed);
   out.push(kv("cj", 0, cjSt, "CronJobs", late.length ? `${late.length} late` : failed.length ? `${failed.length} failed` : `${cj.n ?? "–"} on, ${cj.running ?? 0} running`));
   if (late.length || failed.length) out.push(ln("cjn", 0, cjSt, [...late.map(x => x + " late"), ...failed, `${cj.n ?? "–"} on, ${cj.running ?? 0} running`].join("; ")));
   const d = (h.deployments || {}) as J, short = (d.short || []) as string[];
-  const dSt: St = short.some(x => / 0\/\d+$/.test(x)) ? "bad" : short.length ? "warn" : "ok";
+  const dSt = S.deployments(short);
   out.push(kv("dep", 0, dSt, "Deployments", <><b>{d.ok ?? "–"}</b> / {d.n ?? "–"} ready</>));
   if (short.length) out.push(ln("deps", 0, dSt, "short: " + short.join(", ")));
   const nodes = Array.isArray(h.nodes) ? (h.nodes as J[]) : null;
-  if (!nodes) out.push(kv("nodes", 0, "blind", "nodes", "can't read"));
+  if (!nodes) out.push(kv("nodes", 0, S.nodes(null), "nodes", "can't read"));
   else {
     const bad = nodes.filter(n => !n.ready || n.pressure?.length || n.unschedulable);
-    const nSt: St = nodes.length && nodes.every(n => !n.ready) ? "bad" : bad.length ? "warn" : "ok";
+    const nSt = S.nodes(nodes);
     out.push(kv("nodes", 0, nSt, "nodes", <><b>{nodes.length - bad.length}</b> / {nodes.length} ready</>));
     for (const n of bad) out.push(ln("nb" + n.name, 0, nSt, `${n.name}${n.ready ? "" : " not ready"}${n.pressure?.length ? " " + n.pressure.join(", ") : ""}${n.unschedulable ? " cordoned" : ""}`));
     for (const n of nodes.filter(x => !bad.includes(x))) out.push(sub("n" + n.name, 3, `${n.name} ready`, "nodes"));
@@ -128,11 +132,10 @@ function clusterLines(h: J | null, ai: J): Line[] {
   const svc = (ai.service || []) as J[];
   if (ai.error && !svc.length) out.push(kv("pods", 0, "blind", "YYC AI pods", "can't read"));
   else {
-    const down = (x: J) => x.state === "problem" && !(x.ready > 0), shortP = (x: J) => x.state === "watch" || (x.state === "problem" && x.ready > 0);
-    const pSt: St = svc.some(down) ? "bad" : svc.some(shortP) ? "warn" : svc.some(x => x.state === "warming") ? "info" : "ok";
+    const pSt = S.pods(svc);
     out.push(kv("pods", 0, pSt, "YYC AI pods", <><b>{svc.reduce((t, x) => t + (x.ready || 0), 0)}</b> / {svc.reduce((t, x) => t + (x.desired || 0), 0)} ready</>));
     for (const x of svc) {
-      const st: St = down(x) ? "bad" : shortP(x) ? "warn" : x.state === "warming" ? "info" : "ok";
+      const st = S.pod(x);
       const t = <>{x.name} <b>{x.ready}</b>/{x.desired}, {x.restarts ?? 0} restarts</>;
       out.push(st === "ok" ? sub("p" + x.name, 2, t, "pods") : sub("p" + x.name, 0, t, undefined, st));
     }
@@ -141,34 +144,33 @@ function clusterLines(h: J | null, ai: J): Line[] {
 }
 
 // ---- YYC AI (its operator snapshot) ----
-const STATUS: Record<string, [string, St]> = { ok: ["all fine", "ok"], warming: ["warming up", "info"], watch: ["needs a look", "warn"], blind: ["can't see", "blind"], problem: ["problem", "bad"] };
-const FINDING: Record<string, St> = { problem: "bad", blind: "blind", warming: "info", watch: "warn" };
+const STATUS: Record<string, string> = { ok: "all fine", warming: "warming up", watch: "needs a look", blind: "can't see", problem: "problem" };
 function aiLines(a: J | null, now: number): Line[] {
   if (!a) return [ln("noai", 0, "blind", "no YYC AI data yet")];
   if (a.error) return [kv("aierr", 0, "blind", "snapshot", "can't read"), sub("aierr2", 0, String(a.error), undefined, "blind")];
-  const hl = (a.health || {}) as J, [label, st] = STATUS[hl.state] || [String(hl.state || "?"), "warn" as St];
+  const hl = (a.health || {}) as J, label = STATUS[hl.state] || String(hl.state || "?"), st = S.level(hl.state);
   const out: Line[] = [kv("status", 0, st, "status", label)];
-  ((hl.findings || []) as J[]).slice(0, 4).forEach((f, i) => out.push(ln("f" + i, 0, FINDING[f.level] || "warn", f.text)));
+  ((hl.findings || []) as J[]).slice(0, 4).forEach((f, i) => out.push(ln("f" + i, 0, S.level(f.level), f.text)));
   Object.entries((a.errors || {}) as Record<string, string>).forEach(([n, m]) => out.push(ln("e" + n, 0, "blind", `could not read ${n}: ${m}`)));
   const sbx = (a.sandboxes || []) as J[];
   out.push(kv("sbx", 0, "ok", "sandboxes", <><b>{sbx.length}</b>{a.max_active ? ` of ${a.max_active}` : ""}, {a.scaler?.available ?? "–"} free</>));
   sbx.slice(0, 4).forEach((x, i) => {
     const idle = (x.idle_s ?? 1e9) < 60 ? "active now" : `idle ${dur(x.idle_s)}`;
     const t = `${(s_(x.owner) ?? "?").split("@")[0]} ${x.host ?? "–"}, ${x.status === "starting" ? "starting" : idle}`;
-    out.push(x.status === "starting" ? sub("s" + i, 0, t, undefined, "info") : sub("s" + i, i < 2 ? 2 : 3, t, i < 2 ? "sb1" : "sb2"));
+    out.push(S.sandbox(x) !== "ok" ? sub("s" + i, 0, t, undefined, S.sandbox(x)) : sub("s" + i, i < 2 ? 2 : 3, t, i < 2 ? "sb1" : "sb2"));
   });
   if (sbx.length > 4) out.push(sub("smore", 3, `+${sbx.length - 4} more, ${a.scaler?.waiting ?? 0} waiting`, "sb2"));
   const b = (a.budget || {}) as J;
   out.push(kv("today", 0, "ok", "today", <><b>{usd(b.today_usd)}</b>, {b.calls_today ?? "–"} calls</>));
   const top = ((a.by_model || []) as J[])[0];
   out.push(sub("month", 1, <>month <b>{usd(b.month_usd)}</b>{top ? `; ${String(top.model).split("/").pop()} most` : ""}</>));
-  out.push(kv("budget", 0, b.exhausted ? "bad" : "ok", b.since ? `budget since ${new Date(Date.parse(b.since) + 8 * 3600e3).toISOString().slice(5, 10)}` : "budget",
+  out.push(kv("budget", 0, S.budget(b), b.since ? `budget since ${new Date(Date.parse(b.since) + 8 * 3600e3).toISOString().slice(5, 10)}` : "budget",
     <><b>{n_(b.spent_usd)?.toFixed(2) ?? "–"}</b> / {n_(b.limit_usd)?.toLocaleString("en-US") ?? "–"}</>));
-  if (b.exhausted) out.push(ln("bex", 0, "bad", "used up: model calls are refused"));
+  if (b.exhausted) out.push(ln("bex", 0, S.budget(b), "used up: model calls are refused"));
   const rec = (a.recent || {}) as J, errs = (rec.failedStarts || 0) + (rec.modelErrors || 0) + (rec.hostErrors || 0);
   const errT = [[rec.failedStarts, "start"], [rec.modelErrors, "call"], [rec.hostErrors, "host"]].filter(([n]) => n)
     .map(([n, w]) => `${n} ${w}${n === 1 ? "" : "s"}`).join(", ");
-  out.push(errs ? kv("err", 0, "warn", `failed, ${a.recent_minutes ?? 15} min`, errT) : kv("err", 1, "ok", `failed, ${a.recent_minutes ?? 15} min`, "none"));
+  out.push(errs ? kv("err", 0, S.errorsOver(errs), `failed, ${a.recent_minutes ?? 15} min`, errT) : kv("err", 1, "ok", `failed, ${a.recent_minutes ?? 15} min`, "none"));
   const s24 = (a.starts_24h || {}) as J;
   out.push(kv("s24", 0, "ok", "starts 24 h", <><b>{s24.n ?? "–"}</b>, {s24.failed ?? 0} failed</>));
   if (n_(s24.p50Ms) != null) out.push(sub("s24t", 1, <>median <b>{(s24.p50Ms / 1000).toFixed(1)} s</b>, p95 <b>{n_(s24.p95Ms) != null ? (s24.p95Ms / 1000).toFixed(1) + " s" : "–"}</b></>));
@@ -183,7 +185,7 @@ function providerLines(h: J | null): Line[] {
     const name = (s_(p.name) || p.id || "?").split(" (")[0];
     if (p.status !== "ok") {
       const nc = p.status === "not_connected";
-      return [kv("p" + i, 0, nc ? "ok" : "blind", name, nc ? "not connected" : "can't read"), ...(p.error ? [sub("pe" + i, 1, String(p.error), undefined, nc ? "ok" : "blind")] : [])];
+      return [kv("p" + i, 0, S.provider(p), name, nc ? "not connected" : "can't read"), ...(p.error ? [sub("pe" + i, 1, String(p.error), undefined, S.provider(p))] : [])];
     }
     const figs = (p.figs || []) as [string, string][];
     if (!figs.length) return [kv("p" + i, 0, "ok", name, "–")];
@@ -204,7 +206,7 @@ function hostLines(ai: J): Line[] {
   const healthy = (x: J) => !x.gateway && x.status === "active" && x.reachable;
   const out: Line[] = [];
   for (const x of hosts.filter(x => !healthy(x))) {
-    const st: St = x.status === "booting" ? "info" : !x.reachable ? (x.gateway || x.sandboxes ? "bad" : "warn") : "ok";
+    const st = S.host(x);
     if (x.gateway) {
       out.push(kv("gw", 0, st, `gateway ${x.name}`, st === "ok" ? <>load <b>{x.load1 ?? "–"}</b></> : x.reachable ? x.status : "not answering"));
       out.push(sub("gwm", 2, `${x.mem_free_gib ?? "–"} of ${x.mem_total_gib ?? "–"} GiB free, ${x.cpus ?? "–"} CPU`));
@@ -221,19 +223,18 @@ function hostLines(ai: J): Line[] {
 // ---- Postgres, WiseSearch, object storage (monitor.py database, wisers, storage panels) ----
 function pgLines(pg: J | undefined): Line[] {
   if (!pg) return [];
-  if (pg.error) return [kv("pg", 0, "blind", "Postgres", "can't read"), sub("pge", 1, String(pg.error), undefined, "blind")];
+  if (S.unread(pg)) return [kv("pg", 0, "blind", "Postgres", "can't read"), sub("pge", 1, String(pg.error), undefined, "blind")];
   const c = (pg.connections || {}) as J, sp = (pg.space || {}) as J, a = (pg.archive || {}) as J, lt = pg.longest_transaction as J | null;
-  const full = c.max && c.total >= 0.8 * c.max, low = typeof sp.free_bytes === "number" && sp.free_bytes < sp.floor_bytes;
   const probs = (a.problems || []) as string[];
   const mib = (v: unknown) => (n_(v) != null ? ((v as number) / 1024).toFixed(1) : "–");
   const dbs = (pg.databases || []) as J[];
   return [
-    kv("con", 0, full ? "warn" : "ok", "connections", <><b>{c.total ?? "–"}</b> / {c.max ?? "–"}, <b>{pg.tps ?? "–"}</b>/s</>),
+    kv("con", 0, S.pgConnections(c), "connections", <><b>{c.total ?? "–"}</b> / {c.max ?? "–"}, <b>{pg.tps ?? "–"}</b>/s</>),
     sub("cpu", 1, `CPU ${pg.cpu_cores ?? "–"}/${pg.node_cores ?? "–"}, memory ${mib(pg.memory_mib)}/${mib(pg.memory_limit_mib)} GiB`),
-    kv("free", 0, low ? "warn" : "ok", "free", <><b>{gib(sp.free_bytes).replace(" GiB", "")}</b> / {gib(sp.capacity_bytes)}</>),
+    kv("free", 0, S.pgSpace(sp), "free", <><b>{gib(sp.free_bytes).replace(" GiB", "")}</b> / {gib(sp.capacity_bytes)}</>),
     sub("dbs", 2, `${dbs[0] ? `${dbs[0].name} ${gib(dbs[0].bytes)}, ` : ""}WAL ${gib(pg.wal_bytes)}`),
-    kv("wal", 0, probs.length ? "warn" : "ok", "WAL archive", n_(a.seconds_since_archived) != null ? <><b>{dur(a.seconds_since_archived)}</b> ago</> : "–"),
-    ...probs.map((p, i) => ln("walp" + i, 0, "warn", p)),
+    kv("wal", 0, S.pgArchive(a), "WAL archive", n_(a.seconds_since_archived) != null ? <><b>{dur(a.seconds_since_archived)}</b> ago</> : "–"),
+    ...probs.map((p, i) => ln("walp" + i, 0, S.pgArchive(a), p)),
     sub("walw", 1, `${a.waiting ?? "–"} waiting; base backup ${s_(a.last_backup) ? hhmm(Date.parse(a.last_backup)) : "–"}`),
     kv("ltx", 2, "ok", "longest tx", lt ? <><b>{dur(lt.seconds)}</b>, {c.waiting_on_locks ?? 0} locks</> : "none"),
   ];
@@ -244,7 +245,7 @@ function wsLines(w: J | undefined, st: J | undefined): Line[] {
   if (w?.error) out.push(kv("ws", 0, "blind", "WiseSearch", "can't read"));
   else if (w) {
     const probs = (w.problems || []) as string[], pr = w.probe as J | null;
-    const k: St = w.state === "logged_out" || w.down ? "bad" : probs.length ? "warn" : "ok";
+    const k = S.wisers(w);
     out.push(kv("ws", 0, k, "WiseSearch", WISERS_STATE[w.state] || w.state || "–"));
     probs.forEach((p, i) => out.push(ln("wsp" + i, 0, k, p)));
     out.push(sub("wsd", 1, `check ${!pr ? "none yet" : pr.ok ? `ok ${pr.secs} s` : "failing"}, ${w.today ?? "–"} searches today`));
@@ -325,8 +326,8 @@ export function HealthPage() {
   if (!w || !h) return <div className="hp" data-ready="0" />;
   const [lw, rw] = columns(w);
   const sys = d?.sys ?? null, hh = (sys?.health || null) as J | null, ai = (sys?.ai || {}) as J;
-  const sysOld = sys ? (ago(sys.at, srv) ?? 0) > PART_STALE_MS : false;
-  const j = d?.jarvis ?? null, jOld = j ? srv - j.got > PART_STALE_MS : false;
+  const sysOld = sys ? S.stale(ago(sys.at, srv)) === "blind" : false;
+  const j = d?.jarvis ?? null, jOld = j ? S.stale(srv - j.got) === "blind" : false;
 
   // left: Jarvis 4 (the room the cluster's level-0 lines leave), the cluster
   const cl = clusterLines(hh, ai);

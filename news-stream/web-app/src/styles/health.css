@@ -2,9 +2,9 @@
    columns of fixed 14 px lines of Fusion Pixel 10 at its design size, so on any screen (1x, 2x, the iPhone's 3x) every
    pixel of a glyph is whole device pixels: whole-px sizes, line heights and boxes only, nothing centred into a half pixel,
    no transforms (the wall's blur pitfall, 2026-10-21). Flat sheet, 1 px rules, colour only for the flight-deck states;
-   dark cockpit: a normal line has no marker; each lit state has its own shape as well as its colour: caution an amber
-   block, failed a red block, blind a magenta outline with a cross, advisory a blue outline, working (Jarvis 4) an ink
-   block; an idle session only its amber word, as on the wall (no block: idle is the sessions' resting state). Read only: no link,
+   dark cockpit: a normal line has no marker; each lit state has its own shape as well as its colour (the mapping:
+   lib/healthStates.ts): lost a red block with a cross, caution an amber block, blind a crossed eye, advisory a blue
+   outline, working (Jarvis 4) an ink block; an idle session only its amber word, as on the wall. Read only: no link,
    button or input. The page's html carries live-doc (live.css: the ground, no page scroll, the frame shell). */
 html.health-doc { -webkit-text-size-adjust:100%; text-size-adjust:100%; }
 html.health-doc, html.health-doc body { overscroll-behavior:none; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
@@ -44,8 +44,10 @@ html.health-doc, html.health-doc body { overscroll-behavior:none; -webkit-user-s
 .hp-mk.ok { visibility:hidden; }
 .hp-mk.warn { background:var(--warn); } .hp-mk.bad { background:var(--bad); } .hp-mk.ink { background:var(--ink); }
 .hp-mk.info { border:1px solid var(--info); }
-.hp-mk.blind { border:1px solid var(--blind); color:var(--blind); }
-.hp-mk.blind svg { position:absolute; left:0; top:0; width:6px; height:6px; fill:currentColor; shape-rendering:crispEdges; }
+/* lost: the red block with a cross cut out of it; blind: a crossed eye (deyao-web-design "Status colours") */
+.hp-mk svg { position:absolute; left:0; top:0; width:8px; height:8px; shape-rendering:crispEdges; }
+.hp-mk.bad svg .cut { fill:var(--panel); }
+.hp-mk.blind svg { fill:var(--blind); }
 .hp-stale .hp-col { filter:grayscale(1) brightness(.45); }
 .hp-note { position:absolute; left:8px; right:8px; top:120px; padding:6px 8px; background:var(--panel); border:3px solid var(--blind);
   color:#fff; font:12px/16px "Fusion Pixel 12",monospace; }

@@ -20,7 +20,8 @@ test's own Access key.
    details (the AWS hosts) shows whole or not at all; the space a column leaves is less than its next detail would take.
 4. healthFit in Node: fit's levels and groups, the fold.
 5. A part gone old: kv live:sys 5 min old makes the systems' headings say "no update since" in magenta.
-6. No console error. Screenshots in SHOTS.
+6. The shell. No console error. Screenshots in SHOTS.
+7. The colour mapping (lib/healthStates.ts), rule by rule; no green on the page.
 """
 import json, os, re, subprocess, sys, time, unittest
 
@@ -218,6 +219,46 @@ class HealthPage(unittest.TestCase):
         self.assertEqual(page.locator("iframe").get_attribute("src"), "/app/health?frame=1")
         page.frame_locator("iframe").locator('.hp[data-ready="1"]').wait_for(timeout=120000)
         ctx.close()
+
+
+    def test_7_colour_mapping(self):
+        """lib/healthStates.ts, the page's one colour mapping (Deyao, 2026-11-17: colours keep their meaning; the wall's
+        rule and his answers in that day's colour audit)"""
+        out = L.node("""import * as S from './src/lib/healthStates.ts';
+          console.log(JSON.stringify({
+            dep: [S.deployments([]), S.deployments(['poller 1/2']), S.deployments(['wisers 0/1', 'poller 1/2'])],
+            cron: [S.cronjobs([], []), S.cronjobs([], ['forums']), S.cronjobs(['digest'], ['forums'])],
+            nodes: [S.nodes([{ ready: true }]), S.nodes([{ ready: true }, { ready: false }]), S.nodes([{ ready: false }]), S.nodes(null),
+                    S.nodes([{ ready: true, pressure: ['DiskPressure'] }])],
+            pod: [S.pod({ state: 'ok', ready: 2 }), S.pod({ state: 'watch', ready: 1 }), S.pod({ state: 'problem', ready: 1 }),
+                  S.pod({ state: 'problem', ready: 0 }), S.pod({ state: 'warming', ready: 1 })],
+            level: ['ok', 'warming', 'watch', 'blind', 'problem'].map(S.level),
+            host: [S.host({ status: 'active', reachable: true }), S.host({ status: 'booting', reachable: false }),
+                   S.host({ status: 'active', reachable: false, sandboxes: 0 }), S.host({ status: 'active', reachable: false, sandboxes: 2 }),
+                   S.host({ status: 'active', reachable: false, gateway: true })],
+            pg: [S.pgConnections({ total: 239, max: 300 }), S.pgConnections({ total: 240, max: 300 }),
+                 S.pgSpace({ free_bytes: 10, floor_bytes: 20 }), S.pgSpace({ free_bytes: 30, floor_bytes: 20 }),
+                 S.pgArchive({ problems: ['WAL archive failing'] }), S.pgArchive({ problems: [] })],
+            ws: [S.wisers({ state: 'held' }), S.wisers({ state: 'held', problems: ['2 failed calls'] }), S.wisers({ state: 'logged_out' }),
+                 S.wisers({ state: 'held', down: true })],
+            prov: [S.provider({ status: 'ok' }), S.provider({ status: 'error' }), S.provider({ status: 'not_connected' })],
+            misc: [S.budget({ exhausted: true }), S.budget({}), S.errorsOver(0), S.errorsOver(2), S.stop(), S.sandbox({ status: 'starting' }),
+                   S.stale(59_000), S.stale(61_000), S.unread({ error: 'x' })],
+            jarvis: ['waiting', 'idle', 'working', 'background', 'scheduled', 'booting'].map(x => [S.jarvis(x), S.jarvisMarker(x)]),
+          }));""")
+        self.assertEqual(out["dep"], ["ok", "warn", "bad"])          # red only with no pod ready
+        self.assertEqual(out["cron"], ["ok", "warn", "bad"])         # one failed run amber, late red (swapped, his answer)
+        self.assertEqual(out["nodes"], ["ok", "warn", "bad", "blind", "warn"])
+        self.assertEqual(out["pod"], ["ok", "warn", "warn", "bad", "info"])
+        self.assertEqual(out["level"], ["ok", "info", "warn", "blind", "bad"])
+        self.assertEqual(out["host"], ["ok", "info", "warn", "bad", "bad"])
+        self.assertEqual(out["pg"], ["ok", "warn", "warn", "ok", "warn", "ok"])  # near a limit, a failing backup: amber
+        self.assertEqual(out["ws"], ["ok", "warn", "bad", "bad"])
+        self.assertEqual(out["prov"], ["ok", "blind", "ok"])
+        self.assertEqual(out["misc"], ["bad", "ok", "ok", "warn", "bad", "info", "ok", "blind", "blind"])
+        self.assertEqual(out["jarvis"], [["warn", "warn"], ["warn", "ok"], ["ink", "ink"], ["info", "info"], ["info", "info"], ["info", "info"]])
+        # no green anywhere on the page: normal is quiet ink
+        self.assertNotIn("var(--ok)", open(os.path.join(L.APP, "src/styles/health.css")).read())
 
 
 if __name__ == "__main__":

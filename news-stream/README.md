@@ -1569,6 +1569,19 @@ English, read only (no link, button or input), dark, the wall's pixel font and s
   everything lit) always shows; levels 1-3 (what a busy session does, OpenRouter's keys, each AWS host, the pods, who has a
   sandbox, the nodes, …) go in level by level while they fit the column, a group whole or not at all. When level 0 alone
   doesn't fit, the oldest idle sessions fold into "+N idle, longest X" (`jarvisFold`); past that, "N more lines".
+- **Colours** (Deyao, 2026-11-17: "dark cockpit principle broken", "colors dont preserve meaning"): one mapping,
+  `lib/healthStates.ts`, which every line takes its state from; the wall's rule ("State colours" above) and the house
+  style's shapes. Ask "who is stopped right now?".
+
+  | State | Hue | Marker | Lines |
+  |---|---|---|---|
+  | lost | red | red block with a cross | a Deployment with no pod ready, a late CronJob, the gateway or a host with someone's sandbox not answering, a provider stop, WiseSearch logged out or down, YYC AI "problem" and its red findings (one person's sandbox stuck), the budget used up |
+  | caution | amber | amber block | some pods short with others serving, one failed CronJob run, a node not ready or under pressure, an empty host not answering, Postgres at 80% of its connections or under its free-space floor, WAL archive or base backup failing, a few failed WiseSearch calls, the last 15 minutes' errors (over), YYC AI "needs a look"; Jarvis 4 needs you |
+  | caution, word only | amber | none | an idle Jarvis 4 session (amber, as on the wall; no block, the block is for what needs him or is wrong) |
+  | blind | magenta | crossed eye | a read that failed (a provider, Postgres, nodes, a bucket, YYC AI's snapshot), "no update since" a minute on, YYC AI "can't see" |
+  | advisory | blue | blue outline | a host booting, a sandbox starting, YYC AI "warming up", a rollout; Jarvis 4 background, scheduled, booting |
+  | working | ink | ink block | a Jarvis 4 session's turn running |
+  | normal | none | none | everything else and what has recovered: quiet ink, no green (dark cockpit) |
 - **On the pixel:** whole-px sizes, line heights and boxes, the columns split in whole px (`columns`); the site's English
   font rule leaves `.hp` alone (house.css), or the pixel face is replaced and every line lands on a half pixel.
 - **Data:** `/app/health/data` every 3 s: kv live:sys and Jarvis 4's last push, nothing else. A read failing for 30 s
@@ -1580,7 +1593,8 @@ English, read only (no link, button or input), dark, the wall's pixel font and s
   Access signs him in, and the page sends the sheet to `dev.de0ch.yycsystems://signed-in?state=…#token=<the Access
   token>`; the app keeps the token in its Keychain and gives the WebView it as the `CF_Authorization` cookie.
 - Tests: `tests/test_health_page.py` (Deyao only and the sign-in, the iPhone 17 layout on whole pixels with every lit
-  state, detail following the window's height, the fitting in Node, an old part, the shell).
+  state and no normal marker, detail following the window's height, the fitting in Node, an old part, the shell, the
+  colour mapping rule by rule).
 
 ## Reimbursement evidence (from the providers)
 - **OpenRouter:** `infra/cost-report.py <YYYY-MM> <outdir>` (needs a management key in `OPENROUTER_MGMT`) pulls
