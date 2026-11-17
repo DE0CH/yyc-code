@@ -5232,20 +5232,14 @@
  {
   "id": "mo_macauzine",
   "name": "澳門雜誌",
-  "url": "https://www.macauzine.net/api/magazine/aticles?pageNum=1&pageSize=20",
-  "kind": "json",
+  "url": "https://www.macauzine.net/zh-hant/home",
+  "kind": "regex",
   "type": "Magazine",
   "region": "Macau",
   "lang": "zh-Hant",
-  "headers": {
-   "lang": "zh_TW"
-  },
-  "items": "data",
-  "title": "title",
-  "link": "https://www.macauzine.net/viewnews?itemid={id}",
-  "time": "createData",
-  "time_format": "%Y-%m-%d %H:%M:%S",
-  "catalogue": "澳門雜誌"
+  "catalogue": "澳門雜誌",
+  "pattern": "updateSharePanel\\(&#039;https://govinfohub\\.gcs\\.gov\\.mo/magazine/detail/zh-hant/(?P<url>[A-Za-z0-9]+)&#039;, &#039;(?P<title>(?:(?!&#039;).){6,300})&#039;",
+  "link": "https://www.macauzine.net/zh-hant/detail/{url}"
  },
  {
   "id": "mo_mo_980x",
