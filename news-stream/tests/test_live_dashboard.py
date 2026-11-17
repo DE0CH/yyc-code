@@ -326,7 +326,10 @@ class AiActivity(unittest.TestCase):
         import monitor
         s1 = snap("2026-10-28T04:00:00.000Z", {"michelle.yeoh@yyc.hk": (10, 0.5)})
         s2 = snap("2026-10-28T04:00:10.000Z", {"michelle.yeoh@yyc.hk": (14, 0.62), "deyaochen@yyc.hk": (1, 0.01)},
-                  starts=[{"at": "2026-10-28T04:00:05.000Z", "what": "start", "ok": True, "ms": 4100, "host": "aws-1", "owner": "deyaochen@yyc.hk"}],
+                  starts=[{"at": "2026-10-28T04:00:05.000Z", "what": "start", "ok": True, "ms": 4100, "host": "aws-1", "owner": "deyaochen@yyc.hk"},
+                          # refused at the test account's own number with notifyPersonLimit false: hermit marks it quiet
+                          {"at": "2026-10-28T04:00:05.500Z", "what": "start", "ok": False, "ms": 60000, "host": None,
+                           "owner": "bot@deyaochen.com", "reason": "pool_full", "quiet": True}],
                   vm=[{"at": "2026-10-28T04:00:06.000Z", "kind": "host_launch_failed", "host": "aws-2", "data": {"error": "InsufficientInstanceCapacity"}}],
                   egress=[{"at": "2026-10-28T04:00:07.000Z", "kind": "model", "host": "openrouter.ai", "path": "/api/v1/messages", "status": 402,
                            "decision": "allow", "owner": "michelle.yeoh@yyc.hk"},
@@ -340,12 +343,14 @@ class AiActivity(unittest.TestCase):
             self.assertEqual(rows("ai"), [])  # the first snapshot only sets the cursor
             monitor.live_once()
             got = [r["data"] for r in rows("ai")]
-            self.assertEqual([g["what"] for g in got], ["start", "host", "egress", "calls", "calls", "status"])
+            self.assertEqual([g["what"] for g in got], ["start", "start", "host", "egress", "calls", "calls", "status"])
+            # the quiet refusal keeps hermit's mark (the page draws it grey); a start with no mark is not quiet
+            self.assertEqual([g.get("quiet") for g in got if g["what"] == "start"], [None, True])
             calls = {g["owner"]: (g["calls"], round(g["usd"], 2)) for g in got if g["what"] == "calls"}
             self.assertEqual(calls, {"michelle.yeoh@yyc.hk": (4, 0.12), "deyaochen@yyc.hk": (1, 0.01)})
             self.assertEqual(got[-1]["state"], "problem")
             monitor.live_once()  # the same snapshot again: nothing new
-            self.assertEqual(len(rows("ai")), 6)
+            self.assertEqual(len(rows("ai")), 7)
         doc = corpus.kv_get("live:sys")
         self.assertEqual(doc["ai"]["service"][0]["restarts"], 1)
         self.assertEqual(doc["ai"]["sandboxes"][0]["owner"], "michelle.yeoh@yyc.hk")

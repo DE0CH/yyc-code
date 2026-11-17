@@ -17,7 +17,7 @@ Access key (tests/test_edge_ops.py's token and dev-server keys).
 3. The cards: every panel shows its fixture as one self-contained card (Full text's route, length and five lines, a
    failure in red with its reason, Stage 1's every topic with score and reason, Stage 2's "<stage-1 model> → <stage-2 model>" with both
    reasons, each panel's header naming its stage's model (edge config `models`), Comments' three most liked, YYC AI's
-   activity cards (model calls, a failed sandbox start in red) beside its state from kv live:sys (status, sandboxes,
+   activity cards (model calls, a failed sandbox start in red, a start refused at the account's own limit in grey) beside its state from kv live:sys (status, sandboxes,
    today's spend and budget), Systems' providers with their figures and source, pods, hosts, nodes, Postgres's load,
    space and backups, the WiseSearch relay, the object storage buckets, …), and
    each header its counts in the last 10 minutes and hour.
@@ -122,6 +122,9 @@ def ai_fixtures():
                   (z(40), {"what": "calls", "owner": "michelle.yeoh@yyc.hk", "calls": 7, "usd": 0.1834, "calls_today": 92, "usd_today": 1.80,
                            "models": {"anthropic/claude-opus-5.5": 7}}),
                   (z(30), {"what": "start", "owner": "deyaochen@yyc.hk", "host": None, "ok": False, "ms": 180000, "reason": "host_boot_timeout"}),
+                  # refused at the test account's own number (hermit's notifyPersonLimit false): grey, never red
+                  (z(25), {"what": "start", "owner": "bot@deyaochen.com", "host": None, "ok": False, "ms": 60000, "reason": "pool_full",
+                           "quiet": True}),
                   (z(20), {"what": "egress", "kind": "model", "host": "openrouter.ai", "path": "/api/v1/messages", "status": 402,
                            "decision": "allow", "owner": "michelle.yeoh@yyc.hk"})):
         corpus.db().execute("INSERT INTO events (at, kind, data) VALUES (%s, 'ai', %s)", (at, json.dumps(d)))
@@ -456,6 +459,13 @@ class LivePage(unittest.TestCase):
         self.assertEqual(page.locator(".lp[data-panel=ai]").locator("li.bad, .badt, .why").count(), 0)
         self.assertEqual(page.locator(".lp[data-panel=ai] li.cau .tag.warn", has_text="sandbox start failed").count(), 1)
         self.assertEqual(page.locator("[data-ai-state] .row.warnc", has_text="1 failed starts").count(), 1)
+        # the bot's start refused at its own limit: a plain grey card, neither red nor amber (Deyao, 2026-11-17)
+        refused = page.locator(".lp[data-panel=ai] li", has_text="sandbox start refused")
+        self.assertEqual(refused.count(), 1)
+        self.assertIn("at its own sandbox limit", refused.inner_text())
+        self.assertEqual(refused.locator(".badt, .why, .warn").count(), 0)
+        self.assertNotIn("bad", refused.get_attribute("class") or "")
+        self.assertNotIn("cau", refused.get_attribute("class") or "")
         # warming up is an advisory, not a caution: blue (deyao-web-design status colours)
         self.assertEqual(page.locator("[data-ai-state] .tag.info", has_text="warming up").count(), 1)
         self.assertEqual(page.locator("[data-ai-state] .row.infoc", has_text="Host aws-1b2c3d booting").count(), 1)

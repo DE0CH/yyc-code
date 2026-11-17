@@ -395,7 +395,7 @@ function aiBad(c: Card) {
 }
 /** an error that is over: a failed sandbox start, a refused or failed call, a host error (amber) */
 function aiPast(c: Card) {
-  return (c.what === "start" && c.ok === false) || c.what === "egress" || (c.what === "host" && !!c.error);
+  return (c.what === "start" && c.ok === false && !c.quiet) || c.what === "egress" || (c.what === "host" && !!c.error);
 }
 
 function AiCard({ c }: { c: Card }) {
@@ -408,10 +408,13 @@ function AiCard({ c }: { c: Card }) {
         <X><b>+{n_(c.calls)}</b> calls, {usd(n_(c.usd), 4)}<span className="dim">; today {n_(c.calls_today)} calls, {usd(n_(c.usd_today))}</span></X>
         {m.length ? <X k="dim">{m.map(([k, v]) => `${k} +${v}`).join(", ")}</X> : null}</>;
     }
-    case "start":
-      return <><div className="m"><span className="num">{hhmmss(c.t)}</span>{c.ok === false ? tag("sandbox start failed", "warn") : tag("sandbox started")}<span>{who(c.owner)}</span></div>
+    case "start": {
+      // quiet: refused at the account's own sandbox limit, which hermit's notifyPersonLimit says needs nobody: grey
+      const quiet = c.ok === false && !!c.quiet;
+      return <><div className="m"><span className="num">{hhmmss(c.t)}</span>{quiet ? tag("sandbox start refused") : c.ok === false ? tag("sandbox start failed", "warn") : tag("sandbox started")}<span>{who(c.owner)}</span></div>
         <X>{[s_(c.host) ? `host ${s_(c.host)}` : "no host", n_(c.ms) != null ? `${(n_(c.ms)! / 1000).toFixed(1)} s` : null].filter(Boolean).join(", ")}</X>
-        {s_(c.reason) && <X k={c.ok === false ? "warn" : "dim"}>{s_(c.reason)}</X>}</>;
+        {quiet ? <X k="dim">at its own sandbox limit</X> : s_(c.reason) && <X k={c.ok === false ? "warn" : "dim"}>{s_(c.reason)}</X>}</>;
+    }
     case "release":
       return <><div className="m"><span className="num">{hhmmss(c.t)}</span>{tag("sandbox released")}<span>{who(c.owner)}</span></div>
         <X>{s_(c.host) ? `host ${s_(c.host)}, ` : ""}lived {dur((n_(c.ms) ?? 0) / 1000)}</X>

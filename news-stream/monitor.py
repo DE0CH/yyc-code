@@ -2511,8 +2511,11 @@ def ai_activity(d, cur):
                          "models": dm if len(busy) == 1 else None}))
     for r in starts:
         if (r.get("at") or "") > (cur.get("starts") or ""):
-            out.append((r["at"], {"what": r.get("what"), "owner": r.get("owner"), "host": r.get("host"), "ok": r.get("ok"),
-                                  "ms": r.get("ms"), "reason": r.get("reason")}))
+            e = {"what": r.get("what"), "owner": r.get("owner"), "host": r.get("host"), "ok": r.get("ok"),
+                 "ms": r.get("ms"), "reason": r.get("reason")}
+            if r.get("quiet"):  # refused at the person's own limit, their notifyPersonLimit false (hermit): not a failure
+                e["quiet"] = True
+            out.append((r["at"], e))
     for r in vm:
         if (r.get("at") or "") > (cur.get("vm") or ""):
             data = r.get("data") or {}
