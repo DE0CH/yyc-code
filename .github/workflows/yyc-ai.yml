@@ -120,6 +120,7 @@ jobs:
           python3 yyc-ai/tests/test_check_pins_green.py
           python3 yyc-ai/tests/test_seal.py
           python3 yyc-ai/tests/test_zdr_violations.py
+          python3 yyc-ai/tests/test_openrouter_guardrail.py
           python3 yyc-ai/tests/test_system_prompt.py
           # bridges.sh against a real HAProxy (the bridge box's)
           sudo apt-get update -qq && sudo apt-get install -y -qq haproxy >/dev/null
