@@ -22,7 +22,21 @@ metadata:
 rules:
   - apiGroups: [""]
     resources: [nodes]
+    verbs: [get, list, watch, patch]          # patch: cordon before a singleton's move, uncordon after a failure
+  # the singletons' moves (node-work.sh move_singletons): find the pods on the node and their PodDisruptionBudgets,
+  # then the Deployment's own `rollout restart` / `rollout status` / `rollout undo`
+  - apiGroups: [""]
+    resources: [pods]
     verbs: [get, list, watch]
+  - apiGroups: [policy]
+    resources: [poddisruptionbudgets]
+    verbs: [get, list]
+  - apiGroups: [apps]
+    resources: [replicasets]
+    verbs: [get, list, watch]
+  - apiGroups: [apps]
+    resources: [deployments]
+    verbs: [get, list, watch, patch]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

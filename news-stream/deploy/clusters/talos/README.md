@@ -152,6 +152,15 @@ control nodes) or on yyc-nat1 (a network box). Image tag: `images:` in kustomiza
   node is upgraded to `release.env`'s version, control nodes first, one at a time (`talosctl upgrade`: drain, upgrade,
   reboot, wait; then the node Ready at the new version and `talosctl health` green). A push to `release.env` does the
   same; a dispatch runs `upgrade` (one node or all) or `upgrade-k8s` (`k8s_version`), `mode` dry-run by default.
+- **Singletons move first; database primaries go last** (`node-work.sh`, 2026-11-17). Before a node's upgrade the script
+  cordons it and moves every Deployment there that a PodDisruptionBudget does not let go (the news stream's poller,
+  wisers, whatsapp, monitor, transcribe, tiktok-videos) by its own rolling update: `talosctl upgrade`'s drain only
+  evicts and waited 15 min on the poller at `yyc-talos-news1`, then failed. A singleton with no room for its second
+  pod stops the run red, the node uncordoned and untouched (the news pool needs 2 Gi free on one node for the poller:
+  claude-env lessons/107). Workers holding a CloudNativePG primary are taken last, so a Cluster switches over once:
+  in name order db1, db2, db3 moved Cluster `pg`'s primary three times, with connections refused on and off for 3 min
+  25 s (04:23:46-04:27:11 UTC) and whatsapp and aiwatch restarting. RBAC for it: `node-work.yaml` (`gha:talos-nodes`
+  may patch nodes and Deployments, read pods, ReplicaSets and PodDisruptionBudgets).
 - **The installer is Hetzner's (`hcloud-installer`), never the generic `installer`** (`release.env`; `node-work.sh`
   refuses any other). The arm64 nodes (control nodes, `yyc-talos-w*`) boot a UKI and the kernel command line comes with
   the installer: the generic one's lacks `talos.platform=hcloud` and `net.ifnames=0`, so the node boots as platform

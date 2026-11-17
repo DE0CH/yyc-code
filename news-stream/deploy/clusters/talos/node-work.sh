@@ -17,6 +17,9 @@
 #     it is skipped, and
 #     upgrade-k8s (which restarts every kubelet) does not run at all while a gateway node exists.
 #   - a node not Ready (other than the one being upgraded) stops the run red: never two nodes down.
+#   - a Deployment a PodDisruptionBudget does not let go (a singleton) is moved off the node first by its own rolling
+#     update; one that cannot move stops the run red with the node uncordoned and untouched.
+#   - workers that hold a CloudNativePG primary go last, so each Cluster switches over once.
 # Env: KUBECONFIG.
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
@@ -43,13 +46,17 @@ notice() { echo "::notice::$*"; }
 
 nodes_json=$(kubectl get nodes -o json)
 # name ip version role gateway, control nodes first, then by name
-mapfile -t NODES < <(jq -r --arg gw "$GW_LABEL" '.items
+# the nodes of the CloudNativePG primaries: they go last among the workers, so a Cluster switches over once (to an
+# instance on a node already done) instead of once per node (yyc-talos, 2026-11-17: db1, db2, db3 in name order moved
+# Cluster pg's primary three times in three minutes)
+primary_nodes=$(kubectl get pods -A -l cnpg.io/instanceRole=primary -o json | jq -c '[.items[].spec.nodeName] | unique')
+mapfile -t NODES < <(jq -r --arg gw "$GW_LABEL" --argjson pri "$primary_nodes" '.items
   | map({n: .metadata.name,
          ip: ([.status.addresses[] | select(.type == "InternalIP") | .address][0]),
          v: (.status.nodeInfo.osImage | capture("\\((?<v>v[^)]+)\\)").v // "unknown"),
          cp: (.metadata.labels | has("node-role.kubernetes.io/control-plane")),
          gw: ((.metadata.labels[$gw] // "") == "true")})
-  | sort_by((if .cp then 0 else 1 end), .n)[]
+  | sort_by((if .cp then 0 else 1 end), (if (.n | IN($pri[])) then 1 else 0 end), .n)[]
   | "\(.n) \(.ip) \(.v) \(if .cp then "control" else "worker" end) \(.gw)"' <<< "$nodes_json")
 gateway_exists=$(jq -r --arg gw "$GW_LABEL" '[.items[] | select((.metadata.labels[$gw] // "") == "true")] | length' <<< "$nodes_json")
 cp_ips=$(printf '%s\n' "${NODES[@]}" | awk '$4 == "control" {print $2}')
@@ -105,6 +112,44 @@ run_job() {
   [ "$st" = ok ] || { echo "::error::job $NS/$name: $st"; return 1; }
 }
 
+# singletons NODE: the Deployments (namespace/name) with a pod on NODE that a PodDisruptionBudget does not let go
+# (disruptionsAllowed 0: the news stream's poller, wisers, whatsapp, monitor…). talosctl's drain can only evict, so it
+# would wait on them until its timeout; they move by their own rolling update instead (new pod elsewhere first, handover
+# through their lock: news-stream/deploy/README.md "Moving pods off a node").
+singletons() {
+  local pods pdbs
+  pods=$(kubectl get pods -A --field-selector "spec.nodeName=$1" -o json)
+  pdbs=$(kubectl get pdb -A -o json)
+  jq -r --argjson pdbs "$pdbs" '.items[]
+    | select(.status.phase == "Running" and ((.metadata.ownerReferences // [])[0].kind == "ReplicaSet"))
+    | . as $p
+    | select([$pdbs.items[] | select(.metadata.namespace == $p.metadata.namespace and (.status.disruptionsAllowed // 0) == 0)
+              | (.spec.selector.matchLabels // {}) | select(length > 0) | to_entries
+              | all(.[]; ($p.metadata.labels // {})[.key] == .value)] | any)
+    | "\(.metadata.namespace) \(.metadata.ownerReferences[0].name)"' <<< "$pods" | sort -u | while read -r ns rs; do
+      echo "$ns/$(kubectl -n "$ns" get rs "$rs" -o jsonpath='{.metadata.ownerReferences[0].name}')"
+    done
+}
+
+# move_singletons NODE: cordon NODE, then each singleton's own rollout; a rollout that cannot finish (no room for the
+# second pod) uncordons NODE, undoes the restart and stops the run red, with the node untouched
+move_singletons() {
+  local node=$1 list d
+  list=$(singletons "$node")
+  [ -n "$list" ] || return 0
+  kubectl cordon "$node" >/dev/null
+  for d in $list; do
+    echo "$node: moving ${d} by its own rolling update"
+    kubectl -n "${d%%/*}" rollout restart "deploy/${d#*/}" >/dev/null
+    if ! kubectl -n "${d%%/*}" rollout status "deploy/${d#*/}" --timeout=30m; then
+      kubectl -n "${d%%/*}" rollout undo "deploy/${d#*/}" >/dev/null || true
+      kubectl uncordon "$node" >/dev/null || true
+      echo "::error::$node: $d did not move off it (no room for its second pod?); node uncordoned, nothing upgraded"
+      return 1
+    fi
+  done
+}
+
 stamp=$(date -u +%Y%m%d%H%M%S)
 
 if [ "$action" = upgrade-k8s ]; then
@@ -139,13 +184,18 @@ for line in "${NODES[@]}"; do
     continue
   fi
   if [ "$gw" != true ] && [ -n "$gateway_runbook" ] && [ -z "$node_only" ]; then continue; fi
-  if [ -n "$dry" ]; then echo "$name ($role, $ip): would upgrade $ver -> $target ($image)"; continue; fi
+  if [ -n "$dry" ]; then
+    echo "$name ($role, $ip): would upgrade $ver -> $target ($image)$(singletons "$name" | sed 's/^/; first moves /' | tr -d '\n')"
+    continue
+  fi
   all_ready_but "" || { echo "::error::a node is not Ready: not starting on $name"; kubectl get nodes; exit 1; }
   other=$(other_cp "$ip")
   echo "$name ($role, $ip): upgrade $ver -> $target"
   up=$(jq -nc --arg n "$ip" --arg i "$image" '[["-n", $n, "upgrade", "--image", $i, "--wait", "--timeout", "30m", "--drain-timeout", "15m", "--progress", "plain"]]')
   health=$(jq -nc --arg n "$other" '["-n", $n, "health", "--wait-timeout", "15m"]')
-  run_job "upgrade-$name-$stamp" "$name" "$up" "$health" 5400
+  move_singletons "$name"
+  # a failed upgrade Job leaves the node cordoned by talosctl's drain: uncordon it, the run is red either way
+  run_job "upgrade-$name-$stamp" "$name" "$up" "$health" 5400 || { kubectl uncordon "$name" >/dev/null || true; exit 1; }
   # the node back, Ready, at the new version
   for _ in $(seq 1 40); do
     now=$(kubectl get node "$name" -o json | jq -r '(.status.nodeInfo.osImage | capture("\\((?<v>v[^)]+)\\)").v // "") + " " + ([.status.conditions[] | select(.type == "Ready")][0].status)')
