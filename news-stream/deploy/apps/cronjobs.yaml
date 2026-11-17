@@ -422,6 +422,11 @@ spec:
             env:
             - name: RUN_SECONDS
               value: "240"
+            - name: ISP_PROXY  # discuss_route: YYC's IPRoyal ISP IP when the cluster's IP is walled, one client at a time (lock 'yyc youtube')
+              valueFrom:
+                secretKeyRef:
+                  name: isp-proxy
+                  key: ISP_PROXY
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:

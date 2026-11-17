@@ -572,7 +572,11 @@ URLs and back behaviour are in NAVIGATION.md.
   (reply counts recorded; a thread is read in full once it grows). New threads are read at once, newest first; a
   thread whose second scoring is due (post time + 30 min) is read again directly. **Scored by thread** like LIHKG
   (`twopass.DISCUSS_THREAD`, ai_spend `scoring_discuss`): one item in 串流 / 數據分析, one Telegram message per stream,
-  the item page lists every reply with 「以上回覆已納入評分（time）」. 0.5 s between requests (`DISCUSS_GAP`), on one kept-alive connection per sticky IP (curl_cffi: 0.43 s a request through the proxy instead of 1.25 s on a new connection each time, 2026-10-15). Boards are listed most overdue first, against each board's own interval (`overdue`: strictly longest-ago first listed all 449 boards, the busy ones too, once in 48-71 min, and their replies waited that long); a long thread is read up to the run's deadline and carries on in the next run (a thread of hundreds of pages ran runs past the CronJob's 600 s deadline).
+  the item page lists every reply with 「以上回覆已納入評分（time）」. **Route** (`discuss_route`, one probe request each
+  run): the cluster's own IP when the site answers it, else YYC's ISP IP (each request under the 'yyc youtube' lock,
+  bytes in kv isp:bytes), else yycstream; on yycstream a page tries `DISCUSS_WALLS` (3) sticky IPs, then the run stops
+  (27 Oct - 17 Nov 2026 every residential IP got the reCAPTCHA wall: 8 IPs a page, ~0.7 GB of yycstream a day, no
+  reply stored; the ISP IP passed). The poller's keyword search (`sources.discuss_search`) takes the same route. 0.5 s between requests (`DISCUSS_GAP`), on one kept-alive connection per sticky IP (curl_cffi: 0.43 s a request through the proxy instead of 1.25 s on a new connection each time, 2026-10-15). Boards are listed most overdue first, against each board's own interval (`overdue`: strictly longest-ago first listed all 449 boards, the busy ones too, once in 48-71 min, and their replies waited that long); a long thread is read up to the run's deadline and carries on in the next run (a thread of hundreds of pages ran runs past the CronJob's 600 s deadline).
   Measured 2026-10-15: 449 boards in the index (32 of them » links with no threads of their own); thread ids are
   sequential site-wide (150 consecutive ids: 130 readable threads, 18 behind the betting boards' 18+ notice, which the
   job agrees to, 2 deleted); 1,340 new thread ids in the 48 h of 13-14 Oct (≈670 a day); the five news boards alone

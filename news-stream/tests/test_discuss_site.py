@@ -14,7 +14,9 @@ Capture (replies_fetch.py discuss):
    due (post time + 30 min) is read again directly then (its listing count unchanged: marked re-read without a
    request).
 4. polite: a pause of DISCUSS_GAP between requests; a walled IP (HTTP 202 reCAPTCHA / 403) moves to a new sticky
-   session.
+   session, at most DISCUSS_WALLS of them a page; a page still walled ends the run (27 Oct - 17 Nov 2026 every
+   residential IP was walled: 8 sessions a page, ~0.7 GB of yycstream a day, no reply read). On the ISP IP
+   (discuss_route) each request holds the ISP lock, its bytes count as the ISP IP's, and a wall ends the run at once.
 
 Scoring (streams.py + twopass.py):
 5. a 香港討論區 thread is one unit, the opening post and its replies (ai_spend purpose scoring_discuss); its reply
@@ -23,7 +25,7 @@ Scoring (streams.py + twopass.py):
 7. the item page lists every reply with the divider 「以上回覆已納入評分（time）」.
 
 Search (sources.discuss_search, kept beside the whole site):
-8. on the same sticky-session proxy as the replies job: a 403/202 moves to a new session, and one failing query
+8. on the replies job's route (discuss_route; on yycstream a 403/202 moves to a new session), and one failing query
    doesn't lose the others.
 
     TEST_DATABASE_URL=postgresql://…/yyc_test python3 tests/test_discuss_site.py
@@ -162,7 +164,7 @@ class Px:
 
 
 def run(site):
-    with mock.patch.object(replies_fetch, "Proxied", lambda name, direct=False: Px(site)):
+    with mock.patch.object(replies_fetch, "Proxied", lambda name, direct=False, isp=False: Px(site)):
         return replies_fetch.run("discuss", 3 * 3600)
 
 
@@ -375,6 +377,77 @@ class Capture(unittest.TestCase):
         self.assertEqual(corpus.kv_get("proxy:bytes:discuss:" + replies_fetch.now().strftime("%Y-%m-%dT%H")), 1234)
 
 
+    def test_5e_walled_everywhere_stops_the_run(self):
+        """every residential IP walled: a page tries DISCUSS_WALLS sessions, then the run stops (no other board or
+        thread asked) and the threads wait"""
+        px = replies_fetch.Proxied("discuss")
+        tries = []
+
+        def fetch(u, h):
+            tries.append(px.proxy())
+            return 202, "請確認身份 g-recaptcha"
+        px.fetch = fetch
+        with mock.patch.object(replies_fetch.time, "sleep", lambda s: None):
+            with self.assertRaises(replies_fetch.Wall):
+                px.get("https://www.discuss.com.hk/archiver/?fid-54.html", walled=replies_fetch.discuss_walled)
+        self.assertEqual(len(tries), replies_fetch.DISCUSS_WALLS)
+        self.assertEqual(len(set(tries)), replies_fetch.DISCUSS_WALLS)
+        calls = []
+
+        class Walled(Px):
+            def get(self, u, headers=None, walled=None):
+                calls.append(u)
+                raise replies_fetch.Wall(u)
+        corpus.kv_set("replies:discuss:boards", {"at": time.time(), "boards": {"54": "a", "62": "b", "70": "c"}})
+        corpus.kv_set("replies:discuss:pending", {"900": {"replies": 3}, "901": {"replies": 4}})
+        with mock.patch.object(replies_fetch, "Proxied", lambda name, direct=False, isp=False: Walled(Site())), \
+                mock.patch.object(replies_fetch, "discuss_route", lambda: "hk"):
+            res = replies_fetch.run("discuss", 3600)
+        self.assertEqual(len(calls), 1)  # the first board's wall: nothing else asked
+        self.assertTrue(res["blocked"])
+        self.assertEqual(set(corpus.kv_get("replies:discuss:pending")), {"900", "901"})
+
+    def test_5f_isp_route(self):
+        """the ISP IP (discuss_route "isp"): every request through ISP_PROXY under the ISP lock ('yyc youtube', one
+        client at a time), bytes counted as the ISP IP's (not yycstream's), a wall raises at once (one fixed IP)"""
+        held = []
+
+        class Lock:
+            def __enter__(self):
+                held.append(True)
+
+            def __exit__(self, *a):
+                held.append(False)
+        made = []
+
+        class Sess:
+            def __init__(self, **kw):
+                made.append(self)
+                self.answers = [(200, "<html>ok</html>"), (202, "請確認身份 g-recaptcha")]
+
+            def get(self, u, headers=None, proxies=None, timeout=None, allow_redirects=True):
+                assert held and held[-1], "a request outside the ISP lock"
+                assert proxies["https"] == "http://u:p@isp.test:12323"
+                st, tx = self.answers.pop(0)
+                return mock.Mock(status_code=st, text=tx, content=tx.encode(), download_size=1000, headers={})
+        import sites_fetch
+        from curl_cffi import requests as cr
+        day = replies_fetch.now().strftime("%Y-%m-%d")
+        resi_before = corpus.kv_get(f"proxy:bytes:discuss:{day}", 0)
+        isp_before = corpus.kv_get(f"isp:bytes:{day}", 0)
+        with mock.patch.dict(os.environ, {"ISP_PROXY": "http://u:p@isp.test:12323"}), \
+                mock.patch.object(cr, "Session", Sess), mock.patch.object(sites_fetch, "isp_lock", lambda: Lock()), \
+                mock.patch.object(replies_fetch.time, "sleep", lambda s: None):
+            px = replies_fetch.Proxied("discuss", isp=True)
+            self.assertEqual(px.get("https://www.discuss.com.hk/a", walled=replies_fetch.discuss_walled), "<html>ok</html>")
+            with self.assertRaises(replies_fetch.Blocked):
+                px.get("https://www.discuss.com.hk/b", walled=replies_fetch.discuss_walled)
+            px.account()
+        self.assertEqual(len(made), 1)
+        self.assertEqual(held, [True, False, True, False])
+        self.assertEqual(corpus.kv_get(f"proxy:bytes:discuss:{day}", 0), resi_before)
+        self.assertEqual(corpus.kv_get(f"isp:bytes:{day}", 0) - isp_before, 2 * (1000 + 800))
+
     def test_5c_one_connection_for_the_run(self):
         """each request opened a new connection through the proxy (CONNECT + TLS: 1.25 s a request measured in the
         cluster, 2026-10-15, against 0.43 s on a kept-alive connection): requests share one session, its cookies (the
@@ -445,7 +518,7 @@ class Capture(unittest.TestCase):
                 calls.append(u)
                 raise replies_fetch.ProxyOut("402")
         corpus.kv_set("replies:discuss:boards", {"at": time.time(), "boards": {"54": "a", "62": "b"}})
-        with mock.patch.object(replies_fetch, "Proxied", lambda name, direct=False: Out(s)):
+        with mock.patch.object(replies_fetch, "Proxied", lambda name, direct=False, isp=False: Out(s)):
             res = replies_fetch.run("discuss", 3600)
         self.assertEqual(len(calls), 1)
         self.assertEqual(res["proxy_out"], True)
@@ -545,9 +618,12 @@ class Search(unittest.TestCase):
         page = '<div class="result"><a href="https://m.discuss.com.hk/index.php?action=thread&tid=5001">李家超出席活動</a></div>'
         calls = []
 
+        made = []
+
         class P:
-            def __init__(self, site, direct=False):
+            def __init__(self, site, direct=False, isp=False):
                 self.site = site
+                made.append((direct, isp))
 
             def get(self, u, headers=None, walled=None):
                 calls.append(u)
@@ -557,8 +633,9 @@ class Search(unittest.TestCase):
 
             def account(self):
                 pass
-        with mock.patch.object(replies_fetch, "Proxied", P):
+        with mock.patch.object(replies_fetch, "Proxied", P), mock.patch.object(replies_fetch, "discuss_route", lambda: "isp"):
             got = sources.discuss_search(["特首", "李家超"])
+        self.assertEqual(made, [(False, True)])  # the replies job's route (the ISP IP here)
         self.assertEqual(len(calls), 2)
         self.assertEqual([g["url"] for g in got], [url(5001)])
 

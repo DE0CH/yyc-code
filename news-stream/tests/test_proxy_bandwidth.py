@@ -7,8 +7,8 @@
 3. Instagram / Threads go through the ISP IP first (ig_fetch.read_isp); an account the ISP IP can't serve is read
    through yycstream, and after ISP_FAILS such accounts the rest of the run skip the ISP IP. Its lock is waited for
    in Postgres's queue (ig_fetch.isp_turn): a job taking it per request in a try loop never starves it.
-4. 香港討論區: one direct request first (replies_fetch.discuss_direct); Cloudflare's challenge or the reCAPTCHA wall =
-   through the proxy.
+4. 香港討論區: one direct request first (replies_fetch.discuss_route); Cloudflare's challenge or the reCAPTCHA wall =
+   one request through the ISP IP (flat rate); walled there too (or no ISP_PROXY) = through yycstream.
 
     TEST_DATABASE_URL=postgresql://…/yyc_test python3 tests/test_proxy_bandwidth.py
 """
@@ -133,24 +133,44 @@ class IspTurn(unittest.TestCase):
             self.assertLess(time.time() - t0, 3)
 
 
-class DiscussDirect(unittest.TestCase):
-    def probe(self, status, text):
+class DiscussRoute(unittest.TestCase):
+    def route(self, answers, isp_env=True):
+        """answers: {route: (status, text)} for "direct" and "isp" → (discuss_route(), routes asked)"""
+        asked = []
+
         class Px:
-            def __init__(self, site, direct=False):
-                assert direct
+            def __init__(self, site, direct=False, isp=False):
+                self.r = "direct" if direct else "isp" if isp else "hk"
+                assert self.r != "hk", "the probe never goes through yycstream"
 
             def fetch(self, url, headers):
-                return status, text
-        with mock.patch.object(replies_fetch, "Proxied", Px):
-            return replies_fetch.discuss_direct()
+                asked.append(self.r)
+                return answers[self.r]
 
-    def test_challenge_goes_through_the_proxy(self):
-        self.assertFalse(self.probe(403, "<!DOCTYPE html><html><head><title>Just a moment...</title>"))
-        self.assertFalse(self.probe(403, "<!DOCTYPE html><html><head><title>請稍候...</title>"))
-        self.assertFalse(self.probe(202, "請確認身份 g-recaptcha"))
+            def account(self):
+                pass
+        env = {"ISP_PROXY": "http://u:p@isp.test:12323"} if isp_env else {}
+        with mock.patch.object(replies_fetch, "Proxied", Px), mock.patch.dict(os.environ, env):
+            if not isp_env:
+                os.environ.pop("ISP_PROXY", None)
+            return replies_fetch.discuss_route(), asked
+
+    CHALLENGE = (403, "<!DOCTYPE html><html><head><title>Just a moment...</title>")
+    WALL = (202, "請確認身份 g-recaptcha")
+    OPEN = (200, '<a href="?fid-17.html">時事</a>')
 
     def test_open_site_goes_direct(self):
-        self.assertTrue(self.probe(200, '<a href="?fid-17.html">時事</a>'))
+        self.assertEqual(self.route({"direct": self.OPEN}), ("direct", ["direct"]))
+
+    def test_challenge_goes_through_the_isp_ip(self):
+        """17 Nov 2026: the cluster's IP got Cloudflare's challenge, every residential IP the reCAPTCHA wall, the ISP
+        IP the site"""
+        self.assertEqual(self.route({"direct": self.CHALLENGE, "isp": self.OPEN}), ("isp", ["direct", "isp"]))
+        self.assertEqual(self.route({"direct": (403, "<title>請稍候...</title>"), "isp": self.OPEN})[0], "isp")
+
+    def test_walled_everywhere_goes_through_the_proxy(self):
+        self.assertEqual(self.route({"direct": self.CHALLENGE, "isp": self.WALL}), ("hk", ["direct", "isp"]))
+        self.assertEqual(self.route({"direct": self.WALL}, isp_env=False), ("hk", ["direct"]))
 
     def test_walled_names_the_challenge(self):
         self.assertTrue(replies_fetch.discuss_walled(403, "<html><head><title>Just a moment...</title>"))

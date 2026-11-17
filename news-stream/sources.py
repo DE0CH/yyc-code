@@ -672,11 +672,14 @@ def discuss_search(queries):
     """香港討論區: its mobile site's keyword search, newest first, one page per query, through RESI_PROXY (discuss.com.hk
     bans datacenter networks; a Hong Kong residential IP from IPRoyal passes). The results carry no dates, so threads
     older than ~2 days (by thread id, which rises steadily) are dropped. Links use the archiver form K-Matrix posts.
-    Requests go through replies_fetch.Proxied, the replies job's sticky IPRoyal session: an IP the site walls (HTTP
-    202 reCAPTCHA, 403: 15 Oct 2026 13:29-14:00 HKT every run failed on one 403 from a rotating IP) moves to a new
-    session; a query that still fails is skipped (the rest are kept), and only all of them failing is a failure."""
+    Requests go through replies_fetch.Proxied on the replies job's route (replies_fetch.discuss_route: the server's
+    IP, the ISP IP, else the replies job's sticky IPRoyal session: an IP the site walls (HTTP 202 reCAPTCHA, 403: 15
+    Oct 2026 13:29-14:00 HKT every run failed on one 403 from a rotating IP) moves to a new session); a query that
+    still fails is skipped (the rest are kept), and only all of them failing is a failure."""
     import replies_fetch
-    px = replies_fetch.Proxied("discuss")  # its bytes count under the site "discuss", with the replies job's
+    route = replies_fetch.discuss_route()
+    # its bytes count under the site "discuss" (or the ISP IP's), with the replies job's
+    px = replies_fetch.Proxied("discuss", direct=route == "direct", **({"isp": True} if route == "isp" else {}))
     found, extra, failed = {}, {}, []
     for q in queries:
         try:

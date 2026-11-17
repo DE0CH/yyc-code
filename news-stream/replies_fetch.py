@@ -38,7 +38,7 @@ Which threads:
               directly (or, listed with no new reply, marked re-read without a request). Plus the threads
               discuss_search / Google News filed in the last 2 days. Posts 1-100 come from the printable view (one
               request, ~5-14 KB), later posts from the mobile thread pages (15 posts, ~30 KB). From the server's own IP when it
-              answers this run (discuss_direct, one request first), else through RESI_PROXY
+              answers this run (discuss_route, one request first), else through the ISP IP, else RESI_PROXY
               (IPRoyal HK residential, sub-user yycstream) on a sticky session: an IP the site walls (reCAPTCHA HTTP
               202, 403) moves to a new session until one passes and keeps it; DISCUSS_GAP seconds between requests.
 
@@ -89,6 +89,7 @@ BOARD_MAX_EVERY = 3600        # ... and at least once an hour
 RUN_PERIOD = 300              # seconds between runs (CronJob replies every 5 min): a board's interval = every × this
 DISCUSS_GAP_DEFAULT = 0.5     # seconds between 香港討論區 requests (politeness)
 DISCUSS_GAP = float(os.environ.get("DISCUSS_GAP", DISCUSS_GAP_DEFAULT))
+DISCUSS_WALLS = 3             # residential IPs a 香港討論區 page may meet the wall on; then Wall, which ends the run
 RUN_SECONDS = int(os.environ.get("RUN_SECONDS", "720"))  # per site per run: the rest waits (the timer runs every 30 min)
 LIHKG_MAX_PAGES = int(os.environ.get("LIHKG_MAX_PAGES", "1500"))  # site protection: LIHKG bans bursts (Cloudflare 1015)
 COLLECTED_DAYS = 2  # collectors' threads followed this long after they were filed
@@ -128,12 +129,16 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):  # discuss answers 302 wit
 
 class Proxied:
     """requests for one site with a cookie jar and (LIHKG) a device id. Through RESI_PROXY on a sticky IPRoyal session
-    (kv replies:<site>:session), or direct from the server (direct=True: LIHKG). Proxy bytes are counted per HKT day
-    and month (the monitor's figure); nothing is paced by them."""
+    (kv replies:<site>:session), direct from the server (direct=True: LIHKG), or through YYC's IPRoyal ISP IP (isp=True:
+    香港討論區, env ISP_PROXY, one client at a time: each request under the 'yyc youtube' lock, sites_fetch.isp_lock;
+    bytes in kv isp:bytes, resi.count_isp). Proxy bytes are counted per HKT day and month (the monitor's figure);
+    nothing is paced by them."""
 
-    def __init__(self, site, direct=False):
-        self.site, self.direct = site, direct
-        if not direct and not resi.configured():
+    def __init__(self, site, direct=False, isp=False):
+        self.site, self.direct, self.isp = site, direct, bool(isp) and not direct
+        if self.isp and not os.environ.get("ISP_PROXY"):
+            raise RuntimeError("ISP_PROXY not set (Secret isp-proxy)")
+        if not direct and not self.isp and not resi.configured():
             raise RuntimeError("RESI_PROXY not set")
         self.session = corpus.kv_get(f"replies:{site}:session")
         self.bytes = 0
@@ -156,16 +161,26 @@ class Proxied:
         h.update(headers)
         proxy = None if self.direct else self.proxy()
         kw = dict(headers=h, proxies={"http": proxy, "https": proxy} if proxy else None, timeout=40, allow_redirects=False)
-        r = self.chrome.post(url, data=data, **kw) if data is not None else self.chrome.get(url, **kw)
+        with self.isp_turn():
+            r = self.chrome.post(url, data=data, **kw) if data is not None else self.chrome.get(url, **kw)
         size = getattr(r, "download_size", None)  # bytes on the wire (compressed); else the body
         self.bytes += (size if isinstance(size, (int, float)) and size > 0 else len(r.content)) + 800
         return r.status_code, r.text
+
+    def isp_turn(self):
+        """the ISP IP's lock for one request (a second client on it gets "Tunnel connection failed: 403"), or nothing"""
+        if not self.isp:
+            return __import__("contextlib").nullcontext()
+        import sites_fetch
+        return sites_fetch.isp_lock()
 
     def rotate(self):
         self.session = None
         self._new_jar()
 
     def proxy(self):
+        if self.isp:
+            return os.environ["ISP_PROXY"]
         if not self.session:
             self.session = resi.session_id(10)
         return resi.url("hk", session=self.session, lifetime="24h")
@@ -173,7 +188,9 @@ class Proxied:
     def account(self):
         if not self.bytes:
             return
-        if not self.direct:
+        if self.isp:
+            resi.count_isp(self.bytes)
+        elif not self.direct:
             resi.count(self.bytes, self.site)
         self.bytes = 0
 
@@ -233,6 +250,7 @@ class Proxied:
         return raw.decode("utf-8", "replace")
 
     def get(self, url, headers=None, walled=lambda status, text: False):
+        walls = 0
         for attempt in range(8):
             if self.site == "lihkg" and self.direct and lihkg_api.blocked():  # another LIHKG reader was rate-limited
                 raise Blocked(f"{url}: the server's IP is in LIHKG's back-off")
@@ -242,24 +260,27 @@ class Proxied:
                     time.sleep(DISCUSS_GAP)  # one request at a time, a pause between them
             except Exception as e:
                 print(self.site, url[-70:], repr(e)[:120], flush=True)
-                if not self.direct and proxy_out(e):
+                if not self.direct and not self.isp and proxy_out(e):
                     raise out(self.site, e)
-                if self.direct and attempt >= 2:
+                if (self.direct or self.isp) and attempt >= 2:
                     raise
                 self.rotate()
                 time.sleep(2)
                 continue
-            if status == 402 and not self.direct and resi.probe():  # a plain-http page: IPRoyal's 402 is the answer
+            if status == 402 and not self.direct and not self.isp and resi.probe():  # a plain-http page: IPRoyal's 402 is the answer
                 raise out(self.site, "HTTP 402 Payment Required through the proxy")
             if walled(status, text):
-                if self.direct:  # never retry into a rate limit from the server's own IP
-                    if self.site == "lihkg":
+                if self.direct or self.isp:  # never retry into a rate limit from one fixed IP (the server's, the ISP IP)
+                    if self.site == "lihkg" and self.direct:
                         lihkg_api.block(f"{url}: {status}")  # every LIHKG reader backs off
                     raise Blocked(f"{url}: {status}")
+                walls += 1
+                if self.site == "discuss" and walls >= DISCUSS_WALLS:  # 27 Oct - 17 Nov 2026 every residential IP got
+                    break  # the wall: 8 sticky sessions per page, ~0.7 GB of yycstream a day for no reply (Wall below)
                 self.rotate()  # this IP is walled: next sticky session
                 continue
             if status in (200, 302) or (status == 404 and self.site == "discuss"):  # 香港討論區's 404: no such thread
-                if not self.direct:
+                if not self.direct and not self.isp:
                     corpus.kv_set(f"replies:{self.site}:session", self.session)
                 return text
             print(self.site, url[-70:], status, flush=True)
@@ -468,18 +489,31 @@ def discuss_walled(status, text):
         or (status in (403, 503) and bool(re.search(r"<title>(Just a moment|請稍候)", text[:3000])))
 
 
-def discuss_direct():
-    """does the site answer the server's own IP now? One request for the archiver's index (free: not through the
-    proxy). Each run tries it first and reads through RESI_PROXY only when it is walled (Deyao, 2026-10-29: IPRoyal
-    bandwidth; on 29 Oct the cluster's IP got Cloudflare's challenge, the ISP IP the reCAPTCHA wall)"""
+def discuss_passes(route):
+    """does the site answer this route now ("direct": the server's own IP, "isp": YYC's ISP IP)? One request for the
+    archiver's index"""
     try:
-        status, text = Proxied("discuss", direct=True).fetch(DISCUSS_ARCHIVER, {})
+        px = Proxied("discuss", direct=route == "direct", isp=route == "isp")
+        status, text = px.fetch(DISCUSS_ARCHIVER, {})
+        px.account()
     except Exception as e:  # noqa: BLE001
-        print("discuss direct:", repr(e)[:120], flush=True)
+        print(f"discuss {route}:", repr(e)[:120], flush=True)
         return False
     ok = status == 200 and not discuss_walled(status, text) and "fid-" in text
-    print("discuss direct:", status, "passes" if ok else "walled: through the proxy", flush=True)
+    print(f"discuss {route}:", status, "passes" if ok else "walled", flush=True)
     return ok
+
+
+def discuss_route():
+    """the route of this run: the server's own IP when the site answers it (free), else YYC's ISP IP (flat rate, env
+    ISP_PROXY), else yycstream (per GB) (Deyao, 2026-10-29: IPRoyal bandwidth). On 29 Oct the cluster's IP got
+    Cloudflare's challenge and the ISP IP the reCAPTCHA wall; from 27 Oct to 17 Nov every residential IP got the wall
+    (HTTP 202) while the ISP IP passed again (17 Nov: 200)"""
+    if discuss_passes("direct"):
+        return "direct"
+    if os.environ.get("ISP_PROXY") and discuss_passes("isp"):
+        return "isp"
+    return "hk"
 
 
 def count(s):
@@ -710,8 +744,9 @@ def run(site, since_default):
     cap, boards, lister, reader, coll = SITES[site]()
     cap = cap if cap is not None else float("inf")
     # LIHKG goes direct, unless it rate-limited the server's IP (any reader's request): then through the proxy;
-    # 香港討論區 direct when it answers the server's IP this run (discuss_direct), else through the proxy
-    px = Proxied(site, direct=site == "lihkg" and not lihkg_api.blocked() or site == "discuss" and discuss_direct())
+    # 香港討論區 on the route that passes this run (discuss_route: direct, the ISP IP, yycstream)
+    route = discuss_route() if site == "discuss" else "direct" if not lihkg_api.blocked() else "hk"
+    px = Proxied(site, direct=route == "direct", **({"isp": True} if route == "isp" else {}))
     blocked = None
     if callable(boards):  # 香港討論區: every board of the forum index
         boards = boards(px)
@@ -736,7 +771,13 @@ def run(site, since_default):
             except (Blocked, ProxyOut) as e:
                 blocked = e
                 break
-            except (Wall, RuntimeError, ValueError) as e:
+            except Wall as e:
+                print(site, "board", b, repr(e)[:160], flush=True)
+                if site == "discuss":  # the route is walled (DISCUSS_WALLS sessions): the next run tries again
+                    blocked = e
+                    break
+                continue
+            except (RuntimeError, ValueError) as e:
                 print(site, "board", b, repr(e)[:160], flush=True)
                 continue
             finally:
@@ -799,6 +840,13 @@ def run(site, since_default):
             except (Blocked, ProxyOut) as e:
                 blocked = e
                 break
+            except Wall as e:
+                if site == "discuss":  # the route is walled: the thread waits for the next run
+                    blocked = e
+                    break
+                errors += 1
+                print(site, tid, repr(e)[:160], flush=True)
+                n, p = 0, 1
             except Exception as e:
                 errors += 1
                 print(site, tid, repr(e)[:160], flush=True)
@@ -821,12 +869,14 @@ def run(site, since_default):
                 twopass.fetched_all("https://lihkg.com/thread/%", datetime.fromtimestamp(run_start, HKT))
         if isinstance(blocked, ProxyOut):
             print(site, "stopped:", blocked, flush=True)
+        elif blocked and site == "discuss":
+            print(site, f"walled on route {route}; stopped until the next run:", repr(blocked)[:160], flush=True)
         elif blocked:
             print(site, "rate-limited on the server's IP; proxy for 26 h:", repr(blocked)[:160], flush=True)
     finally:
         px.account()
     return {"threads": len(want) + len(first), "list_pages": lists, "thread_requests": pages, "new_replies": new,
-            "errors": errors, "pending": len(left), "direct": px.direct,
+            "errors": errors, "pending": len(left), "direct": px.direct, "route": route,
             "blocked": bool(blocked) and not isinstance(blocked, ProxyOut), "proxy_out": isinstance(blocked, ProxyOut),
             "proxy_mb_today": mb_today(site)}
 
