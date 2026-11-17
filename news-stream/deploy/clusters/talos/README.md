@@ -152,6 +152,16 @@ control nodes) or on yyc-nat1 (a network box). Image tag: `images:` in kustomiza
   node is upgraded to `release.env`'s version, control nodes first, one at a time (`talosctl upgrade`: drain, upgrade,
   reboot, wait; then the node Ready at the new version and `talosctl health` green). A push to `release.env` does the
   same; a dispatch runs `upgrade` (one node or all) or `upgrade-k8s` (`k8s_version`), `mode` dry-run by default.
+- **The installer is Hetzner's (`hcloud-installer`), never the generic `installer`** (`release.env`; `node-work.sh`
+  refuses any other). The arm64 nodes (control nodes, `yyc-talos-w*`) boot a UKI and the kernel command line comes with
+  the installer: the generic one's lacks `talos.platform=hcloud` and `net.ifnames=0`, so the node boots as platform
+  `metal` with links `enp1s0`/`enp7s0`, no hostname (`talos-xxx-xxx`) and no address, and that boot also empties the
+  cached platform network config (yyc-talos-cp1 on v1.14.6, 2026-11-17: down for 80 min, the run stopped there).
+  A node in that state: Hetzner console → reset → Space for the boot menu → the previous `Talos (vX)` entry (never a
+  "Reset to maintenance mode" one); if `talosctl get platformmetadata` then still says `metal` and `dmesg` shows the
+  metadata fetch timing out, `talosctl patch mc --mode=no-reboot --patch @patches/eth0-dhcp.yaml`; then `talosctl
+  upgrade --image <hcloud-installer>:<version>` (the old entry is booted once only; the bad UKI stays the default
+  until replaced).
 - **The gateway node:** the sandbox gateway node (`hermit.yyc/gateway=true`) is upgraded only through hermit's
   gateway-maintenance runbook (hermit 14.7, aviary `fabric/host/gateway-maintenance.md`): `hermit-admin.sh
   gateway-maintenance --node-work news-stream/deploy/clusters/talos/gateway-node-work.sh` (new sandboxes off, wait for

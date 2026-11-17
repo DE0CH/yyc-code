@@ -1,7 +1,8 @@
-# Every node made from an old x86 server (the gateway, the news and db nodes, keeping their public IPv6): DHCP on eth0,
-# the public link, stated outright. Without it the node got no lease on eth0 (the control nodes get 100.64.x.x/32 from
-# Talos's hcloud platform), so it could not reach Hetzner's metadata (169.254.169.254 via 172.31.1.1) and never got
-# its public IPv6 or hostname (2026-11-05).
+# Every node with a public link (the control nodes, the gateway, the news and db nodes made from old x86 servers): DHCP
+# on eth0, the public link, stated outright. Without it eth0's lease (100.64.x.x/32) comes only from what Talos's hcloud
+# platform fetched from Hetzner's metadata (169.254.169.254 via 172.31.1.1), which itself needs that lease: a node whose
+# cached platform config is gone gets no lease, so no metadata, no public IPv6, no hostname, no time, and etcd and
+# kubelet wait (the x86 nodes 2026-11-05; yyc-talos-cp1 after its boot as platform metal, 2026-11-17).
 apiVersion: v1alpha1
 kind: DHCPv4Config
 name: eth0

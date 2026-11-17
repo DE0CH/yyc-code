@@ -123,6 +123,11 @@ fi
 
 # upgrade
 target=$TALOS_VERSION
+# Hetzner's own installer only: the generic one's UKI boots an arm64 node as platform metal, with no network (release.env)
+case "$TALOS_INSTALLER" in
+  factory.talos.dev/hcloud-installer/*) ;;
+  *) echo "::error::release.env: TALOS_INSTALLER must be factory.talos.dev/hcloud-installer/<schematic>, not $TALOS_INSTALLER"; exit 1 ;;
+esac
 image="$TALOS_INSTALLER:$TALOS_VERSION"
 did=0
 for line in "${NODES[@]}"; do

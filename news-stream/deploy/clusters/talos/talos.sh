@@ -54,7 +54,7 @@ PY
     # roles: controlplane and gateway have a public IPv6 and WARP (public.yaml + warp0); a worker has no public IP and
     # goes out through yyc-nat1 (private.yaml, nat/nat.sh); the gateway is a worker with its own labels (gateway.yaml)
     case $role in
-      controlplane) out=controlplane patches=(controlplane public) ;;
+      controlplane) out=controlplane patches=(controlplane public eth0-dhcp) ;;
       gateway) out=worker patches=(public eth0-dhcp gateway) ;;
       news|db) out=worker patches=(public eth0-dhcp ../node-patches/$role) ;;  # old x86 servers (plan talos-apps-move.md)
       worker) out=worker patches=(worker private) ;;
