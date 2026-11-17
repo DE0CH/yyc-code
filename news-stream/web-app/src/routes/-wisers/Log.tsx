@@ -141,7 +141,7 @@ export function WisersView() {
           <p className="meta"><span>{x.source}</span>{x.page && <span>{x.page} 版</span>}<span>{KIND_ZH[x.kind] || x.kind}</span><span className="num">{dt.dateTime(x.date)}</span>
             {x.words != null && <span className="num">{nf(x.words)} 字</span>}</p>
           {x.excerpt.length > 0 && <p className="ex"><Marked parts={x.excerpt} /></p>}
-          {x.link && <a className="lk" href={x.link} target="_blank" rel="noopener noreferrer"><I n="link" />原文</a>}
+          {x.link && <div className="foot"><a className="lk" href={x.link} target="_blank" rel="noopener noreferrer"><I n="link" />原文</a></div>}
         </article>
       ))}
     </>}

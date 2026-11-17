@@ -157,7 +157,10 @@
 .page-wisers .tools .gap { flex:1 0 10px; }
 .page-wisers .rows.grid { display:grid; gap:8px; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); }
 .page-wisers .rows.cards { display:grid; gap:8px; }
-.page-wisers .wrow { display:flex; gap:10px; background:var(--panel); padding:12px; border-bottom:1px solid var(--rule); min-width:0; }
+/* a row stacks its pieces (headline, meta, excerpt, links); only a results row (in .rows: the checkbox column beside
+   the body) lays out sideways, and the grid view stacks that again */
+.page-wisers .wrow { display:flex; flex-direction:column; gap:0; background:var(--panel); padding:12px; border-bottom:1px solid var(--rule); min-width:0; }
+.page-wisers .rows .wrow { flex-direction:row; gap:10px; }
 .page-wisers .rows.list .wrow + .wrow { margin-top:0; }
 /* cards and grid: each row is a sheet, the panel fill on the ground (no border) */
 .page-wisers .rows.cards .wrow, .page-wisers .rows.grid .wrow { border:0; }
@@ -259,15 +262,15 @@
 .page-wisers .vmeta { display:grid; grid-template-columns:repeat(auto-fill, minmax(160px, 1fr)); gap:0; margin:0; background:var(--panel); border-top:1px solid var(--rule); font-size:13px; }
 .page-wisers .vmeta dt { color:var(--muted); padding:4px 8px 0; }
 .page-wisers .vmeta dd { margin:0; padding:0 8px 4px; border-bottom:1px solid var(--rule); }
-.page-wisers .rowlink { display:flex; flex-direction:column; text-decoration:none; }
-.page-wisers .logrow { flex-direction:column; gap:0; }
+.page-wisers .rowlink { text-decoration:none; }
 .page-wisers .sum { margin:8px 0; }
 .page-wisers .wait-note, .page-wisers .note { color:var(--muted); font-size:14px; }
 
 /* phone */
 @media (max-width:599px) {
   .page-wisers .wmain { padding:12px var(--gutter) 40px; }
-  .page-wisers .wrow { padding:10px 8px; gap:6px; }
+  .page-wisers .wrow { padding:10px 8px; }
+  .page-wisers .rows .wrow { gap:6px; }
   .page-wisers .tools .seg, .page-wisers .tools .gap { display:none; }
   .page-wisers .dh { font-size:22px; }
   .page-wisers article.doc { padding:12px; }
