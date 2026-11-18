@@ -90,8 +90,8 @@ export const wisers = (w: J): St => (w.state === "logged_out" || w.down ? "bad" 
 /** a part that could not be read (`{error}`) → blind */
 export const unread = (x: J | null | undefined): St | null => (x && x.error ? "blind" : null);
 
-// ---- Jarvis 4 (the wall's colours: needs you and idle amber; working ink; background, scheduled, booting blue) ----
-export const JARVIS: Record<string, St> = { waiting: "warn", idle: "warn", working: "ink", background: "info", scheduled: "info", booting: "info" };
+// ---- Jarvis 4 (the wall's colours: needs you and idle amber; working ink; background, frozen, scheduled, booting blue) ----
+export const JARVIS: Record<string, St> = { waiting: "warn", idle: "warn", working: "ink", background: "info", frozen: "info", scheduled: "info", booting: "info" };
 export const jarvis = (state: string): St => JARVIS[state] ?? "ok";
 /** the marker a session gets: idle shows its amber word without a block */
 export const jarvisMarker = (state: string): St => (state === "idle" ? "ok" : jarvis(state));

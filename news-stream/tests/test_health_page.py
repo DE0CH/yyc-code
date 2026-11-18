@@ -245,7 +245,7 @@ class HealthPage(unittest.TestCase):
             prov: [S.provider({ status: 'ok' }), S.provider({ status: 'error' }), S.provider({ status: 'not_connected' })],
             misc: [S.budget({ exhausted: true }), S.budget({}), S.errorsOver(0), S.errorsOver(2), S.stop(), S.sandbox({ status: 'starting' }),
                    S.stale(59_000), S.stale(61_000), S.unread({ error: 'x' })],
-            jarvis: ['waiting', 'idle', 'working', 'background', 'scheduled', 'booting'].map(x => [S.jarvis(x), S.jarvisMarker(x)]),
+            jarvis: ['waiting', 'idle', 'working', 'background', 'frozen', 'scheduled', 'booting'].map(x => [S.jarvis(x), S.jarvisMarker(x)]),
           }));""")
         self.assertEqual(out["dep"], ["ok", "warn", "bad", "warn", "bad"])  # red only with no pod ready, and never for the
         # monitor: it serves nobody, and its process keeps writing this page while /readyz waits on a slow panel (Deyao, 2026-11-17)
@@ -258,7 +258,7 @@ class HealthPage(unittest.TestCase):
         self.assertEqual(out["ws"], ["ok", "warn", "bad", "bad"])
         self.assertEqual(out["prov"], ["ok", "blind", "ok"])
         self.assertEqual(out["misc"], ["bad", "ok", "ok", "warn", "bad", "info", "ok", "blind", "blind"])
-        self.assertEqual(out["jarvis"], [["warn", "warn"], ["warn", "ok"], ["ink", "ink"], ["info", "info"], ["info", "info"], ["info", "info"]])
+        self.assertEqual(out["jarvis"], [["warn", "warn"], ["warn", "ok"], ["ink", "ink"], ["info", "info"], ["info", "info"], ["info", "info"], ["info", "info"]])
         # no green anywhere on the page: normal is quiet ink
         self.assertNotIn("var(--ok)", open(os.path.join(L.APP, "src/styles/health.css")).read())
 

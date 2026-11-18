@@ -340,8 +340,12 @@ CREATE INDEX IF NOT EXISTS posts_link_key ON posts (link_key) WHERE link_key IS 
 -- changes no indexed column (engagement, ai_title_hash, …) is a HOT update and writes no index entries at all (at 100%,
 -- 80% of updates went to a new page, each re-adding the post's hundreds of character pairs to posts_grams); autovacuum
 -- at 2% changed or inserted rows (not the default 20%: 450k rows, hours apart) keeps the visibility map current, so the
--- covering indexes (posts_seen, posts_day_cover) answer from the index alone instead of fetching each row's page
-ALTER TABLE posts SET (fillfactor = 80, autovacuum_vacuum_scale_factor = 0.02, autovacuum_vacuum_insert_scale_factor = 0.02);
+-- covering indexes (posts_seen, posts_day_cover) answer from the index alone instead of fetching each row's page;
+-- statistics after 0.5% changed rows (~20k, about hourly; not 10%: 400k, a day and a half): the search plans a period
+-- ending today on the share of posts today has, and planned on the night before's (today: 8.7k posts, really 55k) it
+-- read every post of the period instead of the words index (YYC AI's data_posts_search past the 30 s statement timeout,
+-- 2026-11-18; with fresh statistics the same search takes the words index)
+ALTER TABLE posts SET (fillfactor = 80, autovacuum_vacuum_scale_factor = 0.02, autovacuum_vacuum_insert_scale_factor = 0.02, autovacuum_analyze_scale_factor = 0.005);
 CREATE INDEX IF NOT EXISTS posts_live_id ON posts (id) WHERE thread IS NULL;
 -- posts_live_day_url: a site's threads of a day by URL prefix (replies_fetch.collected; the collation is C, so the LIKE
 -- prefix is an index condition), not 442k entries of posts_url_key per call
@@ -800,6 +804,9 @@ ALTER TABLE media SET (autovacuum_vacuum_insert_scale_factor = 0.05, autovacuum_
     # 2026-11-02: "verdict" is confusing); ROW EXCLUSIVE lets readers and the monitor's inserts carry on
     (6, Change(("events",), "ROW EXCLUSIVE", """
 UPDATE events SET data = jsonb_set(data, '{what}', '"status"') WHERE kind = 'ai' AND data->>'what' = 'verdict'""")),
+    # posts' statistics after 0.5% changed rows (SCHEMA's posts comment)
+    (7, Change(("posts",), "SHARE UPDATE EXCLUSIVE", """
+ALTER TABLE posts SET (autovacuum_analyze_scale_factor = 0.005)""")),
 )
 assert [n for n, _ in MIGRATIONS] == list(range(1, len(MIGRATIONS) + 1))
 SCHEMA_VERSION = len(MIGRATIONS)

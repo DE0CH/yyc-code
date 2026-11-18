@@ -73,6 +73,7 @@ function jRight(x: JarvisSession, now: number) {
     case "idle": return age ? `idle ${age}` : "idle";
     case "working": return x.jobs || x.subagents ? `working, ${shortWorkers(x)}` : "working";
     case "background": return shortWorkers(x) || "background";
+    case "frozen": return x.next ? `frozen until ${wakeAt(x.next, now)}` : "frozen";
     case "scheduled": return x.next ? `next ${wakeAt(x.next, now)}` : "watching";
     default: return "booting";
   }

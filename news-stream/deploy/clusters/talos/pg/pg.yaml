@@ -145,7 +145,13 @@ spec:
     # = the old Cluster's roles at T5 (jarvis and cloudcli gone at A6; hermit, egress, tools from A1). Not reconciled
     # while this is a replica cluster; from promotion the operator sets each password from its Secret, which holds the
     # same store value as on the old cluster. The by-hand role settings (yyc_edge, yyc_readonly: read-only, 30 s
-    # statement_timeout) are in the data and come with the copy.
+    # statement_timeout) are in the data and come with the copy. Also by hand, in database app (2026-11-18): ALTER
+    # FUNCTION ts_match_vq(tsvector, tsquery) COST 100 (the @@ of a tsvector; check: SELECT procost FROM pg_proc WHERE
+    # proname = 'ts_match_vq'). A post's words and grams are TOASTed, tens of KB each; at the default COST 1 the planner
+    # takes testing @@ on every post of a period as cheap and, whenever the words index's estimate is high (its pending
+    # entries, statistics a day old), read every post of a period ending today instead of ANDing the words index with
+    # the day index: YYC AI's data_posts_search ("深圳 峰會", two days) ran past yyc_readonly's 30 s statement timeout
+    # cold, under 1 s on the index. COST 100 keeps the index plan in both states; the other search plans keep their shape.
     roles:
       - {name: app, login: true, ensure: present, passwordSecret: {name: pg-role-app}}
       - {name: yyc_edge, login: true, ensure: present, passwordSecret: {name: pg-role-edge}}

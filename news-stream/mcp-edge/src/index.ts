@@ -10,6 +10,7 @@ import * as P from "./pages";
 import { registry, sha256 } from "./registry";
 import { coerce, runTool, TOOLS, ToolError } from "./tools";
 import { timed, timing } from "./timing";
+import { failure } from "./failure";
 
 async function withTiming(f: () => Promise<Response>): Promise<Response> {
   const marks: [string, number][] = [];
@@ -99,7 +100,7 @@ async function restCall(req: Request, env: Env, ctx: Ctx, sql: Sql, email: strin
     const known = e instanceof ToolError;
     logCall(env, ctx, { email, tool: name, via: "rest", client: clientLabel(req, ctx), status: known ? 400 : 500, t0, args });
     if (!known) console.error("tool failed", name, e);
-    return json({ error: known ? (e as Error).message : "the tool failed on the server" }, known ? 400 : 500);
+    return json({ error: known ? (e as Error).message : failure(e) }, known ? 400 : 500);
   }
 }
 
