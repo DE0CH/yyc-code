@@ -310,6 +310,12 @@ class Profile(unittest.TestCase):
         self.assertEqual(s["calls"], 30)  # ok calls only: TikHub bills successful requests
         self.assertAlmostEqual(s["app_usd"], 0.03, places=6)
 
+    def test_snapshots_carry_only_the_keys_asked_for(self):
+        # a month of whole IPRoyal snapshots (27 kB each) parsed into Python OOM-killed the monitor (2026-11-18)
+        ss = cost_profile.snaps("iproyal", T0, T1, ["subusers"])
+        self.assertEqual([sorted(d) for _, d in ss], [["subusers"], ["subusers"]])
+        self.assertEqual(cost_profile.snaps("iproyal", T0, T1, ["no_such_key"])[0][1], {})
+
     def test_proxy_per_site_from_provider_gb(self):
         c = self.comp("iproyal")
         self.assertAlmostEqual(c["provider_usd"], 2.5 * 3.86, places=4)

@@ -51,14 +51,18 @@ def _q(sql, args=()):
 
 # ---- provider snapshots ----
 
-def snaps(provider, start, end):
+def snaps(provider, start, end, keys):
     """the provider's ok snapshots from the last one at or before start (else the first after it) to the last one at
-    or before end, oldest first: [(at, data)]"""
+    or before end, oldest first: [(at, data)], data holding only the top-level `keys` the caller reads. Postgres
+    picks them: a month of whole IPRoyal snapshots (27 kB each, every 5 min) parsed into Python OOM-killed the
+    monitor at 1 GiB (2026-11-18: the spending panel alone peaked at 957 MiB on the 18th of the month)"""
     first = _q("""SELECT at FROM provider_snapshots WHERE provider=%s AND status='ok' AND at <= %s
                   ORDER BY at DESC LIMIT 1""", (provider, start))
     lo = first[0][0] if first else start
-    return [(r[0], r[1]) for r in _q("""SELECT at, data FROM provider_snapshots WHERE provider=%s AND status='ok'
-                                        AND at >= %s AND at <= %s ORDER BY at""", (provider, lo, end))]
+    return [(r[0], r[1] or {}) for r in _q(
+        """SELECT at, (SELECT jsonb_object_agg(k, v) FROM jsonb_each(data) AS e(k, v) WHERE k = ANY(%s))
+           FROM provider_snapshots WHERE provider=%s AND status='ok' AND at >= %s AND at <= %s ORDER BY at""",
+        (list(keys), provider, lo, end))]
 
 
 def span(ss):
@@ -130,7 +134,7 @@ def comp(cid, name, provider_usd, app_usd, provider_coverage, provider_basis, ap
 
 
 def openrouter(start, end, activity=None):
-    ss = snaps("openrouter", start, end)
+    ss = snaps("openrouter", start, end, ["usage_total_usd"])
     prov = increase(ss, lambda d: d.get("usage_total_usd"))
     subs = [{"name": f"{p} × {m}", "kind": "purpose × model", "calls": n, "app_usd": float(u or 0)}
             for p, m, n, u in _q("""SELECT purpose, coalesce(model, '?'), count(*), sum(usd) FROM ai_runs
@@ -223,7 +227,7 @@ def calls_by_job(provider, start, end, prices):
 
 
 def tikhub(start, end, prices):
-    ss = snaps("tikhub", start, end)
+    ss = snaps("tikhub", start, end, ["usage_today_usd", "usage_today_date", "uri_counts"])
     prov = day_counter(ss, lambda d: d.get("usage_today_usd"))
     eps = endpoint_counts(ss)
     p_eps = sorted(({"endpoint": k, "calls": v, "usd": v * prices[k] if k in prices else None}
@@ -262,7 +266,7 @@ def proxy_traffic(start, end):
     """IPRoyal traffic in BYTES (never USD; Deyao, 2026-10-16): our count per job and each job's sites, biggest first
     (kv proxy:jobbytes per job, site and HKT hour; a site's hourly bytes beyond its jobs' as "(job not recorded)"),
     beside IPRoyal's own figure: sub-user yycstream's traffic_used risen over the window (provider snapshots)."""
-    ss = snaps("iproyal", start, end)
+    ss = snaps("iproyal", start, end, ["subusers"])
     used = lambda d: sum(float(s.get("traffic_used") or 0) for s in d.get("subusers") or [])  # noqa: E731
     gb = increase(ss, used)
     hs = hours(start, end)
@@ -300,7 +304,7 @@ def proxy_traffic(start, end):
 
 
 def iproyal(start, end):
-    ss = snaps("iproyal", start, end)
+    ss = snaps("iproyal", start, end, ["price_per_gb_usd"])
     price = next((d.get("price_per_gb_usd") for _, d in reversed(ss) if d.get("price_per_gb_usd")), None)
     pt = proxy_traffic(start, end)
     gb = pt["provider_bytes"] / BYTES_PER_GB if pt["provider_bytes"] is not None else None
@@ -319,7 +323,7 @@ def iproyal(start, end):
 
 
 def anyapi(start, end):
-    ss = snaps("anyapi", start, end)
+    ss = snaps("anyapi", start, end, ["balance_usd"])
     prov = drops(ss, lambda d: d.get("balance_usd"))
     cb = calls_by_job("anyapi", start, end, {})
     subs = [{"name": f"{j['job']} · {e['endpoint']}", "kind": "job · endpoint", "calls": e["calls"],
@@ -337,7 +341,7 @@ def solvers(start, end):
                                        WHERE at::timestamptz >= %s AND at::timestamptz < %s GROUP BY 1, 2""", (start, end))]
     shared = {}
     for p in ("capsolver", "2captcha"):
-        ss = snaps(p, start, end)
+        ss = snaps(p, start, end, ["balance_usd"])
         shared[p] = drops(ss, lambda d: d.get("balance_usd"))
     return comp("solvers", "Captcha solvers (CapSolver, 2Captcha; Deyao's own accounts)", None,
                 sum(s["app_usd"] for s in subs), None, None,
@@ -366,7 +370,7 @@ def hetzner_snapshots(start, end, eur_usd=None):
     """Hetzner from the monitor's snapshots (bal_hetzner, read-only token yyc-monitor): the project's list price per
     month (servers, backups, IPv4, volumes; net of VAT) spread over the window's hours"""
     name = "Hetzner Cloud (project yyc)"
-    ss = snaps("hetzner", start, end)
+    ss = snaps("hetzner", start, end, ["list_monthly_net"])
     vals = [float(d["list_monthly_net"]) for _, d in ss if d.get("list_monthly_net") is not None]
     if not vals or not eur_usd:
         return comp("hetzner", name, None, None, None, None, None, [],
@@ -401,7 +405,7 @@ def cloudflare(start, end):
     monthly price spread over the window's hours, plus the rise of the usage beyond the plan's included amounts (at
     Cloudflare's list prices)"""
     name = "Cloudflare (account YYC)"
-    ss = snaps("cloudflare", start, end)
+    ss = snaps("cloudflare", start, end, ["subscriptions_monthly_usd", "overage_usd", "usage", "period_start"])
     if not ss:
         return comp("cloudflare", name, None, None, None, None, None, [],
                     note="no ok snapshot of the monitor's Cloudflare card in the window")
