@@ -157,6 +157,10 @@ class Schema(unittest.TestCase):
         opts = dict(self.fresh[1])
         self.assertIn("autovacuum_vacuum_insert_scale_factor=0.02", opts["scores"])
         self.assertIn("autovacuum_vacuum_scale_factor=0.05", opts["media"])
+        # posts' statistics are refreshed after 0.5% changed rows: a search of the newest days planned on stats from
+        # the night before took today for a few thousand posts and read every post of the period (YYC AI's
+        # data_posts_search past the 30 s statement timeout, 2026-11-18)
+        self.assertIn("autovacuum_analyze_scale_factor=0.005", opts["posts"])
 
     def test_existing_database_gets_only_the_migrations(self):
         """an existing database at the seeded version: exactly the migrations run (indexes CONCURRENTLY, the
