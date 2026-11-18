@@ -248,6 +248,42 @@ jobs:
         if: env.DEPLOY_APPLY == 'yes' && (github.event_name != 'workflow_dispatch' || inputs.mode == 'apply')
         run: yyc-apply apply --plan plan.md --run "${{ github.run_id }}"
 
+  # YYC Drive's edge (DE0CH/yyc-drive YYC-DRIVE.md "The edge"): the Worker yyc-drive on drive.yyc-internal.com, the
+  # page and its settings at Cloudflare. It comes out of the image the kustomization pins (/srv/edge), so the page at
+  # the edge and the server in the cluster are one yyc-drive commit; its settings are drive/edge.json. A Worker deploy
+  # is atomic (requests in flight finish on the old version). Its route is news-stream/deploy/cloudflare/tofu/drive.tf.
+  drive-edge:
+    needs: check
+    if: >-
+      always() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' &&
+      needs.check.result == 'success' && (github.event_name != 'workflow_dispatch' || inputs.mode == 'apply')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    concurrency: {group: yyc-drive-edge, cancel-in-progress: false}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: the pinned edge
+        run: |
+          set -euo pipefail
+          tag=$(yq '.images[] | select(.name == "yyc-drive") | .newTag' "$FOLDER/kustomization.yaml")
+          echo "yyc-drive $tag"
+          id=$(docker create "ghcr.io/de0ch/yyc-drive:$tag")
+          docker cp "$id:/srv/edge" "$RUNNER_TEMP/edge"
+          docker rm "$id" > /dev/null
+      - name: deploy
+        working-directory: ${{ runner.temp }}/edge
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.YYC_CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.YYC_CF_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          vars=()
+          while IFS= read -r kv; do vars+=(--var "$kv"); done < <(jq -r 'to_entries[] | "\(.key):\(.value)"' "$GITHUB_WORKSPACE/$FOLDER/drive/edge.json")
+          npx --yes wrangler@4.151.0 deploy "${vars[@]}"
+
   # the live site after an applying deploy (not the 3-hourly re-apply: each run boots a sandbox, maybe an AWS host): sign
   # in as bot@deyaochen.com by e-mailed code (bot-mail's /access-code, service token yyc-ai-e2e), /api/jarvis/me, one
   # chat turn answered by the model, the message box's list of slash commands (yyc-ai/tests/e2e/live_chat.py)
@@ -279,7 +315,7 @@ jobs:
 
   # a red run on main (check, deploy or e2e), and the first good run after one, to YYC's Discord (as cloudflare.yml)
   tell:
-    needs: [check, deploy, e2e]
+    needs: [check, deploy, e2e, drive-edge]
     if: always() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -289,12 +325,12 @@ jobs:
         env:
           WEBHOOK: ${{ secrets.YYC_DISCORD_WEBHOOK }}
           GH_TOKEN: ${{ github.token }}
-          STATUS: ${{ (needs.check.result == 'failure' || needs.deploy.result == 'failure' || needs.e2e.result == 'failure') && 'failure' || 'success' }}
+          STATUS: ${{ (needs.check.result == 'failure' || needs.deploy.result == 'failure' || needs.e2e.result == 'failure' || needs['drive-edge'].result == 'failure') && 'failure' || 'success' }}
         run: |
           prev=$(gh api "repos/${{ github.repository }}/actions/workflows/yyc-ai.yml/runs?branch=main&status=completed&per_page=2" \
             --jq "[.workflow_runs[] | select(.id != ${{ github.run_id }})][0].conclusion" 2>/dev/null || echo unknown)
           url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          if [ "$STATUS" != success ]; then msg="YYC AI deploy: the run failed (check, deploy or the live end-to-end); the cluster may not match main or the site may be broken. $url"
+          if [ "$STATUS" != success ]; then msg="YYC AI deploy: the run failed (check, deploy, the drive's edge or the live end-to-end); the cluster may not match main or the site may be broken. $url"
           elif [ "$prev" = failure ]; then msg="YYC AI deploy: runs succeed again. $url"
           else exit 0; fi
           [ -n "$WEBHOOK" ] && curl -s -X POST -H "Content-Type: application/json" -d "$(jq -n --arg c "$msg" '{content:$c}')" "$WEBHOOK" >/dev/null || true
