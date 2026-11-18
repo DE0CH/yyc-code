@@ -4,8 +4,7 @@
 # main and pushes again.
 name: ai-watch-image
 on:
-  push:
-    branches: [main]
+  push:  # every branch (the gate merges a branch when this is green); main alone pins
     paths:
       - ai-watch/**
       - '!ai-watch/deploy/**'
@@ -13,7 +12,7 @@ on:
       - .github/workflows/ai-watch-image.yml
   workflow_dispatch:
 concurrency:
-  group: ai-watch-image
+  group: "ai-watch-image-${{ github.ref }}"
   cancel-in-progress: false
 permissions:
   contents: write
@@ -41,7 +40,7 @@ jobs:
           build-args: GIT_SHA=${{ steps.meta.outputs.sha }}
           tags: |
             ${{ env.IMAGE }}:${{ steps.meta.outputs.tag }}
-            ${{ env.IMAGE }}:latest
+            ${{ github.ref == 'refs/heads/main' && format('{0}:latest', env.IMAGE) || '' }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ steps.meta.outputs.sha }}
@@ -54,6 +53,7 @@ jobs:
           # the browser starts headed under Xvfb as the worker runs it
           docker run --rm "$IMAGE:${{ steps.meta.outputs.tag }}" sh -c 'Xvfb :99 -screen 0 1280x800x24 >/dev/null 2>&1 & sleep 1; DISPLAY=:99 python -m aiwatch.smoke'
       - name: pin the tag for Flux
+        if: github.ref == 'refs/heads/main'
         run: |
           set -e
           TAG="${{ steps.meta.outputs.tag }}"

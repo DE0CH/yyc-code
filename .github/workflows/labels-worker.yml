@@ -6,8 +6,7 @@
 # (token yyc-edge: YYC's account only) and YYC_CF_ACCOUNT_ID.
 name: labels-worker
 on:
-  push:
-    branches: [main]
+  push:  # every branch (the gate merges a branch when this is green); main alone deploys
     paths:
       - labels/worker/**
       - nametags/worker/src/auth.js
@@ -17,7 +16,7 @@ on:
       - .github/workflows/labels-worker.yml
   workflow_dispatch:
 concurrency:
-  group: labels-worker
+  group: "labels-worker-${{ github.ref }}"
   cancel-in-progress: false
 permissions:
   contents: read

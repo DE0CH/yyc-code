@@ -4,8 +4,7 @@
 # and daily (a provider can drop its ZDR endpoint; a failed run mails the repo owner).
 name: yyc-ai-zdr
 on:
-  push:
-    branches: [main]
+  push:  # every branch: the gate merges a branch when this is green
     paths:
       - yyc-ai/**
       - .github/workflows/yyc-ai-zdr.yml

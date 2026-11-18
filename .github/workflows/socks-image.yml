@@ -6,15 +6,14 @@
 # (this image's entry only), never moving back to an older commit.
 name: socks-image
 on:
-  push:
-    branches: [main]
+  push:  # every branch (the gate merges a branch when this is green); main alone pins
     paths:
       - socks/**
       - '!socks/**.md'
       - .github/workflows/socks-image.yml
   workflow_dispatch:
 concurrency:
-  group: socks-image
+  group: "socks-image-${{ github.ref }}"
   cancel-in-progress: false
 permissions:
   contents: write
@@ -101,6 +100,7 @@ jobs:
           docker buildx imagetools create -t "$T" "$T-amd64" "$T-arm64"
           docker buildx imagetools inspect "$T"
       - name: pin the tag on both clusters
+        if: github.ref == 'refs/heads/main'
         run: |
           set -e
           TAG="${{ steps.meta.outputs.tag }}"

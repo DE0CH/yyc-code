@@ -5,8 +5,7 @@
 # never moving back to an older commit.
 name: mcp-image
 on:
-  push:
-    branches: [main]
+  push:  # every branch (the gate merges a branch when this is green); main alone pins
     paths:
       - news-stream/mcp-edge/**
       - '!news-stream/mcp-edge/**.md'
@@ -17,7 +16,7 @@ on:
       - .github/workflows/mcp-image.yml
   workflow_dispatch:
 concurrency:
-  group: mcp-image
+  group: "mcp-image-${{ github.ref }}"
   cancel-in-progress: false
 permissions:
   contents: write
@@ -71,6 +70,7 @@ jobs:
           docker run --rm --entrypoint sh "$IMAGE:${{ steps.meta.outputs.tag }}" -c "test -f dist/cron.js"
           docker logs mcp | tail -5
       - name: pin the tag for Flux
+        if: github.ref == 'refs/heads/main'
         run: |
           set -e
           TAG="${{ steps.meta.outputs.tag }}"

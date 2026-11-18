@@ -4,8 +4,7 @@
 # pin onto the newest main and pushes again.
 name: news-stream-image
 on:
-  push:
-    branches: [main]
+  push:  # every branch (the gate merges a branch when this is green); main alone pins and deploys
     paths:
       - news-stream/**
       - '!news-stream/deploy/**'
@@ -22,7 +21,7 @@ on:
         required: false
         default: ""
 concurrency:
-  group: news-stream-image
+  group: "news-stream-image-${{ github.ref }}"
   cancel-in-progress: false
 permissions:
   contents: write
@@ -53,7 +52,7 @@ jobs:
           build-args: GIT_SHA=${{ steps.meta.outputs.sha }}
           tags: |
             ${{ env.IMAGE }}:${{ steps.meta.outputs.tag }}
-            ${{ inputs.ref == '' && format('{0}:latest', env.IMAGE) || '' }}
+            ${{ inputs.ref == '' && github.ref == 'refs/heads/main' && format('{0}:latest', env.IMAGE) || '' }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ steps.meta.outputs.sha }}
@@ -64,7 +63,7 @@ jobs:
           docker run --rm "$IMAGE:${{ steps.meta.outputs.tag }}" python -c "import app, web, reports, corpus, insights; print('imports ok')"
           docker run --rm "$IMAGE:${{ steps.meta.outputs.tag }}" google-chrome --version
       - name: pin the tag and deploy it
-        if: ${{ !inputs.ref }}
+        if: ${{ !inputs.ref && github.ref == 'refs/heads/main' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

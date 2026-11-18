@@ -5,13 +5,12 @@
 # TestFlight as dev.de0ch.yycnametags (record "YYC Name Tags DE0CH"; the internal group "Owner" gets every build).
 name: nametags-ios
 on:
-  push:
-    branches: [main]
+  push:  # every branch (the gate merges a branch when this is green); main alone uploads
     paths: ["nametags/ios/**", ".github/workflows/nametags-ios.yml"]
   workflow_dispatch:
     inputs:
       upload: { description: "Upload to TestFlight after the replica passes", type: boolean, default: true }
-concurrency: { group: nametags-ios, cancel-in-progress: false }
+concurrency: { group: "nametags-ios-${{ github.ref }}", cancel-in-progress: false }
 permissions: { contents: read }
 defaults:
   run:
@@ -56,7 +55,7 @@ jobs:
           path: ${{ runner.temp }}/replica
           if-no-files-found: ignore
       - name: Archive (unsigned)
-        if: github.event_name == 'push' || inputs.upload
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || inputs.upload
         run: |
           xcodebuild archive -project NameTags.xcodeproj -scheme NameTags -configuration Release \
             -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/app.xcarchive" \
@@ -65,7 +64,7 @@ jobs:
           grep -E "error:|\*\* ARCHIVE" "$RUNNER_TEMP/archive.log" | head -40 || true
           grep -q "ARCHIVE SUCCEEDED" "$RUNNER_TEMP/archive.log"
       - name: Export, cloud-sign and upload to TestFlight
-        if: github.event_name == 'push' || inputs.upload
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || inputs.upload
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}

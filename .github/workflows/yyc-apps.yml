@@ -21,8 +21,7 @@ name: yyc-apps
 # - The old cluster keeps Flux for its copies (news-stream/deploy/clusters/hetzner, ai-watch/deploy); nothing here
 #   reaches it.
 on:
-  push:
-    branches: [main]
+  push:  # every branch (the gate merges a branch when this is green); main alone deploys (job deploy)
     paths: &paths
       - news-stream/deploy/apps/**
       - '!news-stream/deploy/apps/sealed/**'

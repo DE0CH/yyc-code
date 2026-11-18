@@ -7,14 +7,13 @@
 # Secrets: YYC_CF_API_TOKEN (token yyc-edge: YYC's account only) and YYC_CF_ACCOUNT_ID.
 name: web-app
 on:
-  push:
-    branches: [main]
+  push:  # every branch (the gate merges a branch when this is green); main alone deploys
     paths:
       - news-stream/web-app/**
       - .github/workflows/web-app.yml
   workflow_dispatch:
 concurrency:
-  group: web-app
+  group: "web-app-${{ github.ref }}"
   cancel-in-progress: false
 permissions:
   contents: read
@@ -36,6 +35,7 @@ jobs:
       - run: npx vite build
       - run: node scripts/keep-assets.mjs --site https://newswatch.yyc-internal.com --client dist/client
       - name: deploy
+        if: github.ref == 'refs/heads/main'
         run: |
           if [ -z "$CLOUDFLARE_API_TOKEN" ]; then echo "::warning::YYC_CF_API_TOKEN is not set on the repo: built, not deployed"; exit 0; fi
           npx wrangler deploy

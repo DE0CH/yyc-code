@@ -5,8 +5,7 @@
 # never moving back to an older commit, and yyc-apps.yml is dispatched to deploy it.
 name: feishu-index-image
 on:
-  push:
-    branches: [main]
+  push:  # every branch (the gate merges a branch when this is green); main alone pins and deploys
     paths:
       - feishu-index/**
       - '!feishu-index/**.md'
@@ -93,6 +92,7 @@ jobs:
           echo "$out" | grep -q "DATABASE_URL is not set"
           docker run --rm --entrypoint pdftotext "$IMAGE:${{ steps.meta.outputs.tag }}" -v 2>&1 | grep -q poppler
       - name: pin the tag, then deploy
+        if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
