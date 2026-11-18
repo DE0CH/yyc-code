@@ -1,7 +1,9 @@
 # YYC Drive (yyc-ai/deploy/drive/drive.yaml; DE0CH/yyc-drive): one shared folder for the whole company at
-# drive.yyc-internal.com. Every path needs sign-in: the Access app covers the host, and the tunnel's rule (pigeon.tf)
-# has cloudflared check Access's token before a request reaches the pods, which trust the header naming the person.
-# It rides tunnel yyc-ai-pigeon (the connectors in namespace yyc-ai, where the drive's pods are).
+# drive.yyc-internal.com. Every path needs sign-in: the Access app covers the host. The Worker yyc-drive (deployed by
+# yyc-ai.yml job drive-edge) answers the whole host at the edge: the page, its settings and sign-in, for the person in
+# Access's token; it passes the folder's calls (/dav/, /data/) to the origin below, the tunnel yyc-ai-pigeon, whose
+# rule (pigeon.tf) has cloudflared check Access's token again before a request reaches the pods, which trust the header
+# naming the person (the Worker sets it from the token).
 locals {
   drive_host = "drive.${local.domain}"
 }
@@ -27,4 +29,10 @@ resource "cloudflare_dns_record" "drive" {
   proxied = true
   ttl     = 1
   comment = "YYC Drive (Access app YYC Drive): tunnel pigeon"
+}
+
+resource "cloudflare_workers_route" "drive" {
+  zone_id = local.zone
+  pattern = "${local.drive_host}/*"
+  script  = "yyc-drive"
 }
