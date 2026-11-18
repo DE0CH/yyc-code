@@ -286,7 +286,8 @@ jobs:
 
   # the live site after an applying deploy (not the 3-hourly re-apply: each run boots a sandbox, maybe an AWS host): sign
   # in as bot@deyaochen.com by e-mailed code (bot-mail's /access-code, service token yyc-ai-e2e), /api/jarvis/me, one
-  # chat turn answered by the model, the message box's list of slash commands (yyc-ai/tests/e2e/live_chat.py)
+  # chat turn answered by the model, the message box's list of slash commands (yyc-ai/tests/e2e/live_chat.py); YYC Drive's
+  # page from the edge and its file list (live_drive.py)
   e2e:
     needs: deploy
     if: >-
@@ -309,6 +310,12 @@ jobs:
           E2E_CODE_CLIENT_ID: ${{ secrets.E2E_CODE_CLIENT_ID }}
           E2E_CODE_CLIENT_SECRET: ${{ secrets.E2E_CODE_CLIENT_SECRET }}
         run: python3 yyc-ai/tests/e2e/live_chat.py "$RUNNER_TEMP/e2e"
+      - name: YYC Drive (its page from the edge, its file list)
+        if: always()
+        env:
+          E2E_CODE_CLIENT_ID: ${{ secrets.E2E_CODE_CLIENT_ID }}
+          E2E_CODE_CLIENT_SECRET: ${{ secrets.E2E_CODE_CLIENT_SECRET }}
+        run: python3 yyc-ai/tests/e2e/live_drive.py "$RUNNER_TEMP/e2e"
       - uses: actions/upload-artifact@v4
         if: always()
         with: {name: e2e-screens, path: "${{ runner.temp }}/e2e", if-no-files-found: ignore}
