@@ -218,14 +218,18 @@ class Storage(unittest.TestCase):
 
             def __exit__(self, *a):
                 return False
-        stats = {"yyc-pg-pitr": (8194, 159413804689), "yyc-ai-files": (927, 592411901)}
+        stats = {"yyc-pg-pitr": (8194, 159413804689), "yyc-ai-files": (927, 592411901), "yyc-pg-backups": (7049, 1000)}
+        heads = {}
 
         def opener(self, method, key="", params=None, headers=None, data=None, timeout=60):
             if not self.bucket:
                 self_.assertEqual(method, "GET")
                 return R(b"<ListAllMyBucketsResult><Buckets>" + b"".join(
-                    f"<Bucket><Name>{n}</Name></Bucket>".encode() for n in ["yyc-ai-files", "yyc-elsewhere", "yyc-pg-pitr"]) + b"</Buckets></ListAllMyBucketsResult>")
+                    f"<Bucket><Name>{n}</Name></Bucket>".encode() for n in ["yyc-ai-files", "yyc-elsewhere", "yyc-pg-backups", "yyc-pg-pitr"]) + b"</Buckets></ListAllMyBucketsResult>")
             self_.assertEqual(method, "HEAD")
+            heads[self.bucket] = heads.get(self.bucket, 0) + 1
+            if self.bucket == "yyc-pg-backups" and heads[self.bucket] == 1:  # the pod's proxy timed out once (2026-11-18)
+                raise OSError("Tunnel connection failed: 504 Gateway Timeout")
             if self.bucket not in stats:
                 raise OSError("301 Moved Permanently")
             n, b = stats[self.bucket]
@@ -235,9 +239,9 @@ class Storage(unittest.TestCase):
         with mock.patch.object(s3.Client, "_open", opener), \
                 mock.patch.dict(os.environ, {"VIDEO_S3_ACCESS_KEY": "AK", "VIDEO_S3_SECRET_KEY": "SK"}):
             d = monitor.storage()
-        self.assertEqual([b["name"] for b in d["buckets"]], ["yyc-pg-pitr", "yyc-ai-files", "yyc-elsewhere"])
-        self.assertEqual((d["bytes"], d["objects"]), (159413804689 + 592411901, 8194 + 927))
-        self.assertIn("301", d["buckets"][2]["error"])
+        self.assertEqual([b["name"] for b in d["buckets"]], ["yyc-pg-pitr", "yyc-ai-files", "yyc-pg-backups", "yyc-elsewhere"])
+        self.assertEqual((d["bytes"], d["objects"]), (159413804689 + 592411901 + 1000, 8194 + 927 + 7049))
+        self.assertIn("301", d["buckets"][3]["error"])
         with mock.patch.dict(os.environ, {"VIDEO_S3_ACCESS_KEY": ""}):
             self.assertRaises(RuntimeError, monitor.storage)
 

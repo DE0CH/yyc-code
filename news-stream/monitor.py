@@ -719,14 +719,22 @@ def storage():
     root = s3.Client(S3_ENDPOINT, "fsn1", ak, sk, "")
     with root._open("GET", timeout=30) as r:
         names = re.findall(r"<Name>([^<]+)</Name>", r.read().decode())
+    def head(n):
+        with s3.Client(S3_ENDPOINT, "fsn1", ak, sk, n)._open("HEAD", timeout=30) as r:
+            h = r.headers
+        return {"name": n, "objects": int(h.get("x-rgw-object-count") or 0), "bytes": int(h.get("x-rgw-bytes-used") or 0)}
+
     out = []
     for n in sorted(names):
-        try:
-            with s3.Client(S3_ENDPOINT, "fsn1", ak, sk, n)._open("HEAD", timeout=30) as r:
-                h = r.headers
-            out.append({"name": n, "objects": int(h.get("x-rgw-object-count") or 0), "bytes": int(h.get("x-rgw-bytes-used") or 0)})
-        except Exception as e:  # noqa: BLE001: one bucket unreadable (e.g. in another location), the rest stand
-            out.append({"name": n, "error": repr(e)[:200]})
+        # two tries: one request lost on the way (the pod's proxy answered 504 for one bucket on 2026-11-18) would
+        # otherwise show the bucket unreadable until the next refresh, STORAGE_TTL later
+        for left in (1, 0):
+            try:
+                out.append(head(n))
+                break
+            except Exception as e:  # noqa: BLE001: one bucket unreadable (e.g. in another location), the rest stand
+                if not left:
+                    out.append({"name": n, "error": repr(e)[:200]})
     ok = [b for b in out if "error" not in b]
     return {"buckets": sorted(out, key=lambda b: -(b.get("bytes") or 0)), "bytes": sum(b["bytes"] for b in ok),
             "objects": sum(b["objects"] for b in ok), "endpoint": S3_ENDPOINT,
