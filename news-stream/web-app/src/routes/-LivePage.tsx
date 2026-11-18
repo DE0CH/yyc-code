@@ -754,7 +754,7 @@ function SysPanel({ box, sys, now }: { box: Box; sys: LiveSys | null; now: numbe
 /** Jarvis 4's state words and their colour (the flight deck's: working is normal and stays ink; waiting and idle are
  * amber (Deyao, 2026-11-17); background jobs, a schedule (Deyao, 2026-11-17) and booting go on by themselves, blue) */
 const JARVIS_TAG: Record<JarvisSession["state"], [string, string]> = {
-  working: ["working", "inkf"], waiting: ["needs you", "warn"], background: ["background", "info"], scheduled: ["scheduled", "info"], idle: ["idle", "warn"], booting: ["booting", "info"],
+  working: ["working", "inkf"], waiting: ["needs you", "warn"], background: ["background", "info"], frozen: ["frozen", "info"], scheduled: ["scheduled", "info"], idle: ["idle", "warn"], booting: ["booting", "info"],
 };
 /** "2 background jobs, 1 subagent" */
 const workersText = (x: JarvisSession) => [x.jobs ? `${x.jobs} background ${x.jobs === 1 ? "job" : "jobs"}` : "",
@@ -781,7 +781,8 @@ function JarvisPanel({ box, j, now }: { box: Box; j: JarvisLive | null; now: num
             const [word, k] = JARVIS_TAG[x.state];
             return <div key={i} className={"jr" + (i >= g.rows ? " c2nd" : "")} data-state={x.state}>
               <div className="j1"><span className={"tag " + k}>{word}</span><span className="jn">{x.name}</span></div>
-              <div className="j2 num">{x.state === "scheduled" ? (x.next ? `next ${wakeAt(x.next, now || j.got)}` : "watching")
+              <div className="j2 num">{x.state === "frozen" ? (x.next ? `until ${wakeAt(x.next, now || j.got)}` : "in the time machine")
+                : x.state === "scheduled" ? (x.next ? `next ${wakeAt(x.next, now || j.got)}` : "watching")
                 : <>{x.since ? `for ${dur(Math.max(0, (now || j.got) - x.since) / 1000)}` : ""}{workersText(x) ? `${x.since ? ", " : ""}${workersText(x)}` : ""}</>}</div>
             </div>;
           })}

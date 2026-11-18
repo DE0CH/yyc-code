@@ -261,9 +261,11 @@ JARVIS = {"total": 34, "sessions": [
     # paused or idle with a wakeup/cron armed (its next one; a watch alone has no time) (Deyao, 2026-11-17)
     {"name": "Deploy watch for aviary", "state": "scheduled", "jobs": 0, "subagents": 0, "next": int(time.time() * 1000) + 3600_000},
     {"name": "Watching the CI run", "state": "scheduled", "jobs": 0, "subagents": 0},
+    # a fabric session waiting in the time machine, until when (Jarvis 4 router/timemachine.go, 2026-11-18)
+    {"name": "Waiting on the aviary CI", "state": "frozen", "jobs": 0, "subagents": 0, "next": int(time.time() * 1000) + 1800_000},
     {"name": "booting session", "state": "booting", "jobs": 0, "subagents": 0},
     {"name": "Qwen Code PDF output differs; fix deliver file display", "state": "working", "jobs": 1, "subagents": 0}] +
-    [{"name": f"idle session {i}", "state": "idle", "jobs": 0, "subagents": 0} for i in range(27)]}
+    [{"name": f"idle session {i}", "state": "idle", "jobs": 0, "subagents": 0} for i in range(26)]}
 
 
 def push_jarvis(doc, secret=JARVIS_SECRET):
@@ -510,13 +512,16 @@ class LivePage(unittest.TestCase):
         self.assertIn("2 more", jp.locator("h2").inner_text())
         self.assertEqual(jp.locator(".jr[data-state=working] .tag.inkf", has_text="working").count(), 2)
         self.assertEqual(jp.locator(".jr[data-state=waiting] .tag.warn", has_text="needs you").count(), 1)
-        self.assertEqual(jp.locator(".jr[data-state=idle] .tag.warn", has_text="idle").count(), 25)  # amber (Deyao, 2026-11-17)
+        self.assertEqual(jp.locator(".jr[data-state=idle] .tag.warn", has_text="idle").count(), 24)  # amber (Deyao, 2026-11-17)
         self.assertEqual(jp.locator(".jr[data-state=background] .tag.info", has_text="background").count(), 1)
         self.assertEqual(jp.locator(".jr[data-state=booting] .tag.info", has_text="booting").count(), 1)
         # scheduled is blue like background, with its next wake (HKT) or "watching" (Deyao, 2026-11-17)
         self.assertEqual(jp.locator(".jr[data-state=scheduled] .tag.info", has_text="scheduled").count(), 2)
         self.assertRegex(jp.locator(".jr[data-state=scheduled]", has_text="Deploy watch").inner_text(), r"next (\d\d-\d\d )?\d\d:\d\d")
         self.assertIn("watching", jp.locator(".jr[data-state=scheduled]", has_text="Watching the CI").inner_text())
+        # frozen (the time machine) is blue too, with until when (HKT)
+        self.assertEqual(jp.locator(".jr[data-state=frozen] .tag.info", has_text="frozen").count(), 1)
+        self.assertRegex(jp.locator(".jr[data-state=frozen]").inner_text(), r"until (\d\d-\d\d )?\d\d:\d\d")
         self.assertEqual(jp.locator(".tag.badt").count(), 0)  # nothing here is a failure
         self.assertRegex(jp.locator(".jr[data-state=background]").inner_text(), r"for \d+ min, 2 background jobs, 1 subagent")
         self.assertIn("Cathay seat for the HKG flight", jp.locator(".jr[data-state=waiting]").inner_text())

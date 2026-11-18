@@ -60,8 +60,8 @@ export function fit<L extends FitLine>(sections: FitSection<L>[], height: number
   return { keep, used, more };
 }
 
-/** Jarvis 4's order on the page: needs you, idle (most recent first), working, background, scheduled, booting */
-export const JARVIS_ORDER = ["waiting", "idle", "working", "background", "scheduled", "booting"] as const;
+/** Jarvis 4's order on the page: needs you, idle (most recent first), working, background, frozen, scheduled, booting */
+export const JARVIS_ORDER = ["waiting", "idle", "working", "background", "frozen", "scheduled", "booting"] as const;
 
 /** how many of the idle sessions fold (the oldest) so the sessions' level-0 lines take at most `rows` lines, the fold's
  * own line included; 0 when they all fit */
