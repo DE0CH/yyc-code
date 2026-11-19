@@ -16,6 +16,12 @@ Screenshots: ~/artifacts/spa/dash/.
 """
 import json, os, re, subprocess, sys, time, unittest, urllib.request
 
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, HERE)
+sys.path.insert(0, os.path.join(HERE, "tests"))
+OWN = not os.environ.get("DASH_BASE")  # no server given (CI): a dev server of its own on a database seeded below
+import devserver  # noqa: E402
+devserver.ensure(5181, "DASH_BASE", "DASH_DB")
 BASE = os.environ.get("DASH_BASE", "http://localhost:5181")
 DB = os.environ.get("DASH_DB", "postgresql:///yyc_dev_dash")
 SHOTS = os.path.expanduser("~/artifacts/spa/dash")
@@ -41,6 +47,49 @@ OVERFLOWING = """() => [...document.querySelectorAll('#view *')].filter(e => {
 }).slice(0, 8).map(e => `${e.tagName.toLowerCase()}.${e.className} ${e.scrollWidth}>${e.clientWidth}: ${(e.getAttribute('data-h') || '')} ${e.innerText.slice(0, 40)}`)"""
 
 
+def seed():
+    """on a database of its own, what the views read on a copy of real data: CEHK posts of the last six days (news,
+    forum and social, more than a page, some by 測試作者 and some on 李家超 and 施政報告) with scores, the profile's
+    tags (sentiment, labels, theme), today's stream items, a persona context for the AI button, the site's config and
+    search dictionary"""
+    os.environ["DATABASE_URL"] = DB
+    import corpus, edge_config, insights, searchtext
+    from datetime import datetime, timedelta, timezone
+    now = datetime.now(timezone(timedelta(hours=8)))
+    kinds = (("News", "RTHK", "rthk_en"), ("Forum", "香港討論區", "rthk_en"), ("Social", "Facebook", "rthk_en"))
+    items = []
+    for i in range(1, 61):
+        st, src, sid = kinds[i % 3]
+        topic = ("李家超發表施政報告第{}項措施" if i % 2 else "特區政府公布房屋政策第{}輪安排").format(i)
+        items.append({"url": f"https://dash-fixture.example/{st.lower()}/{i}", "title": topic,
+                      "text": f"{topic}，市民反應不一。" * 3, "sid": sid, "source": src, "source_type": st,
+                      "region": "HK", "author": "測試作者" if i % 4 == 0 else f"作者{i % 7}",
+                      "published": (now - timedelta(hours=2 * i)).isoformat(timespec="minutes")})
+    corpus.ingest(items)
+    ids = corpus.ids_for_urls([x["url"] for x in items])
+    db = corpus.db()
+    at = now.isoformat(timespec="seconds")
+    sents, themes = ("positive", "neutral", "negative"), ("施政", "房屋", "民生")
+    tags, pairs = [], []
+    for k, x in enumerate(items):
+        pid = ids[x["url"]]
+        db.execute("INSERT INTO scores (stream, post_id, score, reason, category, scored_at) VALUES ('CEHK', %s, %s, "
+                   "'about the Chief Executive', 'news', %s) ON CONFLICT DO NOTHING", (pid, 95 - k % 40, at))
+        tags.append((pid, True, sents[k % 3], ["政策"] if k % 2 else ["房屋", "民生"]))
+        pairs.append((pid, themes[k % 3]))
+        if k < 10:
+            it = {"url": x["url"], "title": x["title"], "source": x["source"], "stream": "CEHK",
+                  "sentiment": sents[k % 3], "labels": [], "published": x["published"], "seen": at, "id": pid}
+            db.execute("INSERT INTO stream_items (day, stream, url, item) VALUES (%s, 'CEHK', %s, %s)",
+                       (now.date().isoformat(), x["url"], corpus.J(it)))
+    corpus.set_tags("CEHK", tags)
+    corpus.set_themes("CEHK", pairs)
+    read = [{"id": ids[x["url"]]} for x in items if x["author"] == "測試作者"]
+    insights.make_context("persona", "CEHK", "測試作者", "測試作者", "測試作者的近期帖子", read, len(read))
+    edge_config.publish()
+    searchtext.publish_edge(force=True)
+
+
 def today():
     return psql("SELECT to_char(now() AT TIME ZONE 'Asia/Hong_Kong', 'YYYY-MM-DD')")
 
@@ -61,6 +110,8 @@ class Dashboard(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         os.makedirs(SHOTS, exist_ok=True)
+        if OWN:
+            seed()
         urllib.request.urlopen(BASE + "/dashboard?p=CEHK", timeout=60).read()  # warm the dev server
         # the keyword box needs the search dictionary the poller publishes (searchtext.publish_edge); a copy made
         # without it answers 伺服器沒有回應 to every query
