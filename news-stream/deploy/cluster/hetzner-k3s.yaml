@@ -66,7 +66,7 @@ worker_node_pools:
   # (768 Mi + its JuiceFS mount, only on the 8 GB nodes) took the room the cpx32 kept for it.
   # Back to 4 (2026-11-05, the move to yyc-talos): worker5 was rebuilt into the Talos gateway node yyc-talos-gw1, which
   # keeps its public IPv6 (the account's primary IP limit is full and stays)
-  # 2026-11-05 P2 of the move (yyc-ai/refactor/talos-apps-move.md): small-worker1-3 rebuilt into yyc-talos-news1-3;
+  # 2026-11-05 P2 of the move (DE0CH/aviary yyc/refactor/talos-apps-move.md): small-worker1-3 rebuilt into yyc-talos-news1-3;
   # only small-worker4 is left. hetzner-k3s names nodes by index, so a `create` now would make worker1-3 again:
   # don't run it (the old cluster is being retired). The cloud controller carries a required "not the control
   # plane" node affinity (kubectl patch, 2026-11-05): on yyc-master1 its host-network calls to the API's service

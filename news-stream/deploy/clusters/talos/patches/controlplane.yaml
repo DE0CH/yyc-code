@@ -1,5 +1,5 @@
-# The three control nodes (yyc-ai/refactor DESIGN 15.2 N1, input I4; deploy-workflows 4.1): the API server trusts
-# GitHub Actions' OIDC tokens for yyc-ai.yml (deploy-workflows 4.1's rules, in Talos's own
+# The three control nodes (DE0CH/aviary yyc/refactor DESIGN 15.2 N1, input I4; deploy-workflows 4.1): the API server trusts
+# GitHub Actions' OIDC tokens for DE0CH/aviary's deploy.yml (deploy-workflows 4.1's rules, in Talos's own
 # KubeAuthenticationConfig) and for talos-nodes.yml (the node work, README "Node work"), each workflow only with its
 # own environment, so a token maps to `gha:yyc-ai` or `gha:talos-nodes`; only the workflows of DE0CH/yyc-code
 # (repository id 1459689480); 127.0.0.1 in its SANs for the deploy tunnel,
@@ -21,13 +21,11 @@ configuration:
         # monorepo (Deyao, 2026-11-19: a push to aviary's main is the deploy; aviary docs/DEPLOY.md)
         - {expression: "claims.repository_id == '1459689480' || claims.repository_id == '1442421985'", message: "repo"}
         - {expression: "claims.ref == 'refs/heads/main'", message: "main only"}
-        # one environment per workflow: yyc-ai.yml deploys YYC AI (gha:yyc-ai), talos-nodes.yml does the node work
+        # one environment per workflow: DE0CH/aviary's deploy.yml deploys YYC AI (gha:yyc-ai), talos-nodes.yml does the node work
         # (gha:talos-nodes, RBAC in ../node-work.yaml), talos-cluster.yml applies this folder (gha:talos-cluster,
         # ../cluster-access.yaml), yyc-apps.yml deploys the news stream, mail merge and AI watch (gha:yyc-apps,
         # ../apps-access.yaml); a workflow can never take another's name
         - expression: >-
-            (claims.environment == 'yyc-ai' &&
-             claims.job_workflow_ref.startsWith('DE0CH/yyc-code/.github/workflows/yyc-ai.yml@refs/heads/main')) ||
             (claims.repository_id == '1442421985' && claims.environment == 'yyc-ai' &&
              claims.job_workflow_ref.startsWith('DE0CH/aviary/.github/workflows/deploy.yml@refs/heads/main')) ||
             (claims.environment == 'talos-nodes' &&

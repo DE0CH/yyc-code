@@ -1,4 +1,4 @@
-# The deploy workflows' path to yyc-talos's API server (yyc-ai/refactor deploy-workflows 3 and 12.2, DESIGN 15.10): the
+# The deploy workflows' path to yyc-talos's API server (DE0CH/aviary yyc/refactor deploy-workflows 3 and 12.2, DESIGN 15.10): the
 # connector of tunnel `yyc-deploy` (cloudflare/tofu/deploy.tf), which publishes the API (kubernetes.default.svc:443)
 # as TCP behind the Access app "YYC deploy API" (k8s-deploy.yyc-internal.com, one service token). A GitHub runner runs
 # `cloudflared access tcp` to 127.0.0.1:6443 and talks TLS to the API server end to end (tools/yyc-apply/connect.sh,

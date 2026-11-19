@@ -1,7 +1,7 @@
 # yyc-apply
 
 How a push to DE0CH/yyc-code reaches the cluster: the applier behind `.github/workflows/yyc-ai.yml` (design:
-`yyc-ai/refactor/deploy-workflows.md` 5-6 and 12, spec-platform 13, DESIGN 15.3). It targets the new Talos cluster
+`DE0CH/aviary yyc/refactor/deploy-workflows.md` 5-6 and 12, spec-platform 13, DESIGN 15.3). It targets the new Talos cluster
 `yyc-talos`, which started empty: there is no hand-over from Flux, so the inventory starts empty too. Rust, one binary, used by the workflow and from a
 session. It drives `kubectl` (server-side apply, server-side dry runs, `rollout status`) and `kustomize build`
 (5.8.1), and owns what kubectl lacks: the inventory, the deletion gate, the apply order and the waits. It knows
@@ -70,7 +70,7 @@ header).
 
 The applier's tests gate on its content: an Actions-cache marker keyed by the hash of `tools/yyc-apply`,
 `.github/actions` and the workflow is saved only after the unit and kind tests pass at that content, and job `deploy`
-does not start without it (a push touching only `yyc-ai/deploy` after a red applier push re-runs the tests). A run
+does not start without it (a push touching only `DE0CH/aviary yyc/deploy` after a red applier push re-runs the tests). A run
 holds the deploy group for at most the apply's own waits; a plan-only dispatch has its own concurrency group, so it
 never cancels a pending apply.
 

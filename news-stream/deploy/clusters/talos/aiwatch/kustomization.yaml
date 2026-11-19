@@ -1,4 +1,4 @@
-# YYC AI watch on yyc-talos (step T4a of the Talos move; plan: yyc-ai/refactor/talos-apps-move.md): the old cluster's
+# YYC AI watch on yyc-talos (step T4a of the Talos move; plan: DE0CH/aviary yyc/refactor/talos-apps-move.md): the old cluster's
 # ../../../../../ai-watch/deploy with what Talos changes. NOT APPLIED YET (the plan's yyc-apps.yml applies it from P3).
 # Secrets: ./sealed/ (sealed for this cluster; app-env's DATABASE_URL names db/pg-shared, never pg-rw).
 # - amd64 only, on the pool=news nodes (../apps/kustomization.yaml): the image carries Chrome for Testing linux64 (no

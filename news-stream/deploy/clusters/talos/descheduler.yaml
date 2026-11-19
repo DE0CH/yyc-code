@@ -1,4 +1,4 @@
-# The Descheduler (the Talos plan "Staying packed"; yyc-ai/refactor DESIGN 15.2 N8, input I8): at 04:00 HKT one run
+# The Descheduler (the Talos plan "Staying packed"; DE0CH/aviary yyc/refactor DESIGN 15.2 N8, input I8): at 04:00 HKT one run
 # of HighNodeUtilization evicts the pods of nearly empty workers, so the scheduler (MostAllocated,
 # ../patches/controlplane.yaml) packs them onto the fuller ones and free memory stays in usable blocks.
 #

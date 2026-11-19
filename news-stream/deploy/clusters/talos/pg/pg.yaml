@@ -1,4 +1,4 @@
-# YYC's main Postgres on yyc-talos (step T5 of the Talos move; plan yyc-ai/refactor/talos-apps-move.md, "Postgres"):
+# YYC's main Postgres on yyc-talos (step T5 of the Talos move; plan DE0CH/aviary yyc/refactor/talos-apps-move.md, "Postgres"):
 # CloudNativePG Cluster `pg` in namespace db, highly available (decision 16: under EUR 20 a month), first a REPLICA
 # CLUSTER of the old cluster's Cluster pg, then promoted by a controlled switchover (CloudNativePG's distributed
 # topology: the old primary is demoted first and hands over a demotion token, so no committed transaction is lost and

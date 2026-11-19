@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""infra/seal.py's checks on seeded trees (stdlib only; run by yyc-ai.yml check): the cert by folder, a wrong-cert
+"""infra/seal.py's checks on seeded trees (stdlib only; run by infra-checks.yml): the cert by folder, a wrong-cert
 file refused, A|B? values, --allow-unsealed. Builds a throwaway repo root with copies of seal.py and both certs."""
 import os, shutil, subprocess, sys, tempfile, unittest
 
-REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(REPO, "infra"))
 import seal as SEAL  # noqa: E402
 sys.path.pop(0)
-NEW = SEAL.CERTS[0][0].rstrip("/")   # the new stack's sealed folder (yyc-ai/next/sealed, after promotion yyc-ai/deploy/sealed)
+NEW = SEAL.CERTS[0][0].rstrip("/")   # the new stack's sealed folder (yyc-ai/next/sealed, after promotion DE0CH/aviary yyc/deploy/sealed)
 
 
 def tree(lines, files):

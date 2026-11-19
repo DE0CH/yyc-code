@@ -1,4 +1,4 @@
-# T5 (plan yyc-ai/refactor/talos-apps-move.md, "Postgres"): the old Cluster `pg` in CloudNativePG's distributed
+# T5 (plan DE0CH/aviary yyc/refactor/talos-apps-move.md, "Postgres"): the old Cluster `pg` in CloudNativePG's distributed
 # topology, merged into news-stream/deploy/db/postgres.yaml (Flux yyc-db, prune off) in two commits.
 #
 # 1. T5-prep (no restart, no change for clients: the cluster stays the primary; check pg-1's age and

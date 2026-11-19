@@ -1,0 +1,30 @@
+name: infra-checks
+# This repository's own checks of its infra tools (they ran in yyc-ai.yml until YYC AI moved to DE0CH/aviary, Deyao
+# 2026-11-19): infra/seal.py on seeded trees (infra/test_seal.py: the cert by folder, a wrong-cert file refused, A|B?
+# values, --allow-unsealed, --root/--map for aviary's yyc/deploy/sealed), and the old cluster's db/pg-ingress only
+# growing (news-stream/deploy/db/check_pg_ingress.py) over the pushed commits.
+on:
+  push:
+    branches: ['**']  # every branch: the gate waits for it
+    paths: [infra/**, news-stream/deploy/db/**, .github/workflows/infra-checks.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: ./.github/actions/k8s-tools
+      - name: seal.py on seeded trees
+        run: python3 infra/test_seal.py
+      - name: the old cluster's pg-ingress only grows
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          base=$BEFORE
+          git cat-file -e "$base^{commit}" 2>/dev/null || base=$(git rev-parse HEAD~1)
+          python3 news-stream/deploy/db/check_pg_ingress.py "$base" HEAD

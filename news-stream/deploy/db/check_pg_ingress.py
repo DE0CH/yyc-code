@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The old cluster's db/pg-ingress only grows while the old stack runs (yyc-ai/refactor spec-cutover 10.1 step 1,
+"""The old cluster's db/pg-ingress only grows while the old stack runs (DE0CH/aviary yyc/refactor spec-cutover 10.1 step 1,
 DESIGN 15.5 B3): every (source, port) it admitted at BASE it still admits now. Its 10.244.0.0/16 rules (the old
 stack's pods, the old fabric's JuiceFS mount pods) and 10.201.0.0/24 (the old fabric's hosts) stay until A6, whose
 teardown commit carries `Pg-Ingress-Shrink: <why>` in its message to pass this check.

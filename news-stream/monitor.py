@@ -2426,7 +2426,7 @@ PANELS = {"corpus": corpus_counts, "stops": stops, "sources": sources, "telegram
 # from the budget's per-person counts, sandbox starts and releases, host events, egress errors, a change of status).
 # Only the holder of the lock 'live ai' writes (a rollout's two pods: one). hermit runs on the new Talos cluster: until
 # this monitor moves there (T4), it is reached through bridge B4 (Service yyc/hermit-bridge -> bridge
-# yyc-bridge-new, yyc-ai/refactor DESIGN 15.5); the monitor's move changes HERMIT_OPS_URL's default to
+# yyc-bridge-new, DE0CH/aviary yyc/refactor DESIGN 15.5); the monitor's move changes HERMIT_OPS_URL's default to
 # http://hermit.yyc-ai.svc.cluster.local/ops/snapshot?tz=Asia/Hong_Kong.
 
 LIVE_KV = "live:sys"

@@ -1,6 +1,6 @@
 # yyc-talos: YYC's Talos cluster
 
-The cluster YYC moves to (yyc-ai/refactor DECISIONS 13, DESIGN 15; plan: session "Kernel patches on K8s runners",
+The cluster YYC moves to (DE0CH/aviary yyc/refactor DECISIONS 13, DESIGN 15; plan: session "Kernel patches on K8s runners",
 https://1e6d165c-page.deyaochen.com/). Built 2026-11-04 (step T1: control plane and add-ons).
 
 - **Control nodes:** `yyc-talos-cp1..3`, cax11 (ARM) in nbg1 (cx23 sold out everywhere; the plan's fallback), network
@@ -154,7 +154,7 @@ control nodes) or on yyc-nat1 (a network box). Image tag: `images:` in kustomiza
   upgrade --image <hcloud-installer>:<version>` (the old entry is booted once only; the bad UKI stays the default
   until replaced).
 - **The sandbox gateway** is no node of this cluster (the plain server `yyc-sbx-gw1`, 10.0.0.8, DE0CH/yyc-code
-  `yyc-ai/infra/gateway.sh`): node work never stops the sandboxes' network.
+  `DE0CH/aviary yyc/infra/gateway.sh`): node work never stops the sandboxes' network.
 - **Path:** the runner reaches the API through tunnel `yyc-deploy` (deploy-workflows 3) as `gha:talos-nodes` (its own
   GitHub environment `talos-nodes` with the Access secrets `YYC_DEPLOY_ACCESS_CLIENT_ID`/`_SECRET`; the authenticator in
   `patches/controlplane.yaml`; RBAC in `node-work.yaml`: nodes read, Jobs in `talos-ops`). Each upgrade is a Job in
@@ -163,7 +163,7 @@ control nodes) or on yyc-nat1 (a network box). Image tag: `images:` in kustomiza
 
 ## Readiness for YYC AI
 
-`yyc-ai/infra/talos-ready.sh` (read-only, both clusters) checks DESIGN 15.2 N1-N12 and the build inputs I1-I9; its
+`DE0CH/aviary yyc/infra/talos-ready.sh` (read-only, both clusters) checks DESIGN 15.2 N1-N12 and the build inputs I1-I9; its
 PENDING lines are the tests that need probe pods, a GitHub run or the gateway image.
 
 ## Still to do (T1-T2, DESIGN 15.2)

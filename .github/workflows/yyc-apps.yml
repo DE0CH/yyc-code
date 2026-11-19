@@ -1,5 +1,5 @@
 name: yyc-apps
-# Deploys YYC's apps on the Talos cluster yyc-talos (yyc-ai/refactor/talos-apps-move.md P3, T4; claude-env CLAUDE.md
+# Deploys YYC's apps on the Talos cluster yyc-talos (DE0CH/aviary yyc/refactor/talos-apps-move.md P3, T4; claude-env CLAUDE.md
 # "GitOps runs in GitHub workflows"), as yyc-ai.yml does for YYC AI, with tools/yyc-apply:
 #   news-stream/deploy/clusters/talos/apps     the news stream and the mail merge (namespaces yyc, mailmerge),
 #                                              inventory yyc-deploy/inventory-yyc-apps

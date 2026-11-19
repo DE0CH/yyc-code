@@ -9,7 +9,7 @@ resources:
   - postgres-operator.yaml  # YYC's Postgres: CloudNativePG, its Barman Cloud plugin, cert-manager + namespace db (../../db/)
 # A move to or from another cluster adds its MIGRATION STATE patches here (../../MIGRATE.md).
 patches:
-  # MIGRATION STATE (move to yyc-talos, yyc-ai/refactor/talos-apps-move.md T4a): the mail merge serves from yyc-talos
+  # MIGRATION STATE (move to yyc-talos, DE0CH/aviary yyc/refactor/talos-apps-move.md T4a): the mail merge serves from yyc-talos
   # (clusters/talos/apps); its old Deployments and connectors at 0, deleted with the old cluster (T6)
   - target: {kind: Deployment, namespace: mailmerge}
     patch: |-

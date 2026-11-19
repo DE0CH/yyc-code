@@ -1,4 +1,4 @@
-Old-cluster pieces of the move to yyc-talos (plan: yyc-ai/refactor/talos-apps-move.md). Nothing here is applied:
+Old-cluster pieces of the move to yyc-talos (plan: DE0CH/aviary yyc/refactor/talos-apps-move.md). Nothing here is applied:
 Flux builds only the files a kustomization.yaml lists, and none lists these. Each step of the plan that needs one adds
 it to `../kustomization.yaml` (Flux `yyc-apps`) or merges it into `../../../db/postgres.yaml` (Flux `yyc-db`) in its
 own commit.

@@ -1,6 +1,6 @@
 # db/pg-shared: Cluster pg's primary under one name, pg-shared.db.svc.cluster.local:5432, which every database URL
 # and JuiceFS metaurl in the cluster names (never pg-rw.db). YYC AI's sandbox hosts reach it from outside the
-# cluster through the balancer's port 10.0.0.50:5432 and the pg-forward pods (yyc-ai/deploy/hermit/pg-forward.yaml).
+# cluster through the balancer's port 10.0.0.50:5432 and the pg-forward pods (DE0CH/aviary yyc/deploy/hermit/pg-forward.yaml).
 apiVersion: v1
 kind: Service
 metadata:

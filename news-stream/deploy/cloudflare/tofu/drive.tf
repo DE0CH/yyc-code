@@ -1,4 +1,4 @@
-# YYC Drive (yyc-ai/deploy/drive/drive.yaml; DE0CH/yyc-drive): one shared folder for the whole company at
+# YYC Drive (DE0CH/aviary yyc/deploy/drive/drive.yaml; DE0CH/yyc-drive): one shared folder for the whole company at
 # drive.yyc-internal.com. Every path needs sign-in: the Access app covers the host. The Worker yyc-drive (deployed by
 # yyc-ai.yml job drive-edge) answers the whole host at the edge: the page, its settings and sign-in, for the person in
 # Access's token; it passes the folder's calls (/dav/, /data/) to the origin below, the tunnel yyc-ai-pigeon, whose

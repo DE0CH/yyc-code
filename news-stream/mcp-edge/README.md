@@ -71,7 +71,7 @@ http://wisers.yyc.svc.cluster.local:8899/app/wisers/api/) with `Authorization: B
 wisers-ingress admits yyc-mcp) and `X-YYC-User` = the account, or, for a service token only, the staff member its app
 names (YYC AI), so the relay's logs say who spent the quota. The relay caps AI callers per person and hour
 (`WISERS_AI_CAP`) and relays only WiseSearch's read-only calls (`../wisers/paths.py`). YYC AI lists them in
-`yyc-ai/deploy/tools/tools.json` (`wisers_*`).
+`DE0CH/aviary yyc/deploy/tools/tools.json` (`wisers_*`).
 
 **A post is one shape everywhere (Deyao, 2026-10-27):** every list of posts, whichever tool returns it (`posts_search`,
 `analysis_posts`, `analysis_topic`, `analysis_person` `recent`, `stream_items`, `post_get` `same_article`, `search`),

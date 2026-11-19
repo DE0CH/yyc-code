@@ -13,7 +13,7 @@
            --cert FILE   seal to another cert than the folder's (a rebuilt cluster's new cert, before CERTS names it;
                          fetch one with `kubectl get --raw /api/v1/namespaces/kube-system/services/sealed-secrets-controller:http/proxy/v1/cert.pem`)
 
-Two clusters (yyc-ai/refactor DESIGN 15.9): the cert is picked by the sealed file's folder (CERTS below): the new Talos
+Two clusters (DE0CH/aviary yyc/refactor DESIGN 15.9): the cert is picked by the sealed file's folder (CERTS below): the new Talos
 cluster's folders get infra/sealed-secrets-talos.pem, every other folder the old cluster's infra/sealed-secrets.pem.
 Each sealed file records its cert's fingerprint in its header; --check refuses a file whose recorded cert is not its
 folder's (a file without the line is the old cert's: every file sealed before 2026-11-04). A map name may carry
@@ -40,11 +40,10 @@ OLD_CERT = "infra/sealed-secrets.pem"
 TALOS_CERT = "infra/sealed-secrets-talos.pem"
 # folder prefix -> cert (first match wins; anything else: OLD_CERT)
 CERTS = [
-    ("yyc-ai/deploy/sealed/", TALOS_CERT),
     ("yyc/deploy/sealed/", TALOS_CERT),     # DE0CH/aviary (--root): YYC AI on the Talos cluster
     ("news-stream/deploy/clusters/talos/", TALOS_CERT),
 ]
-SEALED_DIRS = ("news-stream/deploy/apps/sealed", "yyc-ai/deploy/sealed", "yyc/deploy/sealed",
+SEALED_DIRS = ("news-stream/deploy/apps/sealed", "yyc/deploy/sealed",
                "news-stream/deploy/clusters/talos/sealed", "news-stream/deploy/clusters/talos/db/sealed",
                "news-stream/deploy/clusters/talos/apps/sealed", "news-stream/deploy/clusters/talos/aiwatch/sealed",
                "news-stream/deploy/clusters/talos/pg/sealed")

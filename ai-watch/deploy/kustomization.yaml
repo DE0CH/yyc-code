@@ -6,7 +6,7 @@ kind: Kustomization
 resources:
   - app.yaml
   - sealed-secrets-rbac.yaml
-# MIGRATION STATE (move to yyc-talos, yyc-ai/refactor/talos-apps-move.md T4a): AI watch serves from yyc-talos
+# MIGRATION STATE (move to yyc-talos, DE0CH/aviary yyc/refactor/talos-apps-move.md T4a): AI watch serves from yyc-talos
 # (news-stream/deploy/clusters/talos/aiwatch, which sets the replicas back to 2), so the old cluster's copies are at 0;
 # T6 deletes this patch with the old cluster
 patches:

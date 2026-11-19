@@ -1,4 +1,4 @@
-# YYC AI's new stack (yyc-ai/refactor spec-platform 14.1, DESIGN 15.10): tunnel yyc-ai-pigeon (connectors
+# YYC AI's new stack (DE0CH/aviary yyc/refactor spec-platform 14.1, DESIGN 15.10): tunnel yyc-ai-pigeon (connectors
 # yyc-ai/cloudflared on the new Talos cluster) and the host and path lists both YYC AI tunnels (tunnels.tf) and the
 # Access app (access.tf) use. The old stack's tunnel yyc-ai went in A6 (2026-11-07).
 resource "cloudflare_zero_trust_tunnel_cloudflared" "pigeon" {

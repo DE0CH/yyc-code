@@ -119,7 +119,7 @@ spec:
       - {name: yyc_mcp, login: true, ensure: present, passwordSecret: {name: pg-role-mcp}}
       - {name: juicefs, login: true, ensure: present, passwordSecret: {name: pg-role-juicefs}}
       - {name: aiwatch, login: true, ensure: present, passwordSecret: {name: pg-role-aiwatch}}
-      # YYC AI's new stack (yyc-ai/refactor spec-platform 11.1; its pods on the new cluster reach pg through
+      # YYC AI's new stack (DE0CH/aviary yyc/refactor spec-platform 11.1; its pods on the new cluster reach pg through
       # db/pg-shared there, bridge B3). By hand as postgres, once (each database closed to all but its owner):
       # REVOKE CONNECT ON DATABASE <db> FROM PUBLIC; ALTER ROLE <r> SET statement_timeout = '15s';
       # ALTER ROLE <r> SET idle_in_transaction_session_timeout = '60s'. Check: SELECT rolname, rolconfig FROM pg_roles
@@ -127,7 +127,7 @@ spec:
       - {name: hermit, login: true, ensure: present, passwordSecret: {name: pg-role-hermit}}
       - {name: egress, login: true, ensure: present, passwordSecret: {name: pg-role-egress}}
       - {name: tools, login: true, ensure: present, passwordSecret: {name: pg-role-tools}}
-  # T5 (yyc-ai/refactor/talos-apps-move.md "Postgres"): CloudNativePG's distributed topology. This cluster is pg-k3s and
+  # T5 (DE0CH/aviary yyc/refactor/talos-apps-move.md "Postgres"): CloudNativePG's distributed topology. This cluster is pg-k3s and
   # the primary; yyc-talos's Cluster pg (pg-talos) follows it. The switch is `primary: pg-talos` here (the demotion,
   # status.demotionToken), then the promotion there with that token.
   # demoted 2026-11-07 13:04 UTC: yyc-talos's Cluster pg (pg-talos) is the primary; this one replays its WAL from the
@@ -241,7 +241,7 @@ spec:
 # Who may connect: the cluster's pods (pod network 10.244.0.0/16: the news stream, YYC AI, the JuiceFS mount pods,
 # the operator, YYC AI watch), YYC AI's sandbox hosts (10.201.0.0/24); network yyc's nodes (10.0.0.0/16) on 5432: the
 # new Talos cluster's pods through pg-hosts (masqueraded to their node's address) and the new fabric's hosts through
-# the new gateway node (bridge B3, yyc-ai/refactor DESIGN 15.5); never the sandboxes (10.200.0.0/16, 10.203.0.0/16). By address, not by
+# the new gateway node (bridge B3, DE0CH/aviary yyc/refactor DESIGN 15.5); never the sandboxes (10.200.0.0/16, 10.203.0.0/16). By address, not by
 # namespace: k3s's policy controller adds a new pod's address to a namespace's set only at its next sync, and a
 # CronJob pod connecting in its first second was dropped ("server closed the connection unexpectedly", lihkg and
 # watch at 05:40 UTC on 2026-10-27, the minute's burst of new pods). Each database is closed to all but its own role.

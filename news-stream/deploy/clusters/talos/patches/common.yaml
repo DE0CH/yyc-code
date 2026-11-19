@@ -1,4 +1,4 @@
-# Every node of yyc-talos (README; yyc-ai/refactor DESIGN 15.2.1 inputs I1, I2, I3, I6). Talos v1.14 documents.
+# Every node of yyc-talos (README; DE0CH/aviary yyc/refactor DESIGN 15.2.1 inputs I1, I2, I3, I6). Talos v1.14 documents.
 apiVersion: v1alpha1
 kind: KubeNetworkConfig
 podSubnets: [10.210.0.0/16]

@@ -1,6 +1,6 @@
 # yyc-socks on yyc-talos (socks/README.md; the old cluster's copy is news-stream/deploy/apps/socks.yaml): the cluster's
 # way out to the internet by name, socks5h://socks.egress.svc.cluster.local:1080 (HTTP proxy on the same port). YYC
-# AI's egress uses it (yyc-ai/deploy/egress/egress.json `exit`), later the apps T4 moves here.
+# AI's egress uses it (DE0CH/aviary yyc/deploy/egress/egress.json `exit`), later the apps T4 moves here.
 #
 # How the pool runs here (2026-11-05, README "Outgoing proxy pool"): one copy on each worker in network yyc, host
 # network, listening on the node's private address. The workers have no public IP and no IPv6 (README "Workers

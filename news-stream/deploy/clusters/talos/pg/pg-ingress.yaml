@@ -29,7 +29,7 @@ spec:
         - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: feishu-index}}
           podSelector: {matchLabels: {app: feishu-index}}
         - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: yyc-ai}}
-          # pg-forward: the sandbox hosts' JuiceFS metadata, through the balancer's port 5432 (yyc-ai/deploy/hermit/pg-forward.yaml)
+          # pg-forward: the sandbox hosts' JuiceFS metadata, through the balancer's port 5432 (DE0CH/aviary yyc/deploy/hermit/pg-forward.yaml)
           podSelector: {matchExpressions: [{key: app, operator: In, values: [hermit, egress, tools, pg-forward]}]}
         # the JuiceFS CSI driver's mount pods and its node plugin and controller (`juicefs status` at each mount)
         - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}

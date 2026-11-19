@@ -62,9 +62,9 @@ it arrives, never held whole: its size costs no memory, and it has no time limit
 
 A caller gets a NetworkPolicy by name and the bearer token.
 
-- **YYC AI**: egress's route `feishu-files` (`yyc-ai/deploy/egress/egress.json`; pair token store key
+- **YYC AI**: egress's route `feishu-files` (`DE0CH/aviary yyc/deploy/egress/egress.json`; pair token store key
   `YYC_TOKEN_GATEWAY_FEISHU_FILES` = `API_TOKEN` here, `EGRESS_TOKEN_FEISHU_FILES` in egress), NetworkPolicy
-  `ingress-yyc-ai-egress`, managed skill `yyc-ai/deploy/hermit/skills/feishu-files/`. Every conversation has the same
+  `ingress-yyc-ai-egress`, managed skill `DE0CH/aviary yyc/deploy/hermit/skills/feishu-files/`. Every conversation has the same
   read and write access to the whole folder, deleting and moving included (Deyao, 2026-11-12), and, given its link,
   to any other file the app reaches (a staff member's file shared with the whole organisation: 2026-11-16).
 

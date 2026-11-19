@@ -1,4 +1,4 @@
-# Node work on yyc-talos (README "Node work"; yyc-ai/refactor DESIGN 15.2 N8): the workflow talos-nodes.yml reaches the
+# Node work on yyc-talos (README "Node work"; DE0CH/aviary yyc/refactor DESIGN 15.2 N8): the workflow talos-nodes.yml reaches the
 # Kubernetes API through tunnel yyc-deploy as `gha:talos-nodes` (its own GitHub environment, ../patches/controlplane.yaml)
 # and runs node-work.sh, which starts one Job per node in talos-ops. The Job's talosctl carries the Talos role os:admin
 # (talosctl upgrade and upgrade-k8s need it) from the Talos ServiceAccount below, and runs on another node than the one

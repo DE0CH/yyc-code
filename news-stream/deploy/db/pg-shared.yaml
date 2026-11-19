@@ -1,4 +1,4 @@
-# T4b-prep (plan yyc-ai/refactor/talos-apps-move.md): `db/pg-shared` on the old cluster as well, the same name the new
+# T4b-prep (plan DE0CH/aviary yyc/refactor/talos-apps-move.md): `db/pg-shared` on the old cluster as well, the same name the new
 # cluster gives its bridge to this Postgres (../../talos/db/pg-shared.yaml). Tunnel yyc-stream's route
 # db.yyc-internal.com (Hyperdrive yyc-pg; news-stream/deploy/cloudflare/tofu/tunnels.tf) then names
 # tcp://pg-shared.db.svc.cluster.local:5432, which answers on both clusters while the tunnel has connectors on both

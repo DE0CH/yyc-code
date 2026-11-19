@@ -2,7 +2,7 @@
 
 Labels (name tags, table cards, signs) for YYC's NIIMBOT M3, printed from a laptop. **Staff ask YYC AI for labels**:
 YYC AI draws them and sends them to print through the REST API (`/api/v2`), as its `labels` skill says
-(`yyc-ai/deploy/hermit/skills/labels/`). Sending gives a print page, where the staff member connects the printer and prints, or cancels
+(`DE0CH/aviary yyc/deploy/hermit/skills/labels/`). Sending gives a print page, where the staff member connects the printer and prints, or cancels
 and tells YYC AI what to change. Labels are drawn from shared **templates**, shown on the templates page; changing a
 template needs its lock, held by a person. Separate from the name-tag app (`nametags/`).
 
@@ -68,7 +68,7 @@ with `Content-Encoding: br`). Errors answer `{error, message}`, the message sayi
 with a message telling the caller to read the labels skill again, or to ask the user for a new conversation.
 
 - **YYC AI:** egress route `labels` (upstream https://labels.yyc-internal.com, the service token `yyc-labels-ai`
-  injected, paths `/api/v1/` and `/api/v2/`; `yyc-ai/deploy/egress/egress.json`, address `http://labels`).
+  injected, paths `/api/v1/` and `/api/v2/`; `DE0CH/aviary yyc/deploy/egress/egress.json`, address `http://labels`).
 
 ## Fonts
 

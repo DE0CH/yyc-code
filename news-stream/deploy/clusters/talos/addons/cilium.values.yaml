@@ -1,4 +1,4 @@
-# Cilium on yyc-talos (yyc-ai/refactor DESIGN 15.2.1 I2, I6; Talos's Cilium guide for the cgroup and capabilities).
+# Cilium on yyc-talos (DE0CH/aviary yyc/refactor DESIGN 15.2.1 I2, I6; Talos's Cilium guide for the cgroup and capabilities).
 ipam:
   mode: kubernetes              # node pod /24s from 10.210.0.0/16, matching the cloud controller's routes (I3)
 kubeProxyReplacement: false     # Talos's kube-proxy stays: NodePorts answer on every interface, wg0 included

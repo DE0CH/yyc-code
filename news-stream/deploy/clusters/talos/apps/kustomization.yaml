@@ -1,4 +1,4 @@
-# The YYC apps on yyc-talos (step T4 of the Talos move; plan: yyc-ai/refactor/talos-apps-move.md): the news stream
+# The YYC apps on yyc-talos (step T4 of the Talos move; plan: DE0CH/aviary yyc/refactor/talos-apps-move.md): the news stream
 # (namespace yyc) and the mail merge (namespace mailmerge), as the old cluster's base ../../../apps, with what Talos
 # changes. NOT APPLIED YET: no workflow reads this folder until the plan's step P3 (yyc-apps.yml, identity gha:yyc-apps,
 # ../apps-access.yaml). Its Secrets: ./sealed/ (infra/seal.py picks infra/sealed-secrets-talos.pem for this folder).

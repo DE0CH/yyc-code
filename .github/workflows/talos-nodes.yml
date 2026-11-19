@@ -1,10 +1,10 @@
 name: talos-nodes
-# Node work of YYC's Talos cluster yyc-talos (news-stream/deploy/clusters/talos/README.md "Node work"; yyc-ai/refactor
+# Node work of YYC's Talos cluster yyc-talos (news-stream/deploy/clusters/talos/README.md "Node work"; DE0CH/aviary yyc/refactor
 # DESIGN 15.2 N8). Weekly at 04:00 HKT on Tuesday: if Siderolabs has a newer patch release of the minor in
 # release.env, commit it there, then upgrade every node to release.env's version, one at a time (node-work.sh). A push
 # that changes release.env does the same; a dispatch runs `upgrade` (optionally one node) or `upgrade-k8s`.
 #
-# - The sandbox gateway is no node of this cluster (the plain server yyc-sbx-gw1, yyc-ai/infra/gateway.sh): node work
+# - The sandbox gateway is no node of this cluster (the plain server yyc-sbx-gw1, DE0CH/aviary yyc/infra/gateway.sh): node work
 #   here never stops the sandboxes' network.
 # - The runner reaches the Kubernetes API through tunnel yyc-deploy (deploy-workflows.md 3; Access service token) and
 #   authenticates with its own GitHub OIDC token as gha:talos-nodes (environment talos-nodes; the authenticator in

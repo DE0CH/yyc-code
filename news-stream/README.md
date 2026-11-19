@@ -1536,9 +1536,9 @@ them (their events too), Full text went from two columns to one.
 **`live:sys` and events `ai`** (monitor.py `live_once`, a loop of the monitor Deployment every 10 s, not a panel, so it
 never holds `/readyz` up): reads YYC AI's operator snapshot, hermit `GET /ops/snapshot?tz=Asia/Hong_Kong` (the data
 of https://ai.yyc-internal.com/ops/; `HERMIT_OPS_URL`, by default `http://hermit-bridge.yyc.svc.cluster.local/...`:
-hermit runs on the new Talos cluster and is reached through bridge B4 until the monitor moves there, yyc-ai/refactor
+hermit runs on the new Talos cluster and is reached through bridge B4 until the monitor moves there, DE0CH/aviary yyc/refactor
 DESIGN 15.5; bearer `HERMIT_OPS_TOKEN` = hermit's monitor pair token, sealed into `yyc/monitor-keys`; NetworkPolicy
-`hermit-from-bridge` in yyc-ai/deploy/bridges.yaml admits only the bridge's address on :8080), slims it, adds the health
+`hermit-from-bridge` in DE0CH/aviary yyc/deploy/bridges.yaml admits only the bridge's address on :8080), slims it, adds the health
 part, and writes kv `live:sys` (a few KB; kv `monitor:data` is 1.3 MB, too big to read every 3 s). The activity is the
 difference from the previous snapshot (cursor kv `live:ai:cursor`: per-person and per-model call counts of the HK day,
 the newest sandbox start/release, vm_event and egress error seen, the status), inserted as events `ai` in one

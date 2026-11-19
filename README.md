@@ -30,5 +30,5 @@ reports, decks, expenses) is in the private DE0CH/YYC.
 ## History
 
 The code moved here from DE0CH/YYC on 2026-11-16 with a fresh history. The commits before that date named
-`pin history: …` replay the image pins of `yyc-ai/deploy` with their original dates (DE0CH/claudecodeui reads them to
+`pin history: …` replay the image pins of `DE0CH/aviary yyc/deploy` with their original dates (DE0CH/claudecodeui reads them to
 know which app builds were served); every other earlier change is in DE0CH/YYC's history.

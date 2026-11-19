@@ -1,7 +1,7 @@
 name: talos-cluster
 # Applies yyc-talos's cluster-level folder news-stream/deploy/clusters/talos (its kustomization.yaml: namespaces, RBAC,
 # YYC AI's access and fence, the deploy connector, etcd backups, the Descheduler, the folder's SealedSecrets) to the
-# cluster (README "Applying"; yyc-ai/refactor DESIGN 15.3: the cluster's own workflow, never yyc-ai.yml). Not here:
+# cluster (README "Applying"; DE0CH/aviary yyc/refactor DESIGN 15.3: the cluster's own workflow, never yyc-ai.yml). Not here:
 # machine config (talos.sh gen/apply), Helm add-ons (talos.sh addons). The database folder db/ (magpie-pg, pg-shared;
 # DESIGN 15.8) is applied here too, after the folder (its CloudNativePG objects need the operator's CRDs, an add-on).
 #

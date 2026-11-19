@@ -1,4 +1,4 @@
-"""The monitor reads YYC AI's operator snapshot from hermit (aviary hermit spec 18.3, 21.4; yyc-ai/refactor
+"""The monitor reads YYC AI's operator snapshot from hermit (aviary hermit spec 18.3, 21.4; DE0CH/aviary yyc/refactor
 spec-platform 15.5): ai_slim and ai_activity read a snapshot shaped as hermit's own contract with the monitor
 (tests/fixtures/hermit-monitor-contract.json, a copy of aviary crates/hermit/tests/fixtures/monitor-contract.json,
 which hermit's ops tests hold its snapshot to), and ai_snapshot sends only hermit's bearer to HERMIT_OPS_URL."""
