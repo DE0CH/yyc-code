@@ -16,8 +16,10 @@ def _url():
 def edge(fn, *args):
     """edge("item.aiScores", pid) → the function's result, as JSON. Publish the site's config first
     (edge_config.publish()) when the function reads it."""
-    r = subprocess.run(["npx", "tsx", "scripts/call.ts", fn, json.dumps(list(args))], cwd=APP, capture_output=True,
-                       text=True, env=dict(os.environ, DATABASE_URL=_url()), timeout=300)
+    # the call on stdin (call.ts --batch), not in argv: Linux refuses one argument over 128 KiB (E2BIG, "Argument list
+    # too long"), and a test's arguments can be bigger
+    r = subprocess.run(["npx", "tsx", "scripts/call.ts", "--batch"], cwd=APP, capture_output=True, text=True,
+                       input=json.dumps([[fn, list(args)]]), env=dict(os.environ, DATABASE_URL=_url()), timeout=300)
     if r.returncode:
         raise RuntimeError(r.stderr[-2000:])
-    return json.loads(r.stdout)
+    return json.loads(r.stdout)[0]

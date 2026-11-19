@@ -213,30 +213,29 @@ class Site(unittest.TestCase):
                 self.assertIn(b, src, f)
 
     def test_apostrophe_width(self):
-        """the page's own font links and :lang(en) rule, in Chromium: ’ narrow in English, full-width in Chinese"""
+        """the site's own font lists (house.css --cjk, --latin) and its :lang(en) rule, in Chromium: ’ narrow in English,
+        full-width in Chinese. The site uses the reader's system fonts (PingFang HK on Apple devices, Noto Sans HK
+        elsewhere); here the site's "Noto Sans HK" is the runner's installed Noto Sans CJK HK"""
         from playwright.sync_api import sync_playwright
-        root = open(os.path.join(WEB, "src/routes/__root.tsx")).read()
-        lang = open(os.path.join(WEB, "src/lib/lang.tsx")).read()
-        punct = re.search(r'LATIN_PUNCT = "([^"]+)"', lang).group(1)
-        import urllib.parse
-        hrefs = re.findall(r'href: "(https://fonts.googleapis.com/css2[^"]+)"', root)
-        hrefs += [re.search(r'href: `(https://fonts.googleapis.com/css2[^`]+)`', root).group(1)
-                  .replace("${encodeURIComponent(LATIN_PUNCT)}", urllib.parse.quote(punct, safe=""))]
-        css = re.search(r"^:lang\(en\) \{[^}]+\}", open(os.path.join(WEB, "src/styles/index.css")).read(), re.M).group(0)
-        page = ("<!doctype html><html lang=zh-HK><head>" + "".join(f'<link rel=stylesheet href="{h}">' for h in hrefs)
-                + f"<style>body{{font:16px/1.5 'Noto Sans HK',sans-serif}} {css} span{{white-space:pre}}</style></head><body>"
+        house = open(os.path.join(WEB, "src/styles/house.css")).read()
+        cjk = re.search(r"--cjk:([^;]+);", house).group(1).strip()
+        latin = re.search(r"--latin:([^;]+);", house).group(1).strip().replace("var(--cjk)", cjk)
+        self.assertRegex(house, r":lang\(en\)[^{]*\{ *font-family:var\(--latin\)")  # English text takes the Latin list
+        page = ("<!doctype html><html lang=zh-HK><head><style>"
+                "@font-face{font-family:'Noto Sans HK';src:local('Noto Sans CJK HK Regular'),local('NotoSansCJKhk-Regular')}"
+                f"body{{font:16px/1.5 {cjk}}} :lang(en){{font-family:{latin}}} span{{white-space:pre}}</style></head><body>"
                 "<p><span lang=en id=en>’</span></p><p><span id=zh>’</span></p><p><span id=x>x</span></p></body></html>")
         with sync_playwright() as p:
             b = p.chromium.launch()
             pg = b.new_page()
             pg.set_content(page, wait_until="networkidle")
             pg.evaluate("document.fonts.ready")
-            pg.evaluate("Promise.all([document.fonts.load('16px \"Noto Sans HK\"', '’'), document.fonts.load('16px \"Noto Sans\"', '’')])")
+            pg.evaluate("document.fonts.load('16px \"Noto Sans HK\"', '’')")
             pg.wait_for_timeout(500)
             w = {k: pg.evaluate(f"document.getElementById('{k}').getBoundingClientRect().width") for k in ("en", "zh")}
             b.close()
         self.assertLess(w["en"], 8, w)    # Latin apostrophe: about a quarter em
-        self.assertGreater(w["zh"], 12, w)  # Noto Sans HK's: a full em (Chinese text keeps it)
+        self.assertGreater(w["zh"], 12, w)  # the CJK face's: a full em (Chinese text keeps it)
 
 
 if __name__ == "__main__":
