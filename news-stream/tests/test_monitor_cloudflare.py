@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The monitor's Cloudflare panel (monitor.cloudflare): each of Deyao's five names must CNAME to customers.yyc-internal.com
+"""The monitor's Cloudflare panel (monitor.cloudflare): each of Deyao's names (SAAS_NAMES) must CNAME to customers.yyc-internal.com
 (public DNS); a wrong record alerts, a failed lookup does not; the tofu runs are the GitHub workflow's (linked).
 
     python3 tests/test_monitor_cloudflare.py
@@ -27,7 +27,7 @@ class Panel(unittest.TestCase):
     def test_all_good(self):
         v, a = self.run_panel({})
         self.assertTrue(all(n["ok"] for n in v["names"]))
-        self.assertEqual(len(v["names"]), 5)
+        self.assertEqual([n["name"] for n in v["names"]], list(monitor.SAAS_NAMES))  # every name, each once
         self.assertFalse(any(a.values()))
         self.assertIn("actions/workflows/cloudflare.yml", v["runs"])
 

@@ -175,10 +175,18 @@ KEY = {"data": {"limit": 150, "limit_remaining": 109.73, "usage": 40.27, "usage_
 CREDITS = {"data": {"total_credits": 390, "total_usage": 370.714545278}}
 
 
+KEYS = {"data": [{"name": "yyc-stream", "usage_daily": 0.97, "usage_monthly": 40.27, "disabled": False},
+                 {"name": "yyc-chat", "usage_daily": 2.5, "usage_monthly": 61.0, "disabled": False},
+                 {"name": "someone-else", "usage_daily": 9.0, "usage_monthly": 99.0, "disabled": False}]}
+
+
 def or_get(url, headers=None, *a, **k):
     if url.endswith("/api/v1/credits"):
         assert headers["Authorization"] == "Bearer mgmt", "credits must be read with the management key"
         return CREDITS
+    if url.endswith("/api/v1/keys"):
+        assert headers["Authorization"] == "Bearer mgmt", "every key's usage must be read with the management key"
+        return KEYS
     assert headers["Authorization"] == "Bearer test", "key usage must be read with key yyc-stream"
     return KEY
 
@@ -198,6 +206,8 @@ class OpenRouterCredit(unittest.TestCase):
         self.assertEqual(b["credits_bought_usd"], 390)
         self.assertAlmostEqual(b["credits_used_usd"], 370.7145, places=4)
         self.assertAlmostEqual(b["credit_balance_usd"], 19.2855, places=4)
+        # every YYC key's own usage, by name; a key that isn't YYC's is left out
+        self.assertEqual([k["name"] for k in b["keys"]], ["yyc-chat", "yyc-stream"])
         self.assertEqual(b["usage_month_usd"], 40.27)  # key yyc-stream's own spend, as before
         self.assertIn("/api/v1/credits", b["source"])
         self.assertNotIn("credit_needs", b)

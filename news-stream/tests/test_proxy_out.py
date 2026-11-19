@@ -73,7 +73,8 @@ import watchlist  # noqa: E402
 HKT = corpus.HKT
 replies_fetch.DISCUSS_GAP = 0
 TESTED = {"app", "follow", "backfill", "cache_fetch", "lihkg_api", "comments_fetch", "fb_fetch", "ig_fetch", "links", "media", "paywall",
-          "replies_fetch", "social_twopass", "sources", "sites_fetch", "forum_fetch", "canonical", "browser_fetch"}  # point 5: the modules that call the proxy themselves
+          "replies_fetch", "social_twopass", "sources", "sites_fetch", "forum_fetch", "canonical", "browser_fetch",
+          "sources_extra"}  # point 5: the modules that call the proxy themselves
 
 
 def now():
@@ -134,6 +135,17 @@ class T2Clients(Base):
         for u in ("https://www1.hkej.com/dailynews/x", "http://www2.hkej.com/instantnews/x"):
             with self.assertRaises(resi.ProxyOut):
                 sources.fetch(u, proxy=resi.url())
+        self.assertPaused()
+
+    def test_linkedin_jina_stops_at_once(self):
+        # sources_extra.linkedin_read's third route, r.jina.ai over a fresh yycstream exit each try: the 402 pauses it
+        # at once (no further tries into it), the direct and ISP routes having failed
+        import sources_extra
+        refused = mock.Mock(status_code=999, text="authwall")
+        with mock.patch("curl_cffi.requests.get", return_value=refused), mock.patch.dict(os.environ, {"ISP_PROXY": ""}):
+            with self.assertRaises(resi.ProxyOut):
+                sources_extra.linkedin_read("https://www.linkedin.com/company/x/posts/")
+        self.assertEqual(len(Out402.hits), 1, "retried into the 402")
         self.assertPaused()
 
     def test_curl_session(self):

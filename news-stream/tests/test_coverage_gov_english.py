@@ -11,7 +11,7 @@ import os, sys, unittest
 from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import sources, sources_extra as se  # noqa: E402
+import paywall, sources, sources_extra as se  # noqa: E402
 
 
 def spec(sid):
@@ -91,7 +91,8 @@ class Coverage(unittest.TestCase):
 
         def fake(url, **kw):
             return full if "/sitemap/" in url else news
-        with mock.patch.object(sources, "fetch", side_effect=fake), mock.patch.object(se, "fetch", side_effect=fake):
+        # every Reuters sitemap is read with the solved DataDome session since 30 Oct 2026 (paywall.reuters_page)
+        with mock.patch.object(paywall, "reuters_page", side_effect=fake):
             got = sources.fetch_source(spec("reuters"))
         by = {x["url"]: x for x in got}
         bv = by["https://www.reuters.com/commentary/breakingviews/mega-ipos-broaden-appeal-tycoon-wealth-tactics-2026-10-14/"]

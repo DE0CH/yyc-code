@@ -20,6 +20,7 @@
 //   one window 1440 x 830: every panel in a 5 x 3 grid (testing, a laptop)
 //   phone (a window under 900 px wide, no ?half): the panels in one column, the page scrolls
 import type { Card, PanelId } from "../server/live";
+import { format } from "./dates.ts";  // with its extension: tests load this file in Node
 
 export type Mode = "left" | "right" | "single" | "phone";
 /** a panel's box: the card panels, "sys" (the systems' health) and "jarvis" (Jarvis 4's sessions): no cards */
@@ -143,11 +144,9 @@ export const MIN_GAP = 300;             // one card at a time, at least this far
 export const STALE_MS = 30_000;         // no successful read for 30 s: the screen greys out
 export const POLL_STALE_MS = 12 * 60e3; // the poller's last poll older than 12 min (it polls every 5): greyed out too
 
-const HK = 8 * 3600e3;
-const pad = (n: number) => String(n).padStart(2, "0");
-/** HH:MM:SS / HH:MM in Hong Kong time, whatever the display's time zone */
-export const hhmmss = (t: number) => { const d = new Date(t + HK); return `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`; };
-export const hhmm = (t: number) => hhmmss(t).slice(0, 5);
+/** HH:MM:SS / HH:MM in Hong Kong time, whatever the display's time zone (dates.ts) */
+export const hhmmss = (t: number) => format("timeSec", t);
+export const hhmm = (t: number) => format("time", t);
 
 // ---- paced: cards come on screen at the rate they arrive (Deyao, 2026-10-21: "the new items displaying in should be
 // roughly similar to the rate it's coming in so it's not scrolling really fast and then pausing"; 2026-10-27: "the

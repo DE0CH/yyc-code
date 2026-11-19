@@ -69,6 +69,8 @@ jobs:
           sudo mkdir -p /opt/jieba /opt/pw-browsers && sudo chown "$USER" /opt/jieba /opt/pw-browsers
           python3 -c "import jieba; t = jieba.Tokenizer(); t.tmp_dir = '/opt/jieba'; t.initialize()"
           python3 -m playwright install --with-deps chromium webkit
+          # patchright (the WiseSearch relay's browser) pins its own Chromium revision
+          python3 -m patchright install chromium
       - name: web-app node_modules
         run: npm ci --no-audit --no-fund
         working-directory: news-stream/web-app

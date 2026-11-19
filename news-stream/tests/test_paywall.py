@@ -622,7 +622,9 @@ class Spending(unittest.TestCase):
         today = paywall.datetime.now(paywall.HKT).strftime("%Y-%m-%d")
         self.assertAlmostEqual(s["by_day"][today], 0.00549)
         self.assertIn("provider", s["source"])
-        self.assertIn("--s4", open(os.path.join(HERE, "web-app", "src", "routes", "-MonitorPage.tsx")).read())
+        # the page draws the solvers' series in a colour of its own (the house palette's --p-N)
+        self.assertRegex(open(os.path.join(HERE, "web-app", "src", "routes", "-MonitorPage.tsx")).read(),
+                         r'solvers: "var\(--p-\d\)"')
 
     def test_solver_balances_not_connected_without_keys(self):
         ids = {b["id"]: b["status"] for b in monitor.balances()["providers"]}

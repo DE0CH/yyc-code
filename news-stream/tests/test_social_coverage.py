@@ -103,17 +103,34 @@ def fb_poll(names):
     return corpus.file_get("facebook.json")
 
 
+def fb_make_due(page, minutes):
+    """the page's last check `minutes` ago (fb_fetch.due reads state[page]["checked"])"""
+    st = corpus.file_get("facebook.json")
+    st["state"][page]["checked"] = (datetime.now(timezone.utc) - timedelta(minutes=minutes)).isoformat()
+    corpus.file_put("facebook.json", st)
+
+
 class Facebook(unittest.TestCase):
     def setUp(self):
         corpus.file_put("facebook.json", {})
         FakeFacebook.asked = {}
 
-    def test_1_every_page_every_run(self):
+    def test_1_a_page_is_read_when_due(self):
+        # a page that posted within 24 h is checked every ACTIVE_MIN, the others every QUIET_MIN (Deyao, 2026-10-29:
+        # IPRoyal bandwidth); the CronJob runs every 15 min and reads only the pages that are due
         fb_setup({"busy": [(NOW - 600 * i, f"1{i}") for i in range(1, 30)], "quiet": [(NOW - 5 * 86400, "20")]})
+        # (the busy page is also every run's session probe: its newest post read without afterTime, so only the quiet
+        # page's reads tell)
         fb_poll(["busy", "quiet"])
         before = FakeFacebook.asked.get("quiet", 0)
         fb_poll(["busy", "quiet"])
-        self.assertGreater(FakeFacebook.asked.get("quiet", 0), before, "the quiet page was skipped on the second run")
+        self.assertEqual(FakeFacebook.asked.get("quiet", 0), before, "a page checked a moment ago was read again")
+        fb_make_due("quiet", fb_fetch.ACTIVE_MIN)
+        fb_poll(["busy", "quiet"])
+        self.assertEqual(FakeFacebook.asked.get("quiet", 0), before, "the quiet page was read at the busy pages' pace")
+        fb_make_due("quiet", fb_fetch.QUIET_MIN)
+        fb_poll(["busy", "quiet"])
+        self.assertGreater(FakeFacebook.asked.get("quiet", 0), before, "the quiet page wasn't read when due")
 
     def test_2_late_post_and_no_duplicates(self):
         fb_setup({"pg": [(NOW - 7200, "31"), (NOW - 600, "32")]})
@@ -124,6 +141,7 @@ class Facebook(unittest.TestCase):
         st = corpus.file_get("facebook.json")
         st["state"]["pg"]["overlap"] = NOW - 3700  # the page's hourly overlap read is due
         corpus.file_put("facebook.json", st)
+        fb_make_due("pg", fb_fetch.ACTIVE_MIN)  # and so is its check
         got = fb_poll(["pg"])
         new = [i for i in got["items"] if i["url"].endswith("b")]
         self.assertEqual([i["post_id"] for i in new], ["33"], "a post already read was filed again, or the late one was missed")
@@ -136,6 +154,7 @@ class Facebook(unittest.TestCase):
         st = corpus.file_get("facebook.json")
         st["state"]["pg2"]["deep"] = "2000-01-01"  # the page's daily deep pass is due
         corpus.file_put("facebook.json", st)
+        fb_make_due("pg2", fb_fetch.ACTIVE_MIN)  # and so is its check
         got = fb_poll(["pg2"])
         self.assertIn("42", [i["post_id"] for i in got["items"]])
 
@@ -254,10 +273,13 @@ class Instagram(unittest.TestCase):
         accounts = watchlist.accounts("instagram") + watchlist.accounts("threads")
         self.assertEqual([a["handle"] for a in accounts if "every_hours" in a], [])
 
-    def test_11_busy_every_15_min(self):
-        busy = [NOW - 600 * i for i in range(10)]  # 6 posts within an hour
-        self.assertEqual(ig_fetch.every_minutes(busy, NOW), ig_fetch.BUSY_MIN)
-        self.assertEqual(ig_fetch.every_minutes([NOW - 86400], NOW), 60)
+    def test_11_active_and_quiet_accounts(self):
+        # an account that posted within the last 24 h is read every ACTIVE_MIN, the others every QUIET_MIN (Deyao,
+        # 2026-10-29)
+        busy = [NOW - 600 * i for i in range(10)]
+        self.assertEqual(ig_fetch.every_minutes(busy, NOW), ig_fetch.ACTIVE_MIN)
+        self.assertEqual(ig_fetch.every_minutes([NOW - 2 * 86400], NOW), ig_fetch.QUIET_MIN)
+        self.assertEqual(ig_fetch.every_minutes([], NOW), ig_fetch.QUIET_MIN)
 
     def test_12_gap_paged_through_tikhub(self):
         acct = [{"group": "kol", "name": "Busy", "platform": "instagram", "handle": "busyacct", "why": "test", "since": "2026-10-12"}]

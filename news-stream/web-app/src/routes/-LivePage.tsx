@@ -23,6 +23,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useSearch } from "@tanstack/react-router";
 import { BUILD_ID } from "../lib/build";
+import { dt, hkDayOf } from "../lib/dates";
 import { deploymentLost } from "../lib/healthStates";
 import { monoEmoji } from "../lib/monoEmoji";
 import { subscribeUpdate } from "../lib/update";
@@ -476,7 +477,7 @@ function AiState({ sys, now, w, h, side }: { sys: LiveSys | null; now: number; w
         : <R k="dim">none running</R>}
       {sbx.length > 6 && <R k="dim">+{sbx.length - 6} more</R>}
       <Sec>Today (HKT): {usd(b.today_usd)}, {b.calls_today ?? "–"} model calls; month {usd(b.month_usd)}</Sec>
-      <R k={b.exhausted ? "why" : undefined}>budget: {usd(b.spent_usd)} of USD {b.limit_usd ?? "–"} used since {s_(b.since) ? new Date(Date.parse(b.since) + 8 * 3600e3).toISOString().slice(5, 10) : "–"}{b.exhausted ? "; used up: model calls are refused" : ""}</R>
+      <R k={b.exhausted ? "why" : undefined}>budget: {usd(b.spent_usd)} of USD {b.limit_usd ?? "–"} used since {s_(b.since) ? dt.monthDay(b.since) : "–"}{b.exhausted ? "; used up: model calls are refused" : ""}</R>
       {((a.by_user || []) as J[]).slice(0, 5).map((u, i) => {
         const p = ((a.people_today || []) as J[]).find(x => x.owner === u.owner);
         return <R key={i}><span className="c1">{who(u.owner)}</span><span className="num">{u.calls} calls</span><span className="num">{usd(u.today_usd)}</span>
@@ -576,7 +577,7 @@ function pgItems(pg: J, now: number, narrow: boolean): Item[] {
   ], narrow);
 }
 
-/** the WiseSearch relay (monitor.py wisers panel; its detail on /app/monitor#wisers) */
+/** the WiseSearch relay (monitor.py wisers panel; its detail is the monitor page's wisers section) */
 function wisersItems(w: J, now: number, narrow: boolean): Item[] {
   if (w.error) return [row("ws", "blindc", <>WiseSearch: can't read: {w.error}</>)];
   const pr = w.probe as J | null, f = Object.entries((w.failures || {}) as Record<string, number>);
@@ -761,10 +762,7 @@ const workersText = (x: JarvisSession) => [x.jobs ? `${x.jobs} background ${x.jo
   x.subagents ? `${x.subagents} ${x.subagents === 1 ? "subagent" : "subagents"}` : ""].filter(Boolean).join(", ");
 
 /** a scheduled session's next wake in HKT: "14:30" today, "11-19 14:30" on a later day */
-const wakeAt = (ms: number, now: number) => {
-  const d = (t: number) => new Date(t + 8 * 3600e3).toISOString();
-  return (d(ms).slice(0, 10) === d(now).slice(0, 10) ? "" : d(ms).slice(5, 10) + " ") + hhmm(ms);
-};
+const wakeAt = (ms: number, now: number) => (hkDayOf(ms) === hkDayOf(now) ? "" : dt.monthDay(ms) + " ") + hhmm(ms);
 /** panel 11: Deyao's running Jarvis 4 sessions in the router's order (amber first), one fixed cell each (liveLayout jarvisGrid) */
 function JarvisPanel({ box, j, now }: { box: Box; j: JarvisLive | null; now: number }) {
   const g = jarvisGrid(box), list = (j?.sessions || []).slice(0, g.n);

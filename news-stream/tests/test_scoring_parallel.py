@@ -44,7 +44,7 @@ class Parallel(unittest.TestCase):
                     self.due.remove(p)
                 if p in self.units:
                     self.units.remove(p)
-            return {}, []
+            return []  # streams.file → [items filed]
         self.patches = [mock.patch.object(streams, "settings", lambda: {}),
                         mock.patch.object(streams, "due", lambda limit, s=None: self.due[:limit]),
                         mock.patch.object(streams, "unit_due", lambda limit, s=None: self.units[:limit]),

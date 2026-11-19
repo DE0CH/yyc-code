@@ -30,7 +30,10 @@ web.access_user = lambda h: USER["who"]
 # the AI routes: asking a model or running the data API's tools, with a JSON body
 KEPT_POST = (# the proof view's 標記為有誤 (Deyao, 2026-10-20: check each stored entry, flag the wrong ones): one row in
              # proof_flags per flag, approved accounts only (tests/test_proof.py); it edits no post, tag or setting
-             "/app/proof/flag")
+             "/app/proof/flag",
+             # YYC AI's web_fetch from inside the cluster (webfetch.py): a bearer token (WEB_FETCH_TOKEN) or 403, and it
+             # reads a page, writing only the server's own capture of it
+             "/internal/web_fetch")
 KEPT_POST_PREFIX = ("/app/ai/", "/app/api/v1/")  # the persona note; the AI data API (read tools)
 # the Worker's own calls to its Durable Object (server.ts: POST https://hub/build tells the LiveHub this build's id so
 # open pages update, web-app README "Updates reach open pages"): internal, no route of the site
@@ -138,8 +141,10 @@ class FrontEnd(unittest.TestCase):
             for bad in ("/app/admin", "/app/item/tags", ">修正<", "設定\", \"/"):  # (已人手修正 shows a stored flag)
                 with self.subTest(file=os.path.relpath(f, HERE), text=bad):
                     self.assertNotIn(bad, src)
-            with self.subTest(file=os.path.relpath(f, HERE), text="儲存"):  # a save button; 已儲存的回應 (WiseSearch's
-                self.assertNotRegex(src, r"(?<!已)儲存")                     # saved responses, read-only) is a list
+            # a save button; not 已儲存的回應 (WiseSearch's saved responses, read-only: a list), 不會儲存 (the page saying
+            # it saves nothing) or 儲存檔案 (a download to the reader's own device)
+            with self.subTest(file=os.path.relpath(f, HERE), text="儲存"):
+                self.assertNotRegex(src, r"(?<!已)(?<!不會)儲存(?!檔案)")
 
     def test_flags_have_no_settings_section(self):
         import flags

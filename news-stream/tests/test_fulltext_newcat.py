@@ -205,16 +205,19 @@ class Thomasnet(unittest.TestCase):
 
 class Plataforma(unittest.TestCase):
     def test_wordpress_api_for_a_walled_site(self):
-        # pages answer 403 to the cluster and the ISP IP; /wp-json/wp/v2/posts?slug=… answers on every route
+        # a catalogue site listed by its REST API on the residential proxy (kind wp_json; cache_fetch.WP_API_HOSTS):
+        # its pages answer 403 to the cluster and the ISP IP, /wp-json/wp/v2/posts?slug=… answers on every route.
+        # Plataforma was such a site (its saved answer is the fixture); the catalogue reads it otherwise now
+        # (sites.json), so the host is given here
         u = "https://www.plataformamedia.com/2026/10/20/macau-regista-nove-mortos-nas-estradas-em-apenas-nove-meses/"
-        self.assertIn("plataformamedia.com", cache_fetch.WP_API_HOSTS)
         seen = []
 
         def get(url, **kw):
             seen.append(url)
             return page("newcat_plataforma_wp.json")
         meta = {}
-        with mock.patch.object(cache_fetch, "get", side_effect=get):
+        with mock.patch.object(cache_fetch, "get", side_effect=get), \
+                mock.patch.object(cache_fetch, "WP_API_HOSTS", ("plataformamedia.com",)):
             text, _, _ = cache_fetch.fetch_one(u, meta)
         self.assertEqual(seen, ["https://www.plataformamedia.com/wp-json/wp/v2/posts?slug="
                                 "macau-regista-nove-mortos-nas-estradas-em-apenas-nove-meses&_fields=content,date_gmt"])

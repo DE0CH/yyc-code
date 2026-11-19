@@ -27,7 +27,7 @@
 import { clock } from "./clock.ts";  // with its extension: tests load this file in Node
 
 export type When = string | number | Date | null | undefined;
-export type Kind = "date" | "dateYear" | "time" | "timeSec" | "dateTime" | "dateTimeYear" | "when" | "axis" | "sortable";
+export type Kind = "date" | "dateYear" | "time" | "timeSec" | "dateTime" | "dateTimeYear" | "when" | "axis" | "sortable" | "monthDay";
 
 const HK = 8 * 3600e3;
 const WEEK = "日一二三四五六";
@@ -88,6 +88,7 @@ export function format(kind: Kind, t: When, now: number = clock(), lang: Lang = 
     case "when": return !p.dayOnly && ymd(p) === ymd(n) ? hm(p) : dayText(p, p.y !== n.y) + (p.dayOnly ? "" : sep + hm(p));
     case "axis": return `${p.d}/${p.m}`;
     case "sortable": return ymd(p) + (p.dayOnly ? "" : " " + hm(p));
+    case "monthDay": return `${two(p.m)}-${two(p.d)}`;  // 11-19: the live dashboard's and health page's cells
   }
 }
 
@@ -102,6 +103,7 @@ export const dt = {
   when: (t: When, now?: number) => format("when", t, now),
   axis: (t: When, now?: number) => format("axis", t, now),
   sortable: (t: When, now?: number) => format("sortable", t, now),
+  monthDay: (t: When, now?: number) => format("monthDay", t, now),
   onDay,
 };
 
@@ -116,6 +118,7 @@ export const dtEn = {
   when: (t: When, now?: number) => format("when", t, now, "en"),
   axis: (t: When, now?: number) => format("axis", t, now, "en"),
   sortable: (t: When, now?: number) => format("sortable", t, now, "en"),
+  monthDay: (t: When, now?: number) => format("monthDay", t, now, "en"),
 };
 
 /** a row under a day picker that shows `day` ("YYYY-MM-DD", HKT): the time only when `t` falls on that day (a bare day
