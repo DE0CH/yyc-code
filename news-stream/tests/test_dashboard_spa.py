@@ -14,7 +14,7 @@ mocked in the browser): the projected cost before the press, the streamed answer
 opening the posts it read; the post and hot-topic listings have no AI button (Deyao, 2026-10-28). The exports answer an .xlsx with an RFC 6266 Content-Disposition.
 Screenshots: ~/artifacts/spa/dash/.
 """
-import json, os, re, subprocess, sys, time, unittest, urllib.request
+import datetime, json, os, re, subprocess, sys, time, unittest, urllib.request
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, HERE)
@@ -204,7 +204,9 @@ class Dashboard(unittest.TestCase):
             self.assertRegex(self.url(p), rf"/dashboard\?v=posts&p=CEHK&from=\d{{4}}-\d{{2}}-\d{{2}}&to={day}$")
             self.assertEqual(p.get_attribute(".tab[aria-current=true]", "title"), "Post Listing")
             self.assertEqual(p.get_attribute("#quick [data-days='7']", "aria-pressed"), "true")
-            self.assertIn(f"7 日，資料至 {day}", p.inner_text("#pnote"))
+            y, m, d = map(int, day.split("-"))  # dt.date: 11月19日（星期四）, the year only when not this one
+            wk = "日一二三四五六"[datetime.date(y, m, d).isoweekday() % 7]
+            self.assertEqual(p.inner_text("#pnote"), f"7 日，資料至 {m}月{d}日（星期{wk}）")
             href = p.get_attribute("a[href^='/api/export/posts.xlsx']", "href")
             self.assertIn("p=CEHK", href)
             self.check(p, "posts", engine)

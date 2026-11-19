@@ -433,7 +433,7 @@ class T09NoDictionary(unittest.TestCase):
             t = mint(DEYAO)
             r = json.loads(call("GET", "/api/v1/posts_search?" + urllib.parse.urlencode({"query": "李家超 特首", "page_size": 3}), token=t)[2])
             self.assertIn("substring", r.get("search_mode", ""), r)
-            self.assertGreater(r["total"], 0)
+            self.assertGreater(r["total"], 0, r)
             code, _, body = call("GET", "/api/v1/reports_list", token=t)
             self.assertIn(code, (200, 400), body)
         finally:

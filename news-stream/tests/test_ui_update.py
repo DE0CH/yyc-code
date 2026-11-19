@@ -557,7 +557,11 @@ class UiUpdate(unittest.TestCase):
                 with self.subTest(engine=engine, page="live dashboard"):
                     lv = p["live"]
                     self.kept(lv, "live", 1)
-                    self.assertEqual(lv.evaluate("document.documentElement.dataset.update"), "ready")
+                    # the shell stays (never replaced, full screen kept); the frame it shows is swapped for one of B once
+                    # that has drawn: the shell asks /version every minute and whenever its update module hears of B
+                    lv.wait_for_function(f"""() => {{ const f = document.querySelector('.live-shell iframe.on');
+                        try {{ return !!f && f.contentDocument.documentElement.dataset.build === '{BUILD_B}'; }}
+                        catch {{ return false; }} }}""", timeout=90_000, polling=500)
                     self.assertTrue(lv.evaluate("!!document.fullscreenElement"), "the live dashboard left full screen")
                     got = seen["live-" + engine]
                     self.wait_for(lv, lambda: len(got) >= 2, f"live: no data read after the deploy: {got}")

@@ -153,6 +153,9 @@ def seed():
                         category=cats[CEHK_CAT[name]], sentiment="neutral", labels=[], seen=x["seen"], slot=x["seen"],
                         website="RTHK English News", section=None, post_id=xid, relevant=True))))
         extra[name]["id"] = xid
+    if not corpus.kv_get("edge:config"):  # a database of its own (CI): the site's config, which the poller publishes
+        import edge_config
+        edge_config.publish()
     return {"main": pid, "mate": mid, "extra": extra, "yday": yday, "T": T, "comment": cids[3], "thin": ids[thin["url"]], "wait": ids[wait["url"]], "day": day,
             "main_url": main["url"]}
 
