@@ -29,17 +29,22 @@ Sealing needs only the public cert; nothing outside the cluster can unseal (scop
 """
 import argparse, json, os, subprocess, sys
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MAP = os.path.join(ROOT, "infra", "secrets.txt")
+# this repository: the certs are always its own (infra/*.pem)
+CODE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# the tree the sealed files are in and the map of its Secrets: this repository by default; --root and --map for another
+# (DE0CH/aviary's yyc/deploy/sealed with its yyc/secrets.txt: YYC AI's configuration lives there since the monorepo)
+ROOT = CODE
+MAP = os.path.join(CODE, "infra", "secrets.txt")
 HEADER = ("# SealedSecret made by infra/seal.py from the store `yyc` (map: infra/secrets.txt). Don't edit: re-seal.\n")
 OLD_CERT = "infra/sealed-secrets.pem"
 TALOS_CERT = "infra/sealed-secrets-talos.pem"
 # folder prefix -> cert (first match wins; anything else: OLD_CERT)
 CERTS = [
     ("yyc-ai/deploy/sealed/", TALOS_CERT),
+    ("yyc/deploy/sealed/", TALOS_CERT),     # DE0CH/aviary (--root): YYC AI on the Talos cluster
     ("news-stream/deploy/clusters/talos/", TALOS_CERT),
 ]
-SEALED_DIRS = ("news-stream/deploy/apps/sealed", "yyc-ai/deploy/sealed",
+SEALED_DIRS = ("news-stream/deploy/apps/sealed", "yyc-ai/deploy/sealed", "yyc/deploy/sealed",
                "news-stream/deploy/clusters/talos/sealed", "news-stream/deploy/clusters/talos/db/sealed",
                "news-stream/deploy/clusters/talos/apps/sealed", "news-stream/deploy/clusters/talos/aiwatch/sealed",
                "news-stream/deploy/clusters/talos/pg/sealed")
@@ -54,7 +59,7 @@ def cert_for(file):
 
 def fingerprint(cert):
     import hashlib
-    return hashlib.sha256(open(os.path.join(ROOT, cert), "rb").read()).hexdigest()[:16]
+    return hashlib.sha256(open(os.path.join(CODE, cert), "rb").read()).hexdigest()[:16]
 
 
 def cert_line(cert):
@@ -129,7 +134,7 @@ def seal(name, spec, cert, stdin_key=None, stdin_val=None, annotations=None):
         if v is None:
             sys.exit(f"{name}: {src} (for {k}) is not in the env; hold the store yyc, or pass --stdin {k}")
         data[k] = v + ("\n" if nl else "")
-    cert = cert or os.path.join(ROOT, cert_for(spec["file"]))
+    cert = cert or os.path.join(CODE, cert_for(spec["file"]))
     secret = {"apiVersion": "v1", "kind": "Secret", "type": spec["type"],
               "metadata": {"name": n, "namespace": ns, **({"annotations": annotations} if annotations else {})},
               "stringData": data}
@@ -140,9 +145,9 @@ def seal(name, spec, cert, stdin_key=None, stdin_val=None, annotations=None):
     path = os.path.join(ROOT, spec["file"])
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w") as fh:
-        fh.write(HEADER + cert_line(os.path.relpath(cert, ROOT)) + p.stdout.decode())
+        fh.write(HEADER + cert_line(os.path.relpath(cert, CODE)) + p.stdout.decode())
     kustomization_add(path)
-    print(f"sealed {name} ({len(data)} keys, {os.path.relpath(cert, ROOT)}) -> {spec['file']}")
+    print(f"sealed {name} ({len(data)} keys, {os.path.relpath(cert, CODE)}) -> {spec['file']}")
 
 
 def check(m, names_only=False, allow_unsealed=False):
@@ -191,7 +196,14 @@ def main():
     ap.add_argument("--allow-unsealed", action="store_true")
     ap.add_argument("--cert", default=None)
     ap.add_argument("--annotate", action="append", default=[], metavar="K=V")
+    ap.add_argument("--root", default=None, help="the tree the sealed files are in (default: this repository)")
+    ap.add_argument("--map", default=None, help="the Secrets map (default: infra/secrets.txt of this repository)")
     a = ap.parse_args()
+    global ROOT, MAP
+    if a.root:
+        ROOT = os.path.abspath(a.root)
+    if a.map:
+        MAP = os.path.abspath(a.map)
     m = load_map()
     if a.check:
         sys.exit(1 if check(m, a.names_only, a.allow_unsealed) else 0)
@@ -200,7 +212,7 @@ def main():
         ap.error("name a Secret (NS/NAME), or --all / --check")
     unknown = [n for n in names if n not in m]
     if unknown:
-        sys.exit(f"not in infra/secrets.txt: {' '.join(unknown)}")
+        sys.exit(f"not in {os.path.relpath(MAP, ROOT)}: {' '.join(unknown)}")
     if a.stdin and len(names) != 1:
         sys.exit("--stdin seals one Secret")
     sv = sys.stdin.read() if a.stdin else None
