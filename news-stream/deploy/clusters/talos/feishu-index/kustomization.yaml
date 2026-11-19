@@ -9,4 +9,4 @@ resources:
 images:
   - name: yyc-feishu-index
     newName: ghcr.io/de0ch/yyc-feishu-index
-    newTag: '7d493ca59a1f'
+    newTag: '971fc204629d'
