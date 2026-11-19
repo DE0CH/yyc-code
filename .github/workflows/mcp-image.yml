@@ -79,7 +79,10 @@ jobs:
           git config user.name "mcp-image bot"; git config user.email "actions@users.noreply.github.com"
           F=news-stream/deploy/apps/kustomization.yaml
           for attempt in 1 2 3 4 5 6; do
-            git fetch -q origin main && git reset -q --hard origin/main
+            # a main we cannot read fails the step: a fetch skipped here left the previous try's unpushed pin in place, which
+            # then read as "already pinned" and the run went green with no pin (a deploy key replaced mid-run, 2026-11-19)
+            git fetch -q origin main || { echo "::error::cannot read main (its deploy key?)"; exit 1; }
+            git reset -q --hard origin/main
             CUR=$(news-stream/deploy/pin-image.py yyc-mcp)
             if [ "$CUR" != unset ] && git cat-file -e "$CUR^{commit}" 2>/dev/null && git merge-base --is-ancestor "${{ steps.meta.outputs.sha }}" "$CUR" && [ "$CUR" != "$TAG" ]; then
               echo "main already pins $CUR, newer than $TAG"; exit 0

@@ -108,7 +108,10 @@ jobs:
           TAG="${{ steps.meta.outputs.tag }}"
           git config user.name "socks-image bot"; git config user.email "actions@users.noreply.github.com"
           for attempt in 1 2 3 4 5 6; do
-            git fetch -q origin main && git reset -q --hard origin/main
+            # a main we cannot read fails the step: a fetch skipped here left the previous try's unpushed pin in place, which
+            # then read as "already pinned" and the run went green with no pin (a deploy key replaced mid-run, 2026-11-19)
+            git fetch -q origin main || { echo "::error::cannot read main (its deploy key?)"; exit 1; }
+            git reset -q --hard origin/main
             changed=""
             for F in news-stream/deploy/apps/kustomization.yaml news-stream/deploy/clusters/talos/kustomization.yaml; do
               CUR=$(PIN_FILE=$F news-stream/deploy/pin-image.py yyc-socks)
