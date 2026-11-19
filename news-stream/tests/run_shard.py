@@ -25,7 +25,10 @@ def run(path, out):
         try:
             code = subprocess.run([sys.executable, path], cwd=HERE, stdout=f, stderr=subprocess.STDOUT, timeout=TIMEOUT,
                                   env=dict(os.environ, TEST_DATABASE_URL=f"postgresql:///{db}",
-                                           DATABASE_URL=f"postgresql:///{db}")).returncode
+                                           DATABASE_URL=f"postgresql:///{db}",
+                                           # the tests that default to a developer's named copy of real data take
+                                           # the file's own database too (test_edge_ops, test_mcp_edge)
+                                           EDGE_DB=db, MCP_DB=db)).returncode
         except subprocess.TimeoutExpired:
             code = "timeout"
     subprocess.run(["dropdb", "--if-exists", db], capture_output=True)

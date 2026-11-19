@@ -121,6 +121,9 @@ class EdgeOps(unittest.TestCase):
         cls.old_snap = corpus.kv_get("monitor:data")
         corpus.kv_set("monitor:data", SNAP)
         c.execute("DELETE FROM report_files WHERE profile LIKE 'ZZTEST%%'")
+        if not corpus.kv_get("edge:config"):  # a database of its own (CI): the site's config as the poller publishes it
+            import edge_config
+            edge_config.publish()
         pid = c.execute("SELECT v->'profiles'->0->>'id' FROM kv WHERE k = 'edge:config'").fetchone()[0]
         cls.pid = pid
         rows = [("2099-01-02", pid, n, t, b) for n, t, b in (

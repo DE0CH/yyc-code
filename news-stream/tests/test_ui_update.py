@@ -310,7 +310,10 @@ class UiUpdate(unittest.TestCase):
     def cdp_chromium(self):
         """Chromium as a reader runs it: Playwright's own launch turns the back/forward cache off, this one keeps it"""
         port = PORT + 50
-        proc = subprocess.Popen([self.pw.chromium.executable_path, "--headless=new", f"--remote-debugging-port={port}",
+        # --no-sandbox as Playwright's own launch passes it: Ubuntu 24.04 (the CI runner) refuses Chrome's sandbox
+        # its user namespaces, and that Chrome exits at once; the flag leaves the back/forward cache as it is
+        proc = subprocess.Popen([self.pw.chromium.executable_path, "--headless=new", "--no-sandbox",
+                                 f"--remote-debugging-port={port}",
                                  f"--user-data-dir={tempfile.mkdtemp(dir=self.tmp)}", "--no-first-run", "about:blank"],
                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
         self.addCleanup(lambda: os.killpg(proc.pid, signal.SIGTERM))

@@ -23,6 +23,9 @@ from wsgiref.simple_server import WSGIRequestHandler, WSGIServer, make_server
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, HERE)
+sys.path.insert(0, os.path.join(HERE, "tests"))
+import devserver  # noqa: E402
+devserver.ensure(5185)  # a dev server of the test's own when none is given (CI)
 DB = os.environ.get("WEB_APP_DATABASE_URL") or sys.exit("WEB_APP_DATABASE_URL is not set (the dev server's database)")
 BASE = os.environ.get("WEB_APP_URL", "http://127.0.0.1:5185")
 os.environ["DATABASE_URL"] = DB
