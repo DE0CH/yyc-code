@@ -236,7 +236,11 @@ class Tools(unittest.TestCase):
                 self.assertTrue({"id", "dashboard_url", "item"} <= set(p), (name, p))
                 self.assertEqual(p["dashboard_url"], dl.post_url(p["id"]), name)
         self.assertEqual(hot["dashboard_url"], dl.dashboard_url(v="hot", p=s, from_=aposts["from"], to=aposts["to"]))
-        self.assertTrue(terms["terms"] and all(x["dashboard_url"] == dl.dashboard_url(v="posts", p=s, from_=aposts["from"], to=aposts["to"], q=x["term"]) for x in terms["terms"]))
+        # a hot term links to the posts holding that exact term: quoted, as the search box takes an exact phrase
+        self.assertTrue(terms["terms"], terms)
+        for x in terms["terms"]:
+            self.assertEqual(x["dashboard_url"], dl.dashboard_url(v="posts", p=s, from_=aposts["from"], to=aposts["to"],
+                                                                  q=f'"{x["term"]}"'), x)
         self.assertTrue(all("dashboard_url" in x for x in trend["trend"]))
         self.assertTrue(all("dashboard_url" in x for x in overview["trend"]))
         for f in post.get("filed_in", []):

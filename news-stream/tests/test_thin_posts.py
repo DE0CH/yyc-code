@@ -232,7 +232,7 @@ class Gate(unittest.TestCase):
         self.assertNotIn(pid, due_ids())  # held while links.py may still read it
         with mock.patch.object(links, "fetch_page", side_effect=OSError("dns")):
             for _ in range(links.TRIES):
-                corpus.db().execute("UPDATE link_scan SET next_try=%s WHERE post_id=%s", (NOW.isoformat(), pid))
+                corpus.db().execute("UPDATE link_scan SET next_try=%s WHERE post_id=%s", (NOW.isoformat(timespec="seconds"), pid))
                 links.run_once()
         self.assertEqual(corpus.db().execute("SELECT status FROM link_scan WHERE post_id=%s", (pid,)).fetchone()[0], "failed")
         streams.run_once(app.STREAMS)

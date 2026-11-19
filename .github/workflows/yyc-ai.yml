@@ -9,8 +9,7 @@ name: yyc-ai
 # FOLDER is the new stack, yyc-ai/deploy/ (WP-39's promotion). Job `deploy` applies it on every push to main since
 # deploy-workflows 12.5 step 5 (A1 step 3, 2026-11-05); a plan-mode dispatch still only plans.
 on:
-  push:
-    branches: [main]
+  push:  # every branch (the gate merges a branch when this is green); main alone deploys (job deploy)
     paths: &paths
       - yyc-ai/deploy/**
       - news-stream/deploy/clusters/**

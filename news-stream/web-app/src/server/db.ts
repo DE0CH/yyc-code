@@ -44,26 +44,29 @@ async function again<T>(make: () => PromiseLike<T>): Promise<T> {
 }
 
 /** `sql` whose queries (tagged templates and sql.unsafe) run again while the database is away; helpers such as
- *  sql(ids) pass through untouched. A query is made afresh for each try (postgres.js runs one when it is awaited) */
+ *  sql(ids) pass through untouched. A query stays postgres.js's own (it nests in another query as a fragment, which
+ *  postgres.js knows by `instanceof`; a stand-in object went in as a parameter and matched nothing); awaiting it runs
+ *  `make` through `again`, so each try is a query made afresh (postgres.js runs one when it is awaited) */
 export function retrying(sql: Sql): Sql {
-  const lazy = <T,>(make: () => PromiseLike<T>) => {
-    let run: Promise<T> | undefined;  // one run however many times it is awaited
+  const lazy = <Q extends object>(q: Q, make: () => PromiseLike<unknown>): Q => {
+    let run: Promise<unknown> | undefined;  // one run however many times it is awaited
     const go = () => (run ??= again(make));
-    return {
-      then: <A, B>(ok?: (v: T) => A | PromiseLike<A>, bad?: (e: unknown) => B | PromiseLike<B>) => go().then(ok, bad),
+    return Object.assign(q, {
+      then: <A, B>(ok?: (v: unknown) => A | PromiseLike<A>, bad?: (e: unknown) => B | PromiseLike<B>) => go().then(ok, bad),
       catch: <B,>(bad: (e: unknown) => B | PromiseLike<B>) => go().catch(bad),
       finally: (f: () => void) => go().finally(f),
-    };
+    });
   };
   return new Proxy(sql, {
     apply(target, self, args: unknown[]) {
       const first = args[0] as { raw?: unknown } | undefined;
       if (!(Array.isArray(first) && first.raw)) return Reflect.apply(target, self, args);  // a helper, not a query
-      return lazy(() => Reflect.apply(target, self, args) as PromiseLike<unknown>);
+      return lazy(Reflect.apply(target, self, args) as object, () => Reflect.apply(target, self, args) as PromiseLike<unknown>);
     },
     get(target, prop, recv) {
       if (prop === "unsafe") {
-        return (...a: Parameters<Sql["unsafe"]>) => lazy(() => target.unsafe(...a) as unknown as PromiseLike<unknown>);
+        return (...a: Parameters<Sql["unsafe"]>) =>
+          lazy(target.unsafe(...a) as object, () => target.unsafe(...a) as unknown as PromiseLike<unknown>);
       }
       return Reflect.get(target, prop, recv);
     },

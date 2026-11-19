@@ -4,15 +4,14 @@
 # Secrets: YYC_CF_API_TOKEN (token yyc-edge: YYC's account only) and YYC_CF_ACCOUNT_ID.
 name: ai-watch-edge
 on:
-  push:
-    branches: [main]
+  push:  # every branch (the gate merges a branch when this is green); main alone deploys
     paths:
       - ai-watch/edge/**
       - ai-watch/static/**
       - .github/workflows/ai-watch-edge.yml
   workflow_dispatch:
 concurrency:
-  group: ai-watch-edge
+  group: "ai-watch-edge-${{ github.ref }}"
   cancel-in-progress: false
 permissions:
   contents: read
@@ -29,6 +28,7 @@ jobs:
           node-version: 22
       - run: node --check worker.js && node --check ../static/app.js && node --check ../static/tabs.js
       - name: deploy
+        if: github.ref == 'refs/heads/main'
         run: |
           if [ -z "$CLOUDFLARE_API_TOKEN" ]; then echo "::warning::YYC_CF_API_TOKEN is not set on the repo: not deployed"; exit 0; fi
           npx --yes wrangler@4.151.0 deploy

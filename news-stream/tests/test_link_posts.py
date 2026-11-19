@@ -40,7 +40,7 @@ import ai, app, corpus, item, links, sources, streams, telegram_alerts, tikhub_f
 corpus.MARK_BACKLOG = False  # these posts are live posts, not a source's first read (backlog: tests/test_backlog.py)
 
 HKT = app.HKT
-NOW = datetime.now(HKT)
+NOW = datetime.now(HKT)  # written into link_scan as links.py writes times (whole seconds): the times compare as text
 FIX = os.path.join(HERE, "tests", "fixtures", "x")
 CALLS = []
 ARTICLE_ID = "2110305899994558889"
@@ -265,9 +265,9 @@ class Resolve(unittest.TestCase):
         self.assertNotIn(pid, due_ids())
         st = corpus.db().execute("SELECT * FROM link_scan WHERE post_id=%s", (pid,)).fetchone()
         self.assertEqual((st["tries"], st["status"]), (1, "pending"))
-        self.assertGreater(st["next_try"], NOW.isoformat())
+        self.assertGreater(st["next_try"], NOW.isoformat(timespec="seconds"))
         links.run_once()  # not due yet: nothing fetched
-        corpus.db().execute("UPDATE link_scan SET next_try=%s WHERE post_id=%s", (NOW.isoformat(), pid))
+        corpus.db().execute("UPDATE link_scan SET next_try=%s WHERE post_id=%s", (NOW.isoformat(timespec="seconds"), pid))
         with mock.patch.object(links, "fetch_page", lambda u: page("page_am730.html")):
             self.assertEqual(links.run_once(), 1)
         r = row(url)
@@ -302,7 +302,7 @@ class Resolve(unittest.TestCase):
         pid = row(url)["id"]
         with mock.patch.object(links, "fetch_page", side_effect=OSError("dns")):
             for _ in range(links.TRIES):
-                corpus.db().execute("UPDATE link_scan SET next_try=%s WHERE post_id=%s", (NOW.isoformat(), pid))
+                corpus.db().execute("UPDATE link_scan SET next_try=%s WHERE post_id=%s", (NOW.isoformat(timespec="seconds"), pid))
                 links.run_once()
         st = corpus.db().execute("SELECT * FROM link_scan WHERE post_id=%s", (pid,)).fetchone()
         self.assertEqual(st["status"], "failed")

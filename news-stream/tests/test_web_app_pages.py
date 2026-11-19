@@ -9,27 +9,28 @@ under its threshold; Galbot's market still being classified; near-empty posts, r
     WEB_APP_DATABASE_URL=postgresql:///yyc_dev_x WEB_APP_URL=http://127.0.0.1:5185 python3 tests/test_web_app_pages.py
 
 Never on a database anyone else uses: the seed adds posts (and replaces its own on every run). The approved-account
-parts (/app/*, behind Cloudflare Access in production) are answered in the browser by the Python app (ADMIN_DEV) on the
-same database, so the React page is checked against the same JSON the old page reads.
+parts (/app/*, behind Cloudflare Access in production) are read as an approved account: the browser sends an Access
+token signed with the test's key (ACCESS_TEST_KEY, whose public half the dev server takes from .dev.vars: devserver.py).
 
 WebKit (iPhone profile, 390 px) and Chromium (1600 px): no console errors (hydration), no sideways scroll, the stream
 picker marks and switches streams with history entries, the day and the filters are URL params, the item page's
 sections, and the old URLs (/?p=&d=, /item?url=&p= → 302 keeping p and the #hash, /post/<id> → 301 /item/<id>#text).
 """
-import hashlib, json, os, sys, threading, time, unittest, urllib.error, urllib.parse, urllib.request
+import hashlib, json, os, sys, time, unittest, urllib.error, urllib.parse, urllib.request
 from datetime import datetime, timedelta
-from socketserver import ThreadingMixIn
-from wsgiref.simple_server import WSGIRequestHandler, WSGIServer, make_server
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, HERE)
+sys.path.insert(0, os.path.join(HERE, "tests"))
+import devserver  # noqa: E402
+devserver.ensure(5185)  # a dev server of the test's own when none is given (CI)
 DB = os.environ.get("WEB_APP_DATABASE_URL") or sys.exit("WEB_APP_DATABASE_URL is not set (the dev server's database)")
 BASE = os.environ.get("WEB_APP_URL", "http://127.0.0.1:5185")
 os.environ["DATABASE_URL"] = DB
-os.environ["ADMIN_DEV"] = "1"  # the in-test Python app answers /app/* as an approved account
 os.environ.setdefault("FLAGS_FILE", os.path.join(HERE, "deploy/apps/flags/flags.json"))
 os.chdir(HERE)
-import ai, app, corpus, datefmt, insights, streams  # noqa: E402
+import ai, corpus, datefmt, insights, streams  # noqa: E402
+import jwt  # noqa: E402
 from playwright.sync_api import sync_playwright  # noqa: E402
 
 ai.model_name = lambda m: "Claude Haiku 5.5"  # no OpenRouter call
@@ -66,6 +67,7 @@ def seed():
             "sid": "rthk_en", "source": "RTHK English News", "published": T}
     thin = {"url": FX + "thin", "title": "👍", "text": "👍 #好", "sid": "rthk_en", "source": "RTHK English News", "published": T}
     wait = {"url": FX + "wait", "title": "📷", "text": "📷", "sid": "rthk_en", "source": "RTHK English News", "published": T}
+    streams.settings()  # kv scoring (the poller's, made on its first run): posts after this moment are scored
     corpus.ingest([main, mate, thin, wait])
     comments = [{"id": f"k{i}", "author": ("A reader with a very long display name " + DE_LONG) if i == 3 else f"讀者{i}",
                  "text": ("See " + LONG_URL + " " + DE_LONG) if i == 3 else "支持" * (40 + i),
@@ -150,17 +152,20 @@ def seed():
                         category=cats[CEHK_CAT[name]], sentiment="neutral", labels=[], seen=x["seen"], slot=x["seen"],
                         website="RTHK English News", section=None, post_id=xid, relevant=True))))
         extra[name]["id"] = xid
+    if not corpus.kv_get("edge:config"):  # a database of its own (CI): the site's config, which the poller publishes
+        import edge_config
+        edge_config.publish()
     return {"main": pid, "mate": mid, "extra": extra, "yday": yday, "T": T, "comment": cids[3], "thin": ids[thin["url"]], "wait": ids[wait["url"]], "day": day,
             "main_url": main["url"]}
 
 
-class Quiet(WSGIRequestHandler):
-    def log_message(self, *a):
-        pass
-
-
-class Threaded(ThreadingMixIn, WSGIServer):
-    daemon_threads = True
+def access_token(email="chendeyao000@gmail.com"):
+    """what Cloudflare Access sends for an approved account (access.ts: the main site's /app audience, the team's
+    issuer), signed with the test's key"""
+    now = int(time.time())
+    return jwt.encode({"email": email, "aud": ["8b644dde1fadd76a241cace4428d57ebe8fccb6cdfe0af987e5f35bc7e31dd9b"],
+                       "iss": "https://yyc-hk.cloudflareaccess.com", "iat": now, "exp": now + 3600},
+                      open(os.environ["ACCESS_TEST_KEY"], "rb").read(), algorithm="RS256", headers={"kid": "test"})
 
 
 OVERFLOW_JS = """() => {
@@ -180,16 +185,13 @@ class Pages(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.ids = seed()
-        cls.srv = make_server("127.0.0.1", 0, app.application, server_class=Threaded, handler_class=Quiet)
-        threading.Thread(target=cls.srv.serve_forever, daemon=True).start()
-        cls.py = f"http://127.0.0.1:{cls.srv.server_port}"
         cls.pw = sync_playwright().start()
         cls.chromium, cls.webkit = cls.pw.chromium.launch(), cls.pw.webkit.launch()
         cls.warm()
 
     @classmethod
     def tearDownClass(cls):
-        cls.chromium.close(); cls.webkit.close(); cls.pw.stop(); cls.srv.shutdown()
+        cls.chromium.close(); cls.webkit.close(); cls.pw.stop()
 
     @classmethod
     def warm(cls):  # the dev server compiles on first use
@@ -205,20 +207,12 @@ class Pages(unittest.TestCase):
             ctx = self.chromium.new_context(viewport={"width": 1600, "height": 1000})
         ctx.set_default_timeout(60000)
         if approved:
-            ctx.route("**/app/**", self.answer_app)
+            ctx.set_extra_http_headers({"Cf-Access-Jwt-Assertion": access_token()})
         page = ctx.new_page()
         page.errors = []
         page.on("console", lambda m: m.type == "error" and page.errors.append(m.text[:300]))
         page.on("pageerror", lambda e: page.errors.append("pageerror: " + str(e)[:300]))
         return ctx, page
-
-    def answer_app(self, route):
-        u = urllib.parse.urlsplit(route.request.url)
-        try:
-            with urllib.request.urlopen(self.py + u.path + ("?" + u.query if u.query else ""), timeout=60) as r:
-                route.fulfill(status=r.status, body=r.read(), headers={"Content-Type": "application/json"})
-        except urllib.error.HTTPError as e:
-            route.fulfill(status=e.code, body=e.read(), headers={"Content-Type": "application/json"})
 
     def go(self, page, path):
         page.goto(BASE + path, wait_until="load", timeout=120000)
@@ -232,7 +226,10 @@ class Pages(unittest.TestCase):
         self.assertEqual(r["bad"], [], f"{what}: something sticks out past the screen {r}")
 
     def clean(self, page, what):
-        self.assertEqual([e for e in page.errors if "Failed to load resource" not in e], [], f"{what}: console errors")  # (a 404 page's own status is one)
+        # (a 404 page's own status is one; so is WebKit's note when the page, left while its /live socket is still
+        # connecting, closes it on pagehide: live.ts does that on purpose, for the back/forward cache)
+        self.assertEqual([e for e in page.errors if "Failed to load resource" not in e
+                          and "WebSocket is closed before the connection is established" not in e], [], f"{what}: console errors")
 
     # ---- 串流 ----
     def stream_checks(self, engine):
@@ -339,10 +336,17 @@ class Pages(unittest.TestCase):
             self.assertEqual(page.locator("#thread li.cm:visible").count(), 20, "20 comments shown until 顯示全部")
             self.assertIn("以上留言已納入評分", body("#thread li.scorecut"))
             self.assertIn("；以下是之後收集的留言", body("#thread li.scorecut"))
-            self.assertIn("其他圖片（2）", body("#pictures"))
+            # the pipelines turned off (Deyao, 2026-10-20: cost) are absent: a picture not scored yet and a clip queued
+            # for its transcript (no subtitles) are left out (item.ts pictures, media)
+            import flags
+            on = corpus.kv_get("edge:config")["flags"].get(flags.MAIN_HOST) or {}
+            self.assertIn(f"其他圖片（{2 if on.get('pictures') else 1}）", body("#pictures"))
             self.assertIn("1 張有資訊", body("#pictures h2"))
             m = body("#media")
-            self.assertIn("4 段", m); self.assertIn("逐字稿排隊中，第 ", m)  # static: no spinner for pipeline data (Deyao, 2026-10-16); self.assertIn("未能轉寫這段片段：HTTP 403", m)
+            if on.get("transcription"):
+                self.assertIn("4 段", m); self.assertIn("逐字稿排隊中，第 ", m)  # static: no spinner for pipeline data (Deyao, 2026-10-16)
+            else:
+                self.assertIn("3 段", m); self.assertNotIn("排隊", m)
             self.assertIn("YouTube 上載者字幕（zh-Hant）", m)
             self.assertEqual(page.locator("#media .ai-t").count(), 1, "「AI 轉錄」 on the model's transcript only")
             self.assertIn("1 則", body("#article h2"))
@@ -359,7 +363,15 @@ class Pages(unittest.TestCase):
                 self.assertIn("已收錄（重新評分後低於門檻）", ai_card)
                 self.assertIn("重新評分為 30 分（低於門檻 50）", body("#ai .rescored"))
                 self.assertIn("收錄時 60 分，重新評分後 75 分", ai_card)
-                self.assertIn("市場：", ai_card); self.assertIn("尚未分類（排隊中）", ai_card)
+                # the 市場 line: a split stream whose market classifier runs (two or more children on; one child on, or
+                # no split, shows none: item.ts scoring, a turned-off feature is absent)
+                cfg = corpus.kv_get("edge:config")
+                split = [st for st in cfg["streams"] if st.get("split") and
+                         sum(1 for ch in cfg["streams"] if ch.get("parent") == st["id"] and cfg["on"].get(ch["id"])) > 1]
+                if split:
+                    self.assertIn("市場：", ai_card); self.assertIn("尚未分類（排隊中）", ai_card)
+                else:
+                    self.assertNotIn("市場：", ai_card)
                 self.assertNotIn("系統保存了全文", body("#text"))
             else:
                 self.assertIn("系統保存了全文", body("#text"))

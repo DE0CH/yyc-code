@@ -5,8 +5,8 @@ Postgres database, one after another (two files on one database deadlock on the 
     python3 tests/run_shard.py SHARD TOTAL [--out DIR]     # the files test_*.py sorted, every TOTAL-th from SHARD
     python3 tests/run_shard.py --files tests/test_watch.py tests/test_query_pg.py
 
-Needs a local Postgres where the current user may create databases (TEST_DATABASE_URL = postgresql:///<db>, the Unix
-socket) and the login claude:dev over TCP for the tests that call the edge app (tests/edge_call.py). Each file's output
+Needs a local Postgres where the current user may create databases (TEST_DATABASE_URL and DATABASE_URL = the file's
+postgresql:///<db>, the Unix socket: code that reads DATABASE_URL itself meets the throwaway database too) and the login claude:dev over TCP for the tests that call the edge app (tests/edge_call.py). Each file's output
 goes to DIR/<name>.log; the summary lists every failing file with the tail of its output. Exit 1 when any file failed.
 """
 import argparse, glob, os, subprocess, sys, time
@@ -24,7 +24,13 @@ def run(path, out):
     with open(os.path.join(out, name + ".log"), "w") as f:
         try:
             code = subprocess.run([sys.executable, path], cwd=HERE, stdout=f, stderr=subprocess.STDOUT, timeout=TIMEOUT,
-                                  env=dict(os.environ, TEST_DATABASE_URL=f"postgresql:///{db}")).returncode
+                                  env=dict(os.environ, TEST_DATABASE_URL=f"postgresql:///{db}",
+                                           DATABASE_URL=f"postgresql:///{db}",
+                                           # the tests that default to a developer's named copy of real data take
+                                           # the file's own database too (test_edge_ops, test_mcp_edge)
+                                           EDGE_DB=db, MCP_DB=db,
+                                           # where a test puts logs of its own (devserver.py: the dev server's)
+                                           TEST_LOG_DIR=out, TEST_NAME=name)).returncode
         except subprocess.TimeoutExpired:
             code = "timeout"
     subprocess.run(["dropdb", "--if-exists", db], capture_output=True)

@@ -121,6 +121,9 @@ class EdgeOps(unittest.TestCase):
         cls.old_snap = corpus.kv_get("monitor:data")
         corpus.kv_set("monitor:data", SNAP)
         c.execute("DELETE FROM report_files WHERE profile LIKE 'ZZTEST%%'")
+        if not corpus.kv_get("edge:config"):  # a database of its own (CI): the site's config as the poller publishes it
+            import edge_config
+            edge_config.publish()
         pid = c.execute("SELECT v->'profiles'->0->>'id' FROM kv WHERE k = 'edge:config'").fetchone()[0]
         cls.pid = pid
         rows = [("2099-01-02", pid, n, t, b) for n, t, b in (
@@ -292,7 +295,7 @@ class EdgeOps(unittest.TestCase):
                 self.assertEqual(code, 200)
                 p.wait_for_selector("#list .day", timeout=60000)
                 hydrated(p, ".seg button")
-                self.assertEqual(p.inner_text("#list .day >> nth=0"), "2099-01-02")
+                self.assertEqual(p.inner_text("#list .day >> nth=0"), "2099年1月2日（星期五）")  # dates.ts dt.date
                 card = p.locator("#list .card").first
                 self.assertEqual(card.locator(".sub").inner_text(), self.pid)
                 self.assertEqual([a.inner_text() for a in card.locator(".links a").all()], ["社交概況（格式一）", "PDF 報告", "數據 JSON"])

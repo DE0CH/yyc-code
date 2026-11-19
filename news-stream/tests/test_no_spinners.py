@@ -30,6 +30,8 @@ from datetime import timedelta
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "tests"))
+import devserver  # noqa: E402
+devserver.ensure(5185)  # a dev server of the test's own when none is given (CI)
 DB = os.environ.get("WEB_APP_DATABASE_URL") or sys.exit("WEB_APP_DATABASE_URL is not set (the dev server's database)")
 BASE = os.environ.get("WEB_APP_URL", "http://127.0.0.1:5185")
 KEY = os.environ.get("ACCESS_TEST_KEY") or sys.exit("ACCESS_TEST_KEY is not set (the private key of the dev server's ACCESS_TEST_JWKS)")
@@ -159,8 +161,13 @@ class NoSpinners(unittest.TestCase):
         held = []
         hold = lambda route: held.append(route)  # never answered while held
         try:
+            # the scores of an approved account come with the page when it is opened (lib/load.ts loadGated reads them
+            # on the server); the browser reads /app/item/ai itself on a move within the app, which is held here
+            self.go(page, f"/item/{self.threads}")
             page.route("**/app/item/ai**", hold)
-            self.go(page, f"/item/{self.news}")
+            page.evaluate(f"""() => {{ history.pushState(history.state, "", "/item/{self.news}");
+                dispatchEvent(new PopStateEvent("popstate", {{ state: history.state }})); }}""")
+            page.wait_for_function(f"() => location.pathname === '/item/{self.news}'")
             page.wait_for_selector("#ai [data-wait=busy] .spin", timeout=10000)
             t0 = time.time()
             page.wait_for_selector("#ai [data-wait=slow]", timeout=25000)

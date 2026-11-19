@@ -147,8 +147,12 @@ class WhatsAppWake(unittest.TestCase):  # after WhatsApp
         t.start()
         try:
             time.sleep(1.0)  # LISTEN in place
-            self.assertFalse(wa.WAKE.is_set())
+            # LISTEN wakes it once as it connects (an item filed while the listener was away is sent now)
+            self.assertTrue(wa.WAKE.is_set())
+            wa.WAKE.clear()
             corpus.db().execute("UPDATE kv SET v=v WHERE k='nothing'")  # other writes don't wake it
+            time.sleep(1.2)
+            self.assertFalse(wa.WAKE.is_set(), "a write that files nothing woke it")
             t0 = time.time()
             corpus.db().execute("INSERT INTO stream_items (day, stream, url, item) VALUES (%s, %s, %s, %s)",
                                 ("2026-10-16", "CEHK", "https://x/CEHK/wake", corpus.J({  # a filed item carries seen

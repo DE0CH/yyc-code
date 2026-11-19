@@ -26,10 +26,17 @@ loader then finds the same post already in the cache.
    WEB_APP_URL can also be a production build (`npx vite preview`): the counts in 1–2 need the dev server's named
    server functions, the timings work on both.
 """
-import base64, functools, json, os, time, unittest
+import base64, functools, json, os, sys, time, unittest
+from datetime import datetime, timedelta, timezone
 from playwright.sync_api import sync_playwright
 
 print = functools.partial(print, flush=True)
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, HERE)
+sys.path.insert(0, os.path.join(HERE, "tests"))
+OWN = not os.environ.get("WEB_APP_URL")  # no server given (CI): a dev server of its own on a database seeded below
+import devserver  # noqa: E402
+devserver.ensure(5185)
 BASE = os.environ.get("WEB_APP_URL", "http://127.0.0.1:5185")
 DELAY = 1.0
 STREAM = os.environ.get("WEB_APP_STREAM", "POL")  # its first card opens a typical post (CEHK's may be the 205-comment fixture)
@@ -55,9 +62,38 @@ def fn_name(url):
         return seg
 
 
+FX = "https://yyc-preload.example/news/"
+
+
+def seed():
+    """the test's own feed when it runs on its own database: STREAM's 串流 today with a few cards, each a post the item
+    page finds by its URL (on a developer's copy of real data the feed is the copy's)"""
+    os.environ["DATABASE_URL"] = os.environ["WEB_APP_DATABASE_URL"]
+    import corpus, edge_config
+    hkt = timezone(timedelta(hours=8))
+    now = datetime.now(hkt)
+    urls = [FX + str(i) for i in range(1, 4)]
+    corpus.ingest([{"url": u, "title": f"預載測試新聞第{i}則", "sid": "rthk_en", "source": "RTHK",
+                    "published": (now - timedelta(minutes=10 * i)).isoformat(timespec="minutes")}
+                   for i, u in enumerate(urls, 1)])
+    ids = corpus.ids_for_urls(urls)
+    db = corpus.db()
+    for i, u in enumerate(urls, 1):
+        db.execute("UPDATE posts SET source_type='News', website='RTHK', text=%s WHERE id=%s",
+                   (f"預載測試新聞第{i}則的全文。" * 20, ids[u]))
+        it = {"url": u, "title": f"預載測試新聞第{i}則", "source": "RTHK", "stream": STREAM, "sentiment": "neutral",
+              "labels": [], "published": (now - timedelta(minutes=10 * i)).isoformat(timespec="seconds"),
+              "seen": now.isoformat(timespec="seconds")}
+        db.execute("INSERT INTO stream_items (day, stream, url, item) VALUES (%s, %s, %s, %s)",
+                   (now.date().isoformat(), STREAM, u, corpus.J(it)))
+    edge_config.publish(3)
+
+
 class Preload(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        if OWN:
+            seed()
         cls.pw = sync_playwright().start()
         cls.chromium = cls.pw.chromium.launch()
         cls.webkit = cls.pw.webkit.launch()

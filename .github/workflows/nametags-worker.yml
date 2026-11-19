@@ -4,14 +4,13 @@
 # Secrets: YYC_CF_API_TOKEN (token yyc-edge: YYC's account only) and YYC_CF_ACCOUNT_ID.
 name: nametags-worker
 on:
-  push:
-    branches: [main]
+  push:  # every branch (the gate merges a branch when this is green); main alone deploys
     paths:
       - nametags/worker/**
       - .github/workflows/nametags-worker.yml
   workflow_dispatch:
 concurrency:
-  group: nametags-worker
+  group: "nametags-worker-${{ github.ref }}"
   cancel-in-progress: false
 permissions:
   contents: read

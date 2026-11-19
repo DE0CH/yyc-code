@@ -33,6 +33,7 @@ Covers:
      reasoning and max_tokens) sent on the call; Opus 5.5 stays selectable (env CONFIRM_MODEL=anthropic/claude-opus-5.5).
 """
 import json, os, re, sys, tempfile, unittest
+from unittest import mock
 from datetime import datetime, timedelta
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -377,12 +378,15 @@ class T(unittest.TestCase):
         timeouts = []
         ai._open = lambda req, timeout: timeouts.append(timeout) or bodies.append(json.loads(req.data)) or R()
         ai.chat = REAL_CHAT
+        key = mock.patch.dict(os.environ, {"OPENROUTER_API": "test"})  # the request's header; _open is the fake above
+        key.start()
         try:
             REAL_JSONC("p", "scoring_verify", model=streams.CONFIRM_MODEL, max_tokens=opts["max_tokens"],
                        provider=opts.get("provider"), reasoning=opts.get("reasoning"), timeout=opts["timeout"])
             REAL_JSONC("p", "scoring")  # any other call: the 180 s it always had
         finally:
             ai._open, ai.chat = real_open, real_chat
+            key.stop()
         self.assertEqual((bodies[0]["model"], bodies[0].get("provider"), bodies[0]["max_tokens"], bodies[0]["reasoning"]),
                          ("deepseek/deepseek-v4.1-flash", opts["provider"], 32000, {"effort": "low"}))
         self.assertEqual(timeouts, [600, 180])

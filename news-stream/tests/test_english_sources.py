@@ -9,7 +9,7 @@ import os, sys, unittest
 from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import corpus, sources, sources_extra as se  # noqa: E402
+import corpus, paywall, sources, sources_extra as se  # noqa: E402
 
 
 def spec(sid):
@@ -52,11 +52,15 @@ class English(unittest.TestCase):
     def test_reuters_two_pages(self):
         page = ('<urlset><url><loc>https://www.reuters.com/world/china/x-2026-10-14/</loc><news:news><news:publication_date>'
                 '2026-10-14T06:21:52.604Z</news:publication_date><news:title>{t}</news:title></news:news></url></urlset>')
-        with mock.patch.object(sources, "fetch", return_value=page.format(t="First")), \
-             mock.patch.object(se, "fetch", return_value=page.format(t="Second")) as more:
+        # every Reuters sitemap is read with the solved DataDome session since 30 Oct 2026 (paywall.reuters_page)
+        def fake(url):
+            if "news-sitemap" not in url:
+                return "<urlset></urlset>"  # the full sitemap: nothing more here
+            return page.format(t="Second" if "from=50" in url else "First")
+        with mock.patch.object(paywall, "reuters_page", side_effect=fake) as read:
             got = sources.fetch_source(spec("reuters"))
         self.assertEqual([(x["title"], x["section"]) for x in got], [("First", "world"), ("Second", "world")])
-        self.assertTrue(any("news-sitemap" in c.args[0] and "from=50" in c.args[0] for c in more.call_args_list))
+        self.assertTrue(any("news-sitemap" in c.args[0] and "from=50" in c.args[0] for c in read.call_args_list))
 
     def test_mingtiandi_cache_bust_and_summary(self):
         feed = ('<rss><item><title>Deal</title><link>https://www.mingtiandi.com/real-estate/x/</link>'

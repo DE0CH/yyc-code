@@ -17,6 +17,10 @@ import json, os, re, sys, unittest, urllib.parse, urllib.request
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, HERE)
+sys.path.insert(0, os.path.join(HERE, "tests"))
+OWN = not os.environ.get("SEARCH_SPA_URL")  # no server given (CI): a dev server of its own on a database seeded below
+import devserver  # noqa: E402
+devserver.ensure(5182, "SEARCH_SPA_URL", "PARITY_DATABASE_URL")
 BASE = os.environ.get("SEARCH_SPA_URL", "http://127.0.0.1:5182")
 os.environ["DATABASE_URL"] = os.environ.get("PARITY_DATABASE_URL", "postgresql:///yyc_dev_search")
 os.environ.setdefault("FLAGS_FILE", os.path.join(HERE, "deploy", "apps", "flags", "flags.json"))
@@ -38,6 +42,29 @@ def get(path, host=BETA):
         return e.code, dict(e.headers), e.read()
 
 
+def seed():
+    """on a database of its own, what the searches below find on a copy of real data: news and forum posts naming 香港 and
+    政府 over the last few days (more than a page), a few on 選舉, the site's config and search dictionary"""
+    import corpus, edge_config, searchtext
+    from datetime import datetime, timedelta, timezone
+    now = datetime.now(timezone(timedelta(hours=8)))
+    items = []
+    for i in range(1, 41):
+        forum = i % 4 == 0
+        items.append({"url": f"https://search-fixture.example/{'forum' if forum else 'news'}/{i}",
+                      "title": (f"討論區：香港政府第{i}項新措施" if forum else f"香港政府宣布第{i}項新措施"),
+                      "text": f"香港政府今日公布第{i}項措施的細節。" * 3, "sid": "rthk_en",
+                      "source": "香港討論區" if forum else "RTHK", "source_type": "Forum" if forum else "News",
+                      "region": "HK", "published": (now - timedelta(hours=3 * i)).isoformat(timespec="minutes")})
+    for i in range(1, 6):
+        items.append({"url": f"https://search-fixture.example/vote/{i}", "title": f"選舉事務處公布第{i}份選舉安排",
+                      "text": f"選舉安排第{i}份。", "sid": "rthk_en", "source": "RTHK", "source_type": "News",
+                      "region": "HK", "published": (now - timedelta(hours=2 * i)).isoformat(timespec="minutes")})
+    corpus.ingest(items)
+    edge_config.publish()
+    searchtext.publish_edge(force=True)
+
+
 def first_day():
     import corpus
     return corpus.db().execute("SELECT min(day) FROM posts WHERE thread IS NULL").fetchone()[0]
@@ -46,6 +73,8 @@ def first_day():
 class SearchSpa(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        if OWN:
+            seed()
         cls.first = first_day()
         cls.pw = sync_playwright().start()
         cls.chromium = cls.pw.chromium.launch()

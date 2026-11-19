@@ -192,6 +192,8 @@ ALLOW = [
     ("reports.py", ">= cut[:16]", "an ISO comparison"), ("reports.py", ">= fresh]", "an ISO comparison"),
     ("insights.py", "first[:10]", "ISO days for the API"),
     ("thin.py", "isoformat(timespec", "an ISO time for the API"),
+    ("corpus.py", "V0_HASH", "a hash's first 16 characters, not a time"),
+    ("web-app/src/routes/-MonitorPage.tsx", "hs.slice(0, 16)", "the first 16 hosts of a list, not a time"),
 ]
 # Deyao's own terminal tools and the readers of the sources' dates are not readers' text
 PY_SKIP_DIRS = {"tests", "infra", "deploy", "docs", "skills", "tools", "web-app", "mcp-edge", "whatsapp",

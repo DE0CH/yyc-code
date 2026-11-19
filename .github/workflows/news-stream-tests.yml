@@ -11,6 +11,11 @@ on:
       - news-stream/briefs/**
       - .github/workflows/news-stream-tests.yml
   workflow_dispatch:
+    inputs:
+      files:
+        description: "only these test files (space-separated, e.g. tests/test_search.py), in one job"
+        type: string
+        default: ""
   workflow_call:
 concurrency:
   group: news-stream-tests-${{ github.ref }}
@@ -24,7 +29,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+        # a dispatch naming files runs them in one job (shard 0 only)
+        shard: ${{ fromJSON(inputs.files != '' && '[0]' || '[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]') }}
     env:
       SHARDS: 16
       JIEBA_CACHE_DIR: /opt/jieba
@@ -44,7 +50,12 @@ jobs:
         run: |
           sudo apt-get update -q
           sudo apt-get install -yq --no-install-recommends postgresql-16 ffmpeg xvfb xauth fonts-noto-cjk
+          # local TCP trusted, as on a developer's machine (tests that put a proxy in front of Postgres connect over TCP
+          # with no password)
+          hba=$(ls /etc/postgresql/16/main/pg_hba.conf)
+          sudo sed -i -E 's/^(host\s+all\s+all\s+(127\.0\.0\.1\/32|::1\/128)\s+)\S+/\1trust/' "$hba"
           sudo systemctl start postgresql
+          sudo systemctl reload postgresql
           sudo -u postgres createuser -s "$USER"
           sudo -u postgres psql -qc "CREATE ROLE claude SUPERUSER LOGIN PASSWORD 'dev'"
           google-chrome --version
@@ -58,11 +69,23 @@ jobs:
           sudo mkdir -p /opt/jieba /opt/pw-browsers && sudo chown "$USER" /opt/jieba /opt/pw-browsers
           python3 -c "import jieba; t = jieba.Tokenizer(); t.tmp_dir = '/opt/jieba'; t.initialize()"
           python3 -m playwright install --with-deps chromium webkit
+          # patchright (the WiseSearch relay's browser) pins its own Chromium revision
+          python3 -m patchright install chromium
       - name: web-app node_modules
         run: npm ci --no-audit --no-fund
         working-directory: news-stream/web-app
+      - name: mcp-edge node_modules (tests build and run the REST API)
+        run: npm ci --no-audit --no-fund
+        working-directory: news-stream/mcp-edge
       - name: tests (shard ${{ matrix.shard }} of 16)
-        run: python3 tests/run_shard.py ${{ matrix.shard }} $SHARDS --out "$RUNNER_TEMP/test-logs"
+        env: { FILES: "${{ inputs.files }}" }
+        run: |
+          if [ -n "$FILES" ]; then
+            # shellcheck disable=SC2086  # a list of paths
+            python3 tests/run_shard.py --files $FILES --out "$RUNNER_TEMP/test-logs"
+          else
+            python3 tests/run_shard.py ${{ matrix.shard }} $SHARDS --out "$RUNNER_TEMP/test-logs"
+          fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -84,7 +84,10 @@ class Poll(unittest.TestCase):
         self.assertTrue(feed["source_status"]["rthk"]["ok"])
         self.assertEqual(len(feed["items"]), 3)
         self.assertEqual(feed["days"], [day])
-        self.assertEqual(feed["counts"][app.STREAMS[0]["id"]], {"total": 3, "day": 3})  # list length, no sentiment shares
+        # the list length and its sentiment counts (串流's bars, with the selection-bias 「?」: web-app/src/server/feed.ts)
+        n = feed["counts"][app.STREAMS[0]["id"]]
+        self.assertEqual((n["total"], n["day"]), (3, 3))
+        self.assertEqual(sum(v for k, v in n.items() if k not in ("total", "day")), 3)
         ids = corpus.ids_for_urls(["https://news.test/0", "https://news.test/other"])
         self.assertEqual(len(ids), 2)  # every fetched post is in the corpus, scored in or not
         self.assertEqual(len(insights.members(app.STREAMS[0]["id"], day, day)), 3)

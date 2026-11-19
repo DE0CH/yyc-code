@@ -104,6 +104,14 @@ class ProofPage(unittest.TestCase):
                         "text": f"{i['title']}的內文。\n第二段，連結 https://zz.example/ref/{i['h']} 。" * 3} for i in items])
         corpus.ingest([{"url": "https://zz.example/a4#c1", "title": "留言", "text": "一則留言", "sid": SA, "source": "測試來源A",
                         "thread": "https://zz.example/a4", "published": ago(2)}])
+        # the catalogue view (?catalogue=1) steps through sites.json's sources: on a copy of real data they have posts;
+        # on a database of its own (CI) the first three get one each
+        import sites_fetch
+        cat = [x["id"] for x in sites_fetch.load_read()]  # sources that are read (a region switched off may be left out)
+        if not db.execute("SELECT 1 FROM posts WHERE sid = ANY(%s) LIMIT 1", (cat,)).fetchone():
+            corpus.ingest([{"url": f"https://zz-catalogue.example/{sid}/1", "title": f"目錄來源 {sid} 的帖子", "sid": sid,
+                            "source": sid, "published": ago(k + 1), "source_type": "News", "region": "HK",
+                            "text": f"目錄來源 {sid} 的內文。" * 5} for k, sid in enumerate(cat[:3])])
         ids = corpus.ids_for_urls(i["url"] for i in items)
         cls.ids = [ids[i["url"]] for i in items]
         a1, a2, a3, a4, a5, b1 = cls.ids

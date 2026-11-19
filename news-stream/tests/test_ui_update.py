@@ -310,7 +310,10 @@ class UiUpdate(unittest.TestCase):
     def cdp_chromium(self):
         """Chromium as a reader runs it: Playwright's own launch turns the back/forward cache off, this one keeps it"""
         port = PORT + 50
-        proc = subprocess.Popen([self.pw.chromium.executable_path, "--headless=new", f"--remote-debugging-port={port}",
+        # --no-sandbox as Playwright's own launch passes it: Ubuntu 24.04 (the CI runner) refuses Chrome's sandbox
+        # its user namespaces, and that Chrome exits at once; the flag leaves the back/forward cache as it is
+        proc = subprocess.Popen([self.pw.chromium.executable_path, "--headless=new", "--no-sandbox",
+                                 f"--remote-debugging-port={port}",
                                  f"--user-data-dir={tempfile.mkdtemp(dir=self.tmp)}", "--no-first-run", "about:blank"],
                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
         self.addCleanup(lambda: os.killpg(proc.pid, signal.SIGTERM))
@@ -396,8 +399,10 @@ class UiUpdate(unittest.TestCase):
 
     def kept(self, page, mark, n, build=BUILD_A):
         """still the document `mark` (its JS context never replaced), the tab has loaded exactly n documents, none of
-        them a reload, on `build`"""
-        d = self.docs(page)
+        them a reload, on `build`. The live dashboard is a shell holding the dashboard in a frame (/app/live?frame=1,
+        swapped for a newer build's frame out of sight: -LivePage.tsx FrameShell): its frames' documents are not the
+        tab's, so they are not counted"""
+        d = [x for x in self.docs(page) if "frame=1" not in x[0]]
         self.assertTrue(self.same_doc(page, mark), f"{mark}: the page was replaced: {d}")
         self.assertEqual(len(d), n, f"{mark}: documents {d}")
         self.assertNotIn("reload", [t for _, t in d], f"{mark}: {d}")
@@ -552,7 +557,11 @@ class UiUpdate(unittest.TestCase):
                 with self.subTest(engine=engine, page="live dashboard"):
                     lv = p["live"]
                     self.kept(lv, "live", 1)
-                    self.assertEqual(lv.evaluate("document.documentElement.dataset.update"), "ready")
+                    # the shell stays (never replaced, full screen kept); the frame it shows is swapped for one of B once
+                    # that has drawn: the shell asks /version every minute and whenever its update module hears of B
+                    lv.wait_for_function(f"""() => {{ const f = document.querySelector('.live-shell iframe.on');
+                        try {{ return !!f && f.contentDocument.documentElement.dataset.build === '{BUILD_B}'; }}
+                        catch {{ return false; }} }}""", timeout=90_000, polling=500)
                     self.assertTrue(lv.evaluate("!!document.fullscreenElement"), "the live dashboard left full screen")
                     got = seen["live-" + engine]
                     self.wait_for(lv, lambda: len(got) >= 2, f"live: no data read after the deploy: {got}")

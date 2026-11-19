@@ -293,6 +293,12 @@ class Run(unittest.TestCase):
         return calls, mock.patch.object(ff.Client, "fetch", fetch)
 
     def test_thread_read_then_followed(self):
+        # the fixture's posts carry the dates they were saved with (October 2026), and a thread quiet for FOLLOW_DAYS is
+        # no longer followed: lifted here, so the thread stays followed whatever today's date (this test began failing a
+        # week after the fixture was saved)
+        p = mock.patch.object(ff, "FOLLOW_DAYS", 36500)
+        p.start()
+        self.addCleanup(p.stop)
         url = "https://www.edu-kingdom.com/thread-3887426-AI與數學"
         pid = add_post(url, "thread 3887426 AI與數學")
         page = fx("discuzx_print.html")

@@ -181,8 +181,44 @@ ISSUER = FAKE_URL + "/oidc/x"
 PROC = None
 
 
+def seed_own():
+    """on a database of its own (CI: no posts), what the tools read on a developer's copy of real data: the schema, the
+    site's config and search dictionary, CEHK posts naming 李家超 as a word (with 特首, authors, scores, today's
+    stream items) and a few holding it only inside other words (李家超市, 李家超群: the substring fallback's)"""
+    from datetime import datetime, timedelta, timezone
+    os.environ["DATABASE_URL"] = f"postgresql:///{DB}"
+    sys.path.insert(0, HERE)
+    import corpus, edge_config, searchtext
+    db = corpus.db()  # the schema
+    if db.execute("SELECT 1 FROM posts LIMIT 1").fetchone():
+        return  # a copy of real data
+    now = datetime.now(timezone(timedelta(hours=8)))
+    word = [{"url": f"https://mcp-fixture.example/ce/{i}", "title": f"特首李家超今日出席第{i}場活動",
+             "text": f"行政長官李家超今日出席第{i}場活動並致辭。" * 4, "sid": "rthk_en", "source": "RTHK",
+             "author": f"記者{i % 5}", "published": (now - timedelta(hours=i)).isoformat(timespec="minutes")}
+            for i in range(1, 61)]
+    sub = [{"url": f"https://mcp-fixture.example/sub/{i}", "title": f"{'李家超市' if i % 2 else '李家超群'}第{i}則",
+            "text": "與特首無關的地方消息。", "sid": "rthk_en", "source": "RTHK",
+            "published": (now - timedelta(hours=i)).isoformat(timespec="minutes")} for i in range(1, 9)]
+    corpus.ingest(word + sub)
+    ids = corpus.ids_for_urls([x["url"] for x in word])
+    at = now.isoformat(timespec="seconds")
+    for k, x in enumerate(word):
+        pid = ids[x["url"]]
+        db.execute("INSERT INTO scores (stream, post_id, score, reason, category, scored_at) VALUES ('CEHK', %s, %s, "
+                   "'about the Chief Executive', 'news', %s) ON CONFLICT DO NOTHING", (pid, 90 - k % 40, at))
+        if k < 10:
+            it = {"url": x["url"], "title": x["title"], "source": "RTHK", "stream": "CEHK", "sentiment": "neutral",
+                  "labels": [], "published": x["published"], "seen": at, "id": pid}
+            db.execute("INSERT INTO stream_items (day, stream, url, item) VALUES (%s, 'CEHK', %s, %s)",
+                       (now.date().isoformat(), x["url"], corpus.J(it)))
+    edge_config.publish()
+    searchtext.publish_edge(force=True)
+
+
 def setUpModule():
     global PROC
+    seed_own()
     srv = http.server.ThreadingHTTPServer(("127.0.0.1", FAKE), Fake)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     subprocess.run(["node", "build.mjs"], cwd=APP, check=True)
@@ -397,7 +433,7 @@ class T09NoDictionary(unittest.TestCase):
             t = mint(DEYAO)
             r = json.loads(call("GET", "/api/v1/posts_search?" + urllib.parse.urlencode({"query": "李家超 特首", "page_size": 3}), token=t)[2])
             self.assertIn("substring", r.get("search_mode", ""), r)
-            self.assertGreater(r["total"], 0)
+            self.assertGreater(r["total"], 0, r)
             code, _, body = call("GET", "/api/v1/reports_list", token=t)
             self.assertIn(code, (200, 400), body)
         finally:

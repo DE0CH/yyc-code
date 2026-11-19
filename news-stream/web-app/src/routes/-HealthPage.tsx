@@ -9,6 +9,7 @@
 // its heading, in magenta.
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { BUILD_ID } from "../lib/build";
+import { dt } from "../lib/dates";
 import { monoEmoji } from "../lib/monoEmoji";
 import { POLL_MS, STALE_MS, hhmm, hhmmss } from "../lib/liveLayout";
 import { COL_RULE, JARVIS_ORDER, ROW, columns, fit, jarvisFold, frame, type FitLine, type FitSection } from "../lib/healthFit";
@@ -165,7 +166,7 @@ function aiLines(a: J | null, now: number): Line[] {
   out.push(kv("today", 0, "ok", "today", <><b>{usd(b.today_usd)}</b>, {b.calls_today ?? "–"} calls</>));
   const top = ((a.by_model || []) as J[])[0];
   out.push(sub("month", 1, <>month <b>{usd(b.month_usd)}</b>{top ? `; ${String(top.model).split("/").pop()} most` : ""}</>));
-  out.push(kv("budget", 0, S.budget(b), b.since ? `budget since ${new Date(Date.parse(b.since) + 8 * 3600e3).toISOString().slice(5, 10)}` : "budget",
+  out.push(kv("budget", 0, S.budget(b), b.since ? `budget since ${dt.monthDay(b.since)}` : "budget",
     <><b>{n_(b.spent_usd)?.toFixed(2) ?? "–"}</b> / {n_(b.limit_usd)?.toLocaleString("en-US") ?? "–"}</>));
   if (b.exhausted) out.push(ln("bex", 0, S.budget(b), "used up: model calls are refused"));
   const rec = (a.recent || {}) as J, errs = (rec.failedStarts || 0) + (rec.modelErrors || 0) + (rec.hostErrors || 0);

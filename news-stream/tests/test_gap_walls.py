@@ -85,6 +85,9 @@ class Sources(unittest.TestCase):
         for url, sid in GAPS.items():
             self.assertIn(sid, SITES, sid)
             got = follow.outlet_for(url)
+            if sites_fetch.off(SITES[sid]):  # its region is not read (sites_fetch.OFF_REGIONS): no source reads it now
+                self.assertIsNone(got, url)
+                continue
             self.assertIsNotNone(got, url)
             self.assertEqual(urlsite(SITES[got[0]]), urlsite(SITES[sid]), url)
 
@@ -132,7 +135,9 @@ class Routes(unittest.TestCase):
             self.assertIsNone(cache_fetch.browser_country(SITES[sid]["url"]), sid)
         prox = browser_fetch.catalogue_proxies()
         self.assertEqual(prox.get("hk_lifestyleasia"), "hk")
-        self.assertEqual(prox.get("gl_chinesedaily"), "us")
+        # 華人今日網's US exit, while its region is read (Mainland, Taiwan and Global are off: sites_fetch.OFF_REGIONS)
+        self.assertEqual(SITES["gl_chinesedaily"]["proxy"], "us")
+        self.assertEqual(prox.get("gl_chinesedaily"), None if sites_fetch.off(SITES["gl_chinesedaily"]) else "us")
         self.assertEqual(cache_fetch.browser_country("https://www.lifestyleasia.com/hk/whats-on/x/"), "hk")
 
     def test_browser_pass_reads_proxied_pages_in_their_own_chrome(self):
