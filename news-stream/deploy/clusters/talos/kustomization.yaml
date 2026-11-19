@@ -22,4 +22,4 @@ resources:
 images:
   - name: yyc-socks
     newName: ghcr.io/de0ch/yyc-socks
-    newTag: '0dbbbd60afa5'
+    newTag: '971fc204629d'
