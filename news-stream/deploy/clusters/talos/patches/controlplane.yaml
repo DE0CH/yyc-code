@@ -17,7 +17,9 @@ configuration:
         url: https://token.actions.githubusercontent.com
         audiences: [yyc-cluster]
       claimValidationRules:
-        - {expression: "claims.repository_id == '1459689480'", message: "repo"}
+        # DE0CH/yyc-code (1459689480), and DE0CH/aviary (1442421985), whose deploy.yml deploys YYC AI since the
+        # monorepo (Deyao, 2026-11-19: a push to aviary's main is the deploy; aviary docs/DEPLOY.md)
+        - {expression: "claims.repository_id == '1459689480' || claims.repository_id == '1442421985'", message: "repo"}
         - {expression: "claims.ref == 'refs/heads/main'", message: "main only"}
         # one environment per workflow: yyc-ai.yml deploys YYC AI (gha:yyc-ai), talos-nodes.yml does the node work
         # (gha:talos-nodes, RBAC in ../node-work.yaml), talos-cluster.yml applies this folder (gha:talos-cluster,
@@ -26,6 +28,8 @@ configuration:
         - expression: >-
             (claims.environment == 'yyc-ai' &&
              claims.job_workflow_ref.startsWith('DE0CH/yyc-code/.github/workflows/yyc-ai.yml@refs/heads/main')) ||
+            (claims.repository_id == '1442421985' && claims.environment == 'yyc-ai' &&
+             claims.job_workflow_ref.startsWith('DE0CH/aviary/.github/workflows/deploy.yml@refs/heads/main')) ||
             (claims.environment == 'talos-nodes' &&
              claims.job_workflow_ref.startsWith('DE0CH/yyc-code/.github/workflows/talos-nodes.yml@refs/heads/main')) ||
             (claims.environment == 'talos-cluster' &&
