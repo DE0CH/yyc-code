@@ -295,7 +295,7 @@ class EdgeOps(unittest.TestCase):
                 self.assertEqual(code, 200)
                 p.wait_for_selector("#list .day", timeout=60000)
                 hydrated(p, ".seg button")
-                self.assertEqual(p.inner_text("#list .day >> nth=0"), "2099-01-02")
+                self.assertEqual(p.inner_text("#list .day >> nth=0"), "2099年1月2日（星期五）")  # dates.ts dt.date
                 card = p.locator("#list .card").first
                 self.assertEqual(card.locator(".sub").inner_text(), self.pid)
                 self.assertEqual([a.inner_text() for a in card.locator(".links a").all()], ["社交概況（格式一）", "PDF 報告", "數據 JSON"])

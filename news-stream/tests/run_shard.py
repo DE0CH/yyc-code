@@ -28,7 +28,9 @@ def run(path, out):
                                            DATABASE_URL=f"postgresql:///{db}",
                                            # the tests that default to a developer's named copy of real data take
                                            # the file's own database too (test_edge_ops, test_mcp_edge)
-                                           EDGE_DB=db, MCP_DB=db)).returncode
+                                           EDGE_DB=db, MCP_DB=db,
+                                           # where a test puts logs of its own (devserver.py: the dev server's)
+                                           TEST_LOG_DIR=out, TEST_NAME=name)).returncode
         except subprocess.TimeoutExpired:
             code = "timeout"
     subprocess.run(["dropdb", "--if-exists", db], capture_output=True)

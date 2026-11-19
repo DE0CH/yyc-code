@@ -67,7 +67,9 @@ def ensure(port, url_var="WEB_APP_URL", db_var="WEB_APP_DATABASE_URL"):
         f.write("\n".join(l for l in base.splitlines() if not l.startswith("ACCESS_TEST_JWKS=")) +
                 "\nACCESS_TEST_JWKS=" + jwks + "\n")
     env = dict(os.environ, CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE=f"postgres://claude:dev@127.0.0.1:5432/{name}")
-    log = open(os.path.join(tempfile.gettempdir(), f"devserver-{port}.log"), "w")  # noqa: SIM115 (closed at exit)
+    # the server's log beside the test's (run_shard's --out: CI uploads it), else the temporary directory
+    logdir = os.environ.get("TEST_LOG_DIR") or tempfile.gettempdir()
+    log = open(os.path.join(logdir, f"devserver-{os.path.basename(os.environ.get('TEST_NAME', str(port)))}.log"), "w")  # noqa: SIM115
     proc = subprocess.Popen(["npx", "vite", "dev", "--port", str(port), "--strictPort"], cwd=APP, env=env,
                             stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
 

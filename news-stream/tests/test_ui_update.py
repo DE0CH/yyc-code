@@ -399,8 +399,10 @@ class UiUpdate(unittest.TestCase):
 
     def kept(self, page, mark, n, build=BUILD_A):
         """still the document `mark` (its JS context never replaced), the tab has loaded exactly n documents, none of
-        them a reload, on `build`"""
-        d = self.docs(page)
+        them a reload, on `build`. The live dashboard is a shell holding the dashboard in a frame (/app/live?frame=1,
+        swapped for a newer build's frame out of sight: -LivePage.tsx FrameShell): its frames' documents are not the
+        tab's, so they are not counted"""
+        d = [x for x in self.docs(page) if "frame=1" not in x[0]]
         self.assertTrue(self.same_doc(page, mark), f"{mark}: the page was replaced: {d}")
         self.assertEqual(len(d), n, f"{mark}: documents {d}")
         self.assertNotIn("reload", [t for _, t in d], f"{mark}: {d}")
