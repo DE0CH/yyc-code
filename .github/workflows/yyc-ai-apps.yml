@@ -1,0 +1,37 @@
+# Tests and deploys the Worker yyc-ai-apps (apps/worker: YYC AI's Android app at ai.yyc-internal.com/apps/android.apk,
+# from R2 bucket yyc-ai-apps, on YYC's own Cloudflare account) on every push touching it; main alone deploys. A Worker
+# deploy is atomic: downloads in flight finish on the old version. Its route and Access app are in
+# news-stream/deploy/cloudflare/tofu/apps.tf. Secrets: YYC_CF_APPS_WORKER_TOKEN (token yyc-ai-apps-worker: Workers
+# Scripts and R2 read on YYC's account only) and YYC_CF_ACCOUNT_ID.
+name: yyc-ai-apps
+on:
+  push:  # every branch (the gate merges a branch when this is green); main alone deploys
+    paths:
+      - apps/worker/**
+      - nametags/worker/src/auth.js
+      - .github/workflows/yyc-ai-apps.yml
+  workflow_dispatch:
+concurrency:
+  group: "yyc-ai-apps-${{ github.ref }}"
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm test
+      - run: npx --yes wrangler@4.151.0 deploy --dry-run --outdir /tmp/bundle
+      - name: deploy
+        if: github.ref == 'refs/heads/main'
+        run: npx --yes wrangler@4.151.0 deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.YYC_CF_APPS_WORKER_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.YYC_CF_ACCOUNT_ID }}

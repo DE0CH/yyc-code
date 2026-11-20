@@ -1,0 +1,8 @@
+{
+  "name": "yyc-ai-apps",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  }
+}

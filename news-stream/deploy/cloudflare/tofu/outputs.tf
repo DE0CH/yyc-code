@@ -36,6 +36,7 @@ output "aud" {
     aiwatch   = cloudflare_zero_trust_access_application.aiwatch.aud
     nametags  = cloudflare_zero_trust_access_application.nametags.aud
     labels    = cloudflare_zero_trust_access_application.labels.aud
+    apps      = cloudflare_zero_trust_access_application.apps.aud
     drive     = cloudflare_zero_trust_access_application.drive.aud
   }
 }
