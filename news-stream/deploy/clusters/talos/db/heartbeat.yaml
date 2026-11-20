@@ -1,10 +1,13 @@
-# The heartbeat of YYC's two Postgres clusters (Deyao, 2026-11-09: restore tests, the industry standard): every 60 s
-# one row, ops.heartbeat (src, at), is set to now() in pg's database app and in magpie-pg's database magpie. It travels
+# The heartbeat of YYC's two Postgres clusters and the watch over their primaries (pg-heartbeat/README.md; Deyao,
+# 2026-11-09: restore tests, the industry standard; 2026-11-20: a redundant service must take over). Every 10 s one
+# row, ops.heartbeat (src, at), is set to now() in pg's database app and in magpie-pg's database magpie. It travels
 # with the WAL like any write, so:
-# - a restore test recovered to time T must show ops.heartbeat.at within 60 s before T (../restore-test/);
-# - a standby's copy of the row shows how far behind it is.
-# Schema ops keeps it apart from each app's own schema and migrations. One replica: nothing reads it live, and a
-# missed beat during a pod move or a switchover only leaves a gap of a minute or two in its history.
+# - a restore test recovered to time T must show ops.heartbeat.at shortly before T (../restore-test/);
+# - a standby's copy of the row shows how far behind it is;
+# - a primary that answers reads but commits nothing for 30 s has its Pod deleted (the Clusters' stopDelay: 60 then
+#   ends it, and a standby takes over).
+# Schema ops keeps it apart from each app's own schema and migrations. One replica: a missed beat during a pod move or
+# a switchover only leaves a gap in its history.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -17,36 +20,21 @@ spec:
     metadata:
       labels: {app: pg-heartbeat}   # allowed in by pg-ingress and magpie-pg-ingress
     spec:
-      securityContext: {runAsUser: 26, runAsGroup: 26, runAsNonRoot: true, seccompProfile: {type: RuntimeDefault}}
+      serviceAccountName: pg-heartbeat
+      securityContext: {runAsUser: 65532, runAsGroup: 65532, runAsNonRoot: true, seccompProfile: {type: RuntimeDefault}}
       nodeSelector: {pool: apps}
       enableServiceLinks: false
       terminationGracePeriodSeconds: 5
       containers:
         - name: beat
-          securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
-          image: ghcr.io/cloudnative-pg/postgresql:17.11-standard-trixie
-          command:
-            - bash
-            - -c
-            - |
-              set -u
-              sql="SET client_min_messages = warning; CREATE SCHEMA IF NOT EXISTS ops;
-                   CREATE TABLE IF NOT EXISTS ops.heartbeat (src text PRIMARY KEY, at timestamptz NOT NULL);
-                   INSERT INTO ops.heartbeat VALUES ('pg-heartbeat', now()) ON CONFLICT (src) DO UPDATE SET at = excluded.at;"
-              while true; do
-                PGPASSWORD="$PW_APP" psql -qAtX -v ON_ERROR_STOP=1 -c "$sql" \
-                  "host=pg-rw.db.svc.cluster.local dbname=app user=app sslmode=require connect_timeout=10" \
-                  || echo "$(date -u +%FT%TZ) pg: beat failed"
-                PGPASSWORD="$PW_MAGPIE" psql -qAtX -v ON_ERROR_STOP=1 -c "$sql" \
-                  "host=magpie-pg-rw.db.svc.cluster.local dbname=magpie user=magpie sslmode=require connect_timeout=10" \
-                  || echo "$(date -u +%FT%TZ) magpie-pg: beat failed"
-                sleep 60
-              done
+          securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+          image: pg-heartbeat
+          args: [watch, "pg:app:app:PW_APP", "magpie-pg:magpie:magpie:PW_MAGPIE"]
           env:
             - {name: PW_APP, valueFrom: {secretKeyRef: {name: pg-role-app, key: password}}}
             - {name: PW_MAGPIE, valueFrom: {secretKeyRef: {name: pg-role-magpie, key: password}}}
           resources:
-            requests: {cpu: 5m, memory: 32Mi}
+            requests: {cpu: 5m, memory: 16Mi}
             limits: {memory: 64Mi}
 ---
 # The heartbeat's own account (pg-heartbeat/README.md): it reads the two Clusters' status and deletes the Pod of a

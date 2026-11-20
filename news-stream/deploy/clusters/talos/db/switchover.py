@@ -9,8 +9,10 @@ cut work wrote nothing: a write transaction cut at its COMMIT may have committed
 in every database it takes an EXCLUSIVE lock on every table (one session per database, `lock_timeout` 200 ms, tried
 again until all are held, at most FENCE_FOR seconds, else everything is let go and it stops), which waits for the
 write transactions already running to finish and holds new writes before their first write; reads go on (EXCLUSIVE
-does not block ACCESS SHARE). Then the switchover: a CHECKPOINT first (the old primary's shutdown checkpoint is then
-short), the operator told the target (what `kubectl cnpg promote` does), and the new primary timed until it serves.
+does not block ACCESS SHARE). Then the switchover: a CHECKPOINT first on the primary and then on the target (the old
+primary's shutdown checkpoint and the new primary's post-promotion checkpoint, which the operator waits for before it
+moves pg-rw, are then short), the operator told the target (what `kubectl cnpg promote` does), and the new primary
+timed until it serves.
 The fence's sessions end with the old primary.
 
 The cluster's primaryUpdateStrategy is supervised (pg.yaml, magpie-pg.yaml), so the operator never switches over on
@@ -117,6 +119,11 @@ def main(name, target):
     say(f"databases fenced: {', '.join(f'{d} ({v.count(chr(44)) + 1} tables)' for d, v in tables.items())}")
     sql(primary, "postgres", "CHECKPOINT")
     say("checkpoint done")
+    # the target too (on a standby, a restartpoint at the checkpoint just replayed): after its promotion the operator
+    # runs a CHECKPOINT and moves pg-rw only once it is done, and a standby's spread restartpoint can hold gigabytes
+    # (2026-11-20: 1.8 GB at the Volume's 20 MB/s held writes 84 s); flushed here, while writes still flow, it is short
+    sql(target, "postgres", "CHECKPOINT")
+    say(f"checkpoint on {target} done")
 
     fences = [Fence(primary, db, t) for db, t in tables.items()]
     t0 = time.monotonic()
