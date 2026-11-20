@@ -6,7 +6,8 @@ A switchover stops the old primary: every connection to it is cut and new ones a
 serves, a few seconds. The apps run cut work again (news-stream corpus.retrying, aviary-pg's retry, ai-watch's
 db.retrying, the web app's and yyc-mcp's db.ts, tools' CallLog; egress buffers its rows), which is safe only when the
 cut work wrote nothing: a write transaction cut at its COMMIT may have committed. So this script fences writes first:
-in every database it takes an EXCLUSIVE lock on every table (one session per database, `lock_timeout` 200 ms, tried
+in every database it takes an EXCLUSIVE lock on every table but schema ops's (db/pg-heartbeat's row: a cut beat is
+written again 2 s later, and the watch must see commits, not a stall, until the old primary stops) (one session per database, `lock_timeout` 200 ms, tried
 again until all are held, at most FENCE_FOR seconds, else everything is let go and it stops), which waits for the
 write transactions already running to finish and holds new writes before their first write; reads go on (EXCLUSIVE
 does not block ACCESS SHARE). Then the switchover: a CHECKPOINT first on the primary and then on the target (the old
@@ -113,7 +114,7 @@ def main(name, target):
     tables = {}
     for db in dbs:
         t = sql(primary, db, "select string_agg(format('%I.%I', schemaname, tablename), ', ' order by 1) "
-                "from pg_tables where schemaname not in ('pg_catalog', 'information_schema')")
+                "from pg_tables where schemaname not in ('pg_catalog', 'information_schema', 'ops')")
         if t:
             tables[db] = t
     say(f"databases fenced: {', '.join(f'{d} ({v.count(chr(44)) + 1} tables)' for d, v in tables.items())}")

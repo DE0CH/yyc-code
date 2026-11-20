@@ -1,11 +1,11 @@
 # The heartbeat of YYC's two Postgres clusters and the watch over their primaries (pg-heartbeat/README.md; Deyao,
-# 2026-11-09: restore tests, the industry standard; 2026-11-20: a redundant service must take over). Every 10 s one
+# 2026-11-09: restore tests, the industry standard; 2026-11-20: a redundant service must take over). Every 2 s one
 # row, ops.heartbeat (src, at), is set to now() in pg's database app and in magpie-pg's database magpie. It travels
 # with the WAL like any write, so:
 # - a restore test recovered to time T must show ops.heartbeat.at shortly before T (../restore-test/);
 # - a standby's copy of the row shows how far behind it is;
-# - a primary that answers reads but commits nothing for 30 s has its Pod deleted (the Clusters' stopDelay: 60 then
-#   ends it, and a standby takes over).
+# - a primary that answers reads but commits nothing for 10 s has its Pod deleted (the Clusters' stopDelay: 15 then
+#   ends it, and a standby takes over); a Pod still terminating 20 s later has its node reset (Hetzner API).
 # Schema ops keeps it apart from each app's own schema and migrations. One replica: a missed beat during a pod move or
 # a switchover only leaves a gap in its history.
 apiVersion: apps/v1
@@ -33,6 +33,9 @@ spec:
           env:
             - {name: PW_APP, valueFrom: {secretKeyRef: {name: pg-role-app, key: password}}}
             - {name: PW_MAGPIE, valueFrom: {secretKeyRef: {name: pg-role-magpie, key: password}}}
+            # the node reset (pg-heartbeat/README.md): token yyc-pg-watch of project yyc, through the socks pool
+            - {name: HCLOUD_TOKEN, valueFrom: {secretKeyRef: {name: pg-heartbeat-hetzner, key: HCLOUD_TOKEN, optional: true}}}
+            - {name: HETZNER_PROXY, value: "http://socks.egress.svc.cluster.local:1080"}
           resources:
             requests: {cpu: 5m, memory: 16Mi}
             limits: {memory: 64Mi}
@@ -57,7 +60,7 @@ rules:
     verbs: [get]
   - apiGroups: [""]
     resources: [pods]
-    verbs: [delete]
+    verbs: [get, delete]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding

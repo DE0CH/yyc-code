@@ -51,13 +51,16 @@ spec:
   primaryUpdateMethod: switchover
   enableSuperuserAccess: false
   priorityClassName: serving
-  # A primary that stops committing is gone within a minute (2026-11-20: pg-1's storage stalled 08:27:55-08:43:35;
-  # the kubelet stopped it at 08:28:16, but its pre-shutdown CHECKPOINT waited on the same storage, then 180 s of smart
-  # shutdown, under the default 1800 s grace: primary until 08:46:38). stopDelay is the Pod's grace: the kubelet kills
-  # Postgres after it, and a standby takes over (synchronous replication: nothing acknowledged is lost). db/heartbeat
-  # deletes the Pod of a primary that answers reads but commits nothing for 30 s. pg-heartbeat/tests/clusters.rs.
-  stopDelay: 60
-  smartShutdownTimeout: 15
+  # An unplanned failover within about 30 s (Deyao, 2026-11-20: a few minutes is not acceptable; the industry's is
+  # 30-60 s). 2026-11-20 08:28-08:46: pg-1's storage stalled; the kubelet stopped it at 08:28:16, its pre-shutdown
+  # CHECKPOINT waited on the same storage, then smart shutdown, under the default 1800 s grace: primary until 08:46:38.
+  # db/heartbeat (pg-heartbeat) deletes the Pod of a primary that answers reads but commits nothing for 10 s, and
+  # resets its node when the Pod is still terminating 20 s later. stopDelay is the Pod's grace: the kubelet kills
+  # Postgres after it; switchoverDelay bounds the old primary's fast shutdown in a failover or switchover before an
+  # immediate one (synchronous replication: nothing acknowledged is lost). pg-heartbeat/tests/clusters.rs.
+  stopDelay: 15
+  smartShutdownTimeout: 5
+  switchoverDelay: 15
   storage:
     storageClass: yyc-block
     size: 10Gi
