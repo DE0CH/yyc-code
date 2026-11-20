@@ -51,6 +51,13 @@ spec:
   primaryUpdateMethod: switchover
   enableSuperuserAccess: false
   priorityClassName: serving
+  # A primary that stops committing is gone within a minute (2026-11-20: pg-1's storage stalled 08:27:55-08:43:35;
+  # the kubelet stopped it at 08:28:16, but its pre-shutdown CHECKPOINT waited on the same storage, then 180 s of smart
+  # shutdown, under the default 1800 s grace: primary until 08:46:38). stopDelay is the Pod's grace: the kubelet kills
+  # Postgres after it, and a standby takes over (synchronous replication: nothing acknowledged is lost). db/heartbeat
+  # deletes the Pod of a primary that answers reads but commits nothing for 30 s. pg-heartbeat/tests/clusters.rs.
+  stopDelay: 60
+  smartShutdownTimeout: 15
   storage:
     storageClass: yyc-block
     size: 10Gi
@@ -71,6 +78,11 @@ spec:
       shared_buffers: 256MB
       min_wal_size: 1GB
       max_wal_size: 2GB
+      tcp_keepalives_idle: "60"
+      tcp_keepalives_interval: "10"
+      tcp_keepalives_count: "6"
+      # as Cluster pg (pg/pg.yaml): a session whose client is gone ends in 10 s and lets go of its locks
+      tcp_user_timeout: "10000"
   bootstrap:
     initdb:
       database: magpie

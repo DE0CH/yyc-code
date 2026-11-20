@@ -6,7 +6,7 @@
 name: merge
 on:
   workflow_run:
-    workflows: [branch, ai-watch-edge, ai-watch-image, cloudflare, feishu-index-image, labels-worker, mcp-image, nametags-ios, nametags-worker, news-stream-image, news-stream-tests, socks-image, infra-checks, talos-cluster, talos-nodes, web-app, yyc-apps]
+    workflows: [branch, ai-watch-edge, ai-watch-image, cloudflare, feishu-index-image, labels-worker, mcp-image, nametags-ios, nametags-worker, news-stream-image, news-stream-tests, pg-heartbeat-image, socks-image, infra-checks, talos-cluster, talos-nodes, web-app, yyc-apps]
     types: [completed]
 permissions: { contents: read, pull-requests: write, statuses: write, actions: read }
 concurrency: { group: "merge-${{ github.event.workflow_run.head_branch }}", cancel-in-progress: false }
@@ -41,5 +41,5 @@ jobs:
           GATE_BRANCH: ${{ github.event.workflow_run.head_branch }}
           GATE_SHA: ${{ github.event.workflow_run.head_sha }}
           GATE_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          GATE_WORKFLOWS: "branch, ai-watch-edge, ai-watch-image, cloudflare, feishu-index-image, labels-worker, mcp-image, nametags-ios, nametags-worker, news-stream-image, news-stream-tests, socks-image, infra-checks, talos-cluster, talos-nodes, web-app, yyc-apps"
+          GATE_WORKFLOWS: "branch, ai-watch-edge, ai-watch-image, cloudflare, feishu-index-image, labels-worker, mcp-image, nametags-ios, nametags-worker, news-stream-image, news-stream-tests, pg-heartbeat-image, socks-image, infra-checks, talos-cluster, talos-nodes, web-app, yyc-apps"
           MERGE_DEPLOY_KEY: ${{ secrets.MERGE_DEPLOY_KEY }}

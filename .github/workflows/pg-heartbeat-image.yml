@@ -1,0 +1,127 @@
+# pg-heartbeat's image (pg-heartbeat/, Deployment db/pg-heartbeat on yyc-talos, whose apps nodes are ARM). Each
+# architecture is built natively on its own runner (the image's build runs the rule's unit tests); the amd64 image is
+# then tested against a real Postgres as the stall it watches for (a commit that is never answered while reads are:
+# synchronous_standby_names naming a standby that never connects), and the two Clusters' settings are checked
+# (pg-heartbeat/tests/clusters.rs). Then one multi-arch tag, pinned in clusters/talos/db/kustomization.yaml by
+# pin-image.py (this image's entry only, never moving back to an older commit), and talos-cluster.yml applies it.
+name: pg-heartbeat-image
+on:
+  push:  # every branch (the gate merges a branch when this is green); main alone pins
+    paths:
+      - pg-heartbeat/**
+      - '!pg-heartbeat/**.md'
+      - news-stream/deploy/clusters/talos/pg/pg.yaml
+      - news-stream/deploy/clusters/talos/db/magpie-pg.yaml
+      - .github/workflows/pg-heartbeat-image.yml
+  workflow_dispatch:
+concurrency:
+  group: "pg-heartbeat-image-${{ github.ref }}"
+  cancel-in-progress: false
+permissions:
+  contents: write
+  packages: write
+  actions: write   # main: dispatches talos-cluster.yml after the pin (a [skip ci] pin commit starts no workflow)
+env:
+  IMAGE: ghcr.io/de0ch/pg-heartbeat
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - {arch: amd64, runner: ubuntu-latest}
+          - {arch: arm64, runner: ubuntu-24.04-arm}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        run: S=$(git rev-parse HEAD); echo "tag=${S::12}" >> "$GITHUB_OUTPUT"; echo "sha=$S" >> "$GITHUB_OUTPUT"
+      - uses: docker/build-push-action@v6
+        with:
+          context: pg-heartbeat
+          platforms: linux/${{ matrix.arch }}
+          provenance: false
+          push: true
+          tags: ${{ env.IMAGE }}:${{ steps.meta.outputs.tag }}-${{ matrix.arch }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ steps.meta.outputs.sha }}
+          cache-from: type=gha,scope=pg-heartbeat-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=pg-heartbeat-${{ matrix.arch }}
+      - name: the Clusters' settings (tests/clusters.rs)
+        if: matrix.arch == 'amd64'
+        run: |
+          docker run --rm -v "$PWD:/w" -w /w/pg-heartbeat rust:1.99.1-slim-bookworm \
+            cargo test --locked --test clusters
+      - name: a stalled primary, a healthy one, one that is away
+        if: matrix.arch == 'amd64'
+        env:
+          REF: ${{ env.IMAGE }}:${{ steps.meta.outputs.tag }}-${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          docker run -d --name pg --network host -e POSTGRES_PASSWORD=pw postgres:17 -c port=55432
+          for i in $(seq 60); do docker exec pg pg_isready -p 55432 -q && break; sleep 1; done
+          URL="host=127.0.0.1 port=55432 user=postgres password=pw dbname=postgres sslmode=disable"
+          probe() { docker run --rm --network host "$REF" probe "$URL"; }
+          test "$(probe)" = committed
+          docker exec pg psql -p 55432 -U postgres -qc "alter system set synchronous_standby_names = 'never'" \
+            -c "select pg_reload_conf()"
+          test "$(probe)" = stalled
+          docker rm -f pg >/dev/null
+          test "$(probe)" = unreachable
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref == 'refs/heads/main' && 'merge' || '' }}   # main: the main-only push key (gate setup)
+    steps:
+      - uses: actions/checkout@v4
+        with: { ssh-key: "${{ secrets.MERGE_DEPLOY_KEY }}" }   # empty on a branch: the workflow token
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        run: S=$(git rev-parse HEAD); echo "tag=${S::12}" >> "$GITHUB_OUTPUT"; echo "sha=$S" >> "$GITHUB_OUTPUT"
+      - name: one multi-arch tag
+        run: |
+          T="$IMAGE:${{ steps.meta.outputs.tag }}"
+          docker buildx imagetools create -t "$T" "$T-amd64" "$T-arm64"
+          docker buildx imagetools inspect "$T"
+      - name: pin the tag
+        if: github.ref == 'refs/heads/main'
+        id: pin
+        run: |
+          set -e
+          TAG="${{ steps.meta.outputs.tag }}"
+          F=news-stream/deploy/clusters/talos/db/kustomization.yaml
+          git config user.name "pg-heartbeat-image bot"; git config user.email "actions@users.noreply.github.com"
+          for attempt in 1 2 3 4 5 6; do
+            # a main we cannot read fails the step (lessons: a skipped fetch read as "already pinned")
+            git fetch -q origin main || { echo "::error::cannot read main (its deploy key?)"; exit 1; }
+            git reset -q --hard origin/main
+            CUR=$(PIN_FILE=$F news-stream/deploy/pin-image.py pg-heartbeat)
+            if [ "$CUR" != unset ] && git cat-file -e "$CUR^{commit}" 2>/dev/null && git merge-base --is-ancestor "${{ steps.meta.outputs.sha }}" "$CUR" && [ "$CUR" != "$TAG" ]; then
+              echo "$F already pins $CUR, newer than $TAG"; exit 0
+            fi
+            PIN_FILE=$F news-stream/deploy/pin-image.py pg-heartbeat "$TAG"
+            git add "$F"
+            git diff --cached --quiet && { echo "already pinned"; echo "pinned=1" >> "$GITHUB_OUTPUT"; exit 0; }
+            git commit -q -m "pg-heartbeat: pin image $TAG [skip ci]"
+            git push -q origin HEAD:main && { echo "pinned=1" >> "$GITHUB_OUTPUT"; exit 0; }
+            sleep $((attempt * 3))
+          done
+          exit 1
+      - name: apply it (talos-cluster.yml)
+        if: github.ref == 'refs/heads/main' && steps.pin.outputs.pinned == '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run talos-cluster.yml -R "${{ github.repository }}" --ref main

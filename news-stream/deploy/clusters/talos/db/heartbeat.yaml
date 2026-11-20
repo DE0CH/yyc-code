@@ -48,3 +48,34 @@ spec:
           resources:
             requests: {cpu: 5m, memory: 32Mi}
             limits: {memory: 64Mi}
+---
+# The heartbeat's own account (pg-heartbeat/README.md): it reads the two Clusters' status and deletes the Pod of a
+# primary that answers reads but commits nothing for 30 s (Deyao, 2026-11-20: a redundant service must take over).
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pg-heartbeat
+  namespace: db
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: pg-heartbeat
+  namespace: db
+rules:
+  - apiGroups: [postgresql.cnpg.io]
+    resources: [clusters]
+    resourceNames: [pg, magpie-pg]
+    verbs: [get]
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [delete]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: pg-heartbeat
+  namespace: db
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: pg-heartbeat}
+subjects:
+  - {kind: ServiceAccount, name: pg-heartbeat, namespace: db}
