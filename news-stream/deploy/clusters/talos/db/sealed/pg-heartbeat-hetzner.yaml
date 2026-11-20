@@ -1,0 +1,16 @@
+# SealedSecret made by infra/seal.py from the store `yyc` (map: infra/secrets.txt). Don't edit: re-seal.
+# cert: infra/sealed-secrets-talos.pem sha256:81f61330757d262c
+---
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: pg-heartbeat-hetzner
+  namespace: db
+spec:
+  encryptedData:
+    HCLOUD_TOKEN: AgAtlDzBKixR+UUttbRNtlK1ASNLAu1utnFSJYUzK8wvvf7mGzuVMJ2sabe4U/2BQshb5e4cE95OBjWyLmJl92kwfTe0DeFdahiuB8V4ShqpS904UskvlyNmDvm5l++WB9JNIOYngEs9Ynb+YAgt/41WB7bAGPouFyvrwLd0E7xlG+8shQ/4QpbtdlRu+6MYa1PyCe03HuP7uLSKy4MiFXCZK4eqqTCKIcYRe7qdjMNriURhBqJBuUSiZgZQzpIon87CNxL8Iec3o5MO6X2R43Mb/5BMxg+1p5DfvI3d67yxUdawXwga+HPJW7kjV4sK+LXjiqlZFmx6ePkCa3AER+7XRfyO7gVPEUUw7uAWaukzrRjo+neE24Hq+ggg6wwyRCtZKpx7//ZM06Mc0u3s7jfpnVHca1T5Iw6DSXEPGHfAPKk1vZrDJ+TFXOY77oQLcOYFc28+rAzPVHJAnfy6z6QyxPJ68EyEtYIYnvbhhjbvTtQE00z0cKUNGnnrESTxM0zAJc0fAP9Py/r1emtinOmw/ATQPLAJIOsPzb09Rsm397SgxhgR//OHAkX4ozW6zxzO8rHNjFXUXAFCEPYCHERu4BatnI0K466whXJNJEv+NElz6r+CKH9gNl8SdwFQM5NZDLrfa0XgBWeHbtT0z6ZJgscqbsGymTqoILzNLCMg5gRTarEe9Ww9MH5rRDis7JuZAVXTeUn58roBsHlLhvD6xyf5ZsVFkpQxo88WbF/PHpuwGLm19OJZwvxZUDF0TmyhV46GegPiMK51nAh7EJKX
+  template:
+    metadata:
+      name: pg-heartbeat-hetzner
+      namespace: db
+    type: Opaque
