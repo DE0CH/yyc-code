@@ -10,8 +10,8 @@
   "preview_urls": false,
   "vars": {
     "ACCESS_TEAM": "yyc-hk",
-    // the Access app "YYC AI apps"'s audience tag (tofu output aud.apps); empty refuses every request
-    "ACCESS_AUD": "",
+    // the Access app "YYC AI apps"'s audience tag (tofu output aud.apps)
+    "ACCESS_AUD": "becadfc9b3c8ffecfd0a79ea10684ff9a622d0dc93c531592dcab6dbf7db64e1",
     "DOWNLOAD_NAME": "YYC-AI.apk"
   },
   "r2_buckets": [{ "binding": "APPS", "bucket_name": "yyc-ai-apps" }],

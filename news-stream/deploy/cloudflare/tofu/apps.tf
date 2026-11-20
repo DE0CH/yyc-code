@@ -17,3 +17,10 @@ resource "cloudflare_zero_trust_access_application" "apps" {
   allowed_idps               = local.idps
   policies                   = [{ id = cloudflare_zero_trust_access_policy.users.id, precedence = 1 }]
 }
+
+# the Worker answers the path at the edge, ahead of the tunnel to pigeon
+resource "cloudflare_workers_route" "apps" {
+  zone_id = local.zone
+  pattern = "ai.${local.domain}/apps/*"
+  script  = "yyc-ai-apps"
+}
