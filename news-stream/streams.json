@@ -107,12 +107,20 @@
   "whatsapp_group": "120363432741309276@g.us",
   "name": "選委選舉",
   "title": "選委會及特首選舉",
-  "brief": "選委選舉 are Hong Kong's 2026 Election Committee Subsector Ordinary Elections (選舉委員會界別分組一般選舉; nominations 7–20 Oct 2026, polling 22 Nov 2026), which form the Election Committee, and the Chief Executive election (行政長官選舉) of March 2027 in which that committee votes.",
-  "news_queries_en": ["\"Election Committee\" Hong Kong", "\"Chief Executive election\" Hong Kong"],
+  "brief": "選委選舉 are Hong Kong's 2026 Election Committee Subsector Ordinary Elections (選舉委員會界別分組一般選舉; polled 22 Nov 2026), which formed the Election Committee, and the Chief Executive election (行政長官選舉 / 特首選舉) of March 2027, in which that committee nominates and elects the next Chief Executive, with the race for it.",
+  "news_queries_en": ["\"Election Committee\" Hong Kong", "\"Chief Executive election\" Hong Kong", "\"chief executive race\" Hong Kong"],
   "news_queries": [
    "選委會選舉",
    "界別分組選舉",
-   "特首選舉"
+   "特首選舉",
+   "行政長官選舉",
+   "特首參選",
+   "李家超連任"
+  ],
+  "social_queries": [
+   "選委會選舉",
+   "特首選舉",
+   "李家超連任"
   ],
   "discuss_queries": [
    "選委會",
