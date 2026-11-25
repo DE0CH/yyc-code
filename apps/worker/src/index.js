@@ -1,5 +1,5 @@
 // Worker yyc-ai-apps (apps/README.md): YYC AI's Android app at ai.yyc-internal.com/apps/android.apk, from the edge.
-// The APK is the object android.apk in R2 bucket yyc-ai-apps, which DE0CH/claudecodeui's yyc-android workflow
+// The APK is the object android.apk in R2 bucket yyc-ai-apps, which DE0CH/aviary's app-android workflow
 // replaces after every green build on main. Behind the Access app "YYC AI apps" (tofu apps.tf); the Worker checks
 // Access's token itself too (authenticate by token). Each Cloudflare location keeps the file in its cache under the
 // object's ETag, so a download comes from the edge and a new upload is served from the next request on.
