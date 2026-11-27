@@ -17,7 +17,7 @@
 #
 # Placement: each instance alone on a dedicated x86 8 GB node in fsn1 (label pool=db, taint dedicated=db:NoSchedule,
 # ../node-patches/db.yaml): db2 (the old db-worker1, public IPv6), db1 (public IPv6) and db3 (no public IP: role
-# db-private, out through yyc-nat1).
+# db-private, out through yyc-nat2).
 # fsn1 for both: a synchronous commit waits on the round trip between them, kept inside one location.
 # Volumes: 100 Gi yyc-block each (the old instance's size; 25.9 GB used on 2026-11-05, about 0.7-1 GB more a day;
 # expandable), EUR 6.864 a month each with VAT (Hetzner /v1/pricing 2026-11-05: EUR 0.0572/GB net, 0.06864 gross).

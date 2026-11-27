@@ -1,0 +1,113 @@
+#cloud-config
+# yyc-nat2: the router of network `yyc` for the nodes with no public IP (README "Workers without public IPs"), with
+# its own public IPv4 (Deyao, 2026-11-27: "we should have at least one ipv4"). It replaced yyc-nat1, whose only way out
+# was one WARP session: it failed 34 times on 2026-11-26, and each time took the workers' IPv4 and YYC AI's tunnel down
+# with it. The box is this file (Hetzner's user data at creation) and warp0.conf (README "yyc-nat2"); nothing runs on it
+# but the kernel's forwarding, nftables, WireGuard, dnsmasq and sshd.
+#   - IPv4 out: network `yyc`'s route 0.0.0.0/0 -> 10.0.0.29, forwarded and masqueraded. To Cloudflare's tunnel edge
+#     (set `direct`: cloudflared's connections) out eth0, this box's own IPv4, so YYC AI's site stays reachable when
+#     WARP fails; everything else out warp0 (mark 0x51, table 51), as many news sites refuse Hetzner's addresses and
+#     accept WARP's (2026-11-27: 24 of the poller's sources failed from this box's IPv4).
+#   - WARP: yyc-warp-check asks EC2 through warp0 every minute (3 s) and restarts wg-quick@warp0 at every failure (a
+#     restart pauses it about 3 s; yyc-nat1's watchdog waited 10 min between restarts, and a restart that did not
+#     help left IPv4 down for those 10 min).
+#   - DNS: dnsmasq on 10.0.0.29 and 10.0.0.30 forwarding to Hetzner's resolvers.
+#   - The jump host: sshd at 10.0.0.30 (an alias IP of this box: jump.yyc-internal.com, talos.sh tunnel and
+#     deploy-access.yaml name it), root by the yyc-cluster-admin key; its host keys are yyc-nat1's (known_hosts stay).
+# No public IPv6 (Hetzner counts every primary IP against the account's limit); the yyc-talos firewall lets in only
+# ICMP and UDP 51820.
+package_update: true
+packages: [nftables, dnsmasq, wireguard-tools]
+write_files:
+  - path: /etc/sysctl.d/90-nat.conf
+    content: |
+      net.ipv4.ip_forward = 1
+      # replies of the flows sent out warp0 come back on warp0, which no route of the main table names
+      net.ipv4.conf.all.rp_filter = 2
+      net.ipv4.conf.default.rp_filter = 2
+  - path: /etc/nftables.conf
+    content: |
+      #!/usr/sbin/nft -f
+      flush ruleset
+      table inet nat {
+        chain postrouting {
+          type nat hook postrouting priority srcnat;
+          oifname "eth0" ip saddr 10.0.0.0/16 masquerade
+          oifname "warp0" ip saddr 10.0.0.0/16 masquerade
+        }
+      }
+      table inet filter {
+        chain forward {
+          type filter hook forward priority filter; policy drop;
+          # MSS for the path a SYN takes: network `yyc` 1450, eth0 1500, warp0 1280
+          tcp flags syn tcp option maxseg size set rt mtu
+          ct state established,related accept
+          ip saddr 10.0.0.0/16 oifname "eth0" accept
+          ip saddr 10.0.0.0/16 oifname "warp0" accept
+        }
+      }
+      table inet warp {
+        # what leaves through nat2's own IPv4: Cloudflare's tunnel edge (cloudflared's connections, so the site stays
+        # reachable when WARP fails). Everything else leaves through WARP, as the news sites accept its address and refuse
+        # Hetzner's (2026-11-27: 24 of the poller's sources failed from nat2's own IPv4)
+        set direct {
+          type ipv4_addr; flags interval;
+          elements = { 198.41.192.0/24, 198.41.200.0/24 }
+        }
+        chain prerouting {
+          type filter hook prerouting priority mangle;
+          ip saddr 10.0.0.0/16 ip daddr != 10.0.0.0/8 ip daddr != @direct meta mark set 0x51
+        }
+      }
+  - path: /etc/dnsmasq.d/yyc.conf
+    content: |
+      listen-address=10.0.0.29,10.0.0.30,127.0.0.1
+      bind-dynamic
+      no-resolv
+      server=185.12.64.1
+      server=185.12.64.2
+      cache-size=10000
+  # 10.0.0.30 on the interface that has 10.0.0.29 (network `yyc`'s; its name depends on the server type), when Hetzner's
+  # metadata lists it as this server's alias: the API delivers an alias only to the server it is assigned to, and the
+  # system must carry it as well. Never before: while yyc-nat1 held 10.0.0.30, this box answered it to itself
+  # (2026-11-27: nat1's pings to 10.0.0.29 went unanswered).
+  - path: /etc/systemd/system/yyc-jump-alias.service
+    content: |
+      [Unit]
+      Description=10.0.0.30 (the jump host's address) on network yyc's interface
+      Wants=network-online.target
+      After=network-online.target
+      [Service]
+      Type=oneshot
+      RemainAfterExit=yes
+      ExecStart=/bin/sh -c 'curl -fsS http://169.254.169.254/hetzner/v1/metadata/private-networks | grep -qF 10.0.0.30 || exit 0; dev=$(ip -o -4 addr show to 10.0.0.29/32 | cut -d" " -f2); test -n "$dev" && ip addr replace 10.0.0.30/32 dev "$dev"'
+      [Install]
+      WantedBy=multi-user.target
+  - path: /etc/systemd/system/yyc-warp-check.service
+    content: |
+      [Unit]
+      Description=WARP answers (EC2 through warp0 within 3 s), else wg-quick@warp0 restarts
+      [Service]
+      Type=oneshot
+      ExecStart=/bin/sh -c 'curl --interface warp0 -s -o /dev/null -m 3 https://ec2.ap-southeast-1.amazonaws.com/ || { logger -t warp-check "no answer through warp0 in 3 s: restarting wg-quick@warp0"; systemctl restart wg-quick@warp0; }'
+  - path: /etc/systemd/system/yyc-warp-check.timer
+    content: |
+      [Unit]
+      Description=yyc-warp-check every minute
+      [Timer]
+      OnBootSec=1min
+      OnUnitActiveSec=1min
+      AccuracySec=5s
+      [Install]
+      WantedBy=timers.target
+runcmd:
+  - sysctl -q --system
+  - systemctl enable --now nftables
+  - systemctl restart nftables
+  - systemctl daemon-reload
+  # wg-quick@warp0 starts once warp0.conf is written (README "yyc-nat2": the key is a secret, not user data)
+  - systemctl enable wg-quick@warp0 yyc-warp-check.timer
+  - systemctl start yyc-warp-check.timer
+  - systemctl enable --now yyc-jump-alias
+  - systemctl enable dnsmasq
+  - systemctl restart dnsmasq

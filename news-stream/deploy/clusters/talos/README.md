@@ -102,31 +102,64 @@ nodes' `KubeTalosAPIAccessConfig` first, which creates the `talos.dev` ServiceAc
 
 Hetzner counts every primary IP, IPv6 ones too, against the account's limit (16 across all projects), and the limit
 stays (Deyao, 2026-11-05). So the workers are created with no public IP (`--without-ipv4 --without-ipv6`): network
-`yyc` is their only link (`patches/worker.yaml`: DHCP on eth0, default route via 10.0.0.1, DNS 10.0.0.30), and they
-have no WARP of their own. Network `yyc`'s route 0.0.0.0/0 sends their outgoing traffic to **yyc-nat1** (10.0.0.30,
-cax11 fsn1, Debian, public IPv6 only; `nat/nat.sh`), which masquerades it out its own WARP account (`YYC_NAT1_WARP`)
-and answers DNS with Hetzner's resolvers over its IPv6. KubeSpan between workers and control nodes runs over network
-`yyc`. yyc-nat1 is a network box only, and a single one: while it is down, workers have no outgoing traffic (image
-pulls, WARP), though traffic inside the cluster and network `yyc` keeps flowing.
+`yyc` is their only link (`patches/private.yaml`: DHCP on eth0, default route via 10.0.0.1, DNS 10.0.0.30 and
+10.0.0.29), and they have no WARP of their own. Network `yyc`'s route 0.0.0.0/0 sends their outgoing traffic to
+**yyc-nat2** (10.0.0.29, alias 10.0.0.30; cax11 fsn1, Debian, a public IPv4 and no IPv6: "we should have at least one
+ipv4", Deyao, 2026-11-27). The box is `nat/nat2.yaml`, its user data:
 
-Its WARP session can turn slow without failing: on 2026-11-06 from 11:46 UTC every connection from the workers to an
-origin outside Cloudflare waited ~5 s for its first byte at Cloudflare's end (hermit's EC2 calls hit their 3.1 s connect
-timeout, so every new-stack sandbox start failed), until `systemctl restart wg-quick@warp0` at 12:15 (claude-env
-lessons/98). `yyc-nat-watchdog.timer` (`nat.sh watchdog`, also run by `setup`) checks every minute with a 3 s bound and
-restarts the tunnel after two slow checks in a row (log: `journalctl -t nat-watchdog`); `nat.sh check` shows the
-timings.
+- **Out:** to Cloudflare's tunnel edge (nftables set `direct`: cloudflared's connections) through its own IPv4, so
+  YYC AI's site stays reachable when WARP fails; everything else through WARP (`warp0`, account `YYC_NAT1_WARP`, exit
+  104.28.207.215, colo FRA), because many news sites refuse Hetzner's addresses and accept WARP's (from its own IPv4,
+  24 of the poller's sources failed every round, 2026-11-27). Masqueraded either way.
+- **WARP check:** `yyc-warp-check.timer` asks EC2 through `warp0` every minute with a 3 s bound and restarts
+  `wg-quick@warp0` at every failure (a restart pauses WARP about 3 s; log `journalctl -t warp-check`). Its predecessor
+  restarted at most once in 10 min, so a restart that did not help left all IPv4 down for 10 min: YYC AI's site 530
+  07:58-08:08 UTC on 2026-11-27, 47 min in all on 2026-11-26, when WARP needed 34 restarts.
+- **DNS:** dnsmasq on 10.0.0.29 and 10.0.0.30, forwarding to Hetzner's resolvers.
+- **The jump host:** sshd at 10.0.0.30 (`jump.yyc-internal.com`, talos.sh's tunnel, `deploy-access.yaml` name that
+  address), root by the `yyc-cluster-admin` key; its host keys are the old yyc-nat1's, so `known_hosts` files stay
+  valid. The address is a Hetzner alias IP: `yyc-jump-alias.service` adds it to the system only when the metadata
+  lists it (carried earlier, while another server held it, the box answered that server to itself).
+
+KubeSpan between workers and control nodes runs over network `yyc`. yyc-nat2 is a network box only, and a single one:
+while it is down, workers have no outgoing traffic (image pulls, WARP), though traffic inside the cluster and network
+`yyc` keeps flowing.
+
+### yyc-nat2
+
+Created 2026-11-27 (Hetzner server 177908877), replacing yyc-nat1 (its snapshot: image 461607840). Again, from
+nothing, with `YYC_HETZNER_API` (no hcloud CLI needed: the API):
+
+1. `POST /servers` with `name: yyc-nat2, server_type: cax11, location: fsn1, image: debian-13`, ssh key
+   `yyc-cluster-admin`, labels `yyc-cluster=talos, role=nat`, firewall `yyc-talos`,
+   `public_net: {enable_ipv4: true, enable_ipv6: false}`, `user_data` = `nat/nat2.yaml`, `start_after_create: false`;
+   then `attach_to_network` network `yyc` at `10.0.0.29` before its first boot (cloud-init records the address it sees
+   then) and `poweron`.
+2. `/etc/wireguard/warp0.conf` from `YYC_NAT1_WARP` over SSH (the key is a secret, never user data): `Address`,
+   `PrivateKey` and the peer's `PublicKey` from the key, `MTU = 1280`, `Table = off`,
+   `PostUp = ip route replace default dev warp0 table 51; ip rule add fwmark 0x51 lookup 51 priority 1000` (and the
+   matching `PostDown`), `Endpoint = 162.159.192.1:2408` (WARP's IPv4 endpoint: the box has no IPv6),
+   `AllowedIPs = 0.0.0.0/0`, `PersistentKeepalive = 25`; then `systemctl restart wg-quick@warp0`.
+3. The jump address: `change_alias_ips` on network `yyc` with `["10.0.0.30"]` once no other server holds it, then
+   `systemctl restart yyc-jump-alias`; for the same `known_hosts`, the host keys of the box it replaces.
+4. Network `yyc`'s route `0.0.0.0/0` to `10.0.0.29` (`delete_route`, `add_route`: Hetzner has no update; the open
+   connections are cut once). The nodes' resolvers came over first, with `talosctl patch mc --mode=no-reboot`
+   (`patches/private.yaml`'s ResolverConfig; Talos's merge appends to the list).
+
+A check from the box: `curl --interface warp0 -s -o /dev/null -w '%{http_code} %{time_appconnect}s\n'
+https://ec2.ap-southeast-1.amazonaws.com/` (through WARP) and the same with `--interface eth0` (its own IPv4).
 
 ## Outgoing proxy pool (`socks.yaml`, 2026-11-05)
 
 DaemonSet `egress/socks` (yyc-socks, socks/README.md) on every worker in network `yyc`, host network, Service
-`socks.egress:1080`, as on the old cluster. The workers share one exit: yyc-nat1's WARP, 104.28.207.215 (colo FRA), the
+`socks.egress:1080`, as on the old cluster. The workers share one exit: yyc-nat2's WARP (yyc-nat1's account and address before it), 104.28.207.215 (colo FRA), the
 same address the old cluster's nodes leave from (both read 2026-11-05), so a copy per worker gives availability, not
 exit diversity (the old pool had none either: README of the old cluster, "one location, one exit"). No IPv6 there:
 `FAMILIES=ipv4` and the sandbox resolvers over IPv4. Sample of 20 sites the stream and YYC AI read, 2026-11-05, old
-master (IPv6 first) against w1 (IPv4 through yyc-nat1): the same answer for 17; news.mingpao.com 403 -> 200 and
+master (IPv6 first) against w1 (IPv4 through yyc-nat1's WARP): the same answer for 17; news.mingpao.com 403 -> 200 and
 www.hkej.com 403 -> 301 (their Cloudflare refuses Hetzner's IPv6, not WARP), www.reuters.com 401 -> 403 (refused on
 both). Not chosen: copies on the control nodes (their own WARP, colo CDG, and native IPv6; but workloads stay off
-control nodes) or on yyc-nat1 (a network box). Image tag: `images:` in kustomization.yaml, pinned by socks-image.yml.
+control nodes) or on the NAT box (a network box). Image tag: `images:` in kustomization.yaml, pinned by socks-image.yml.
 
 ## Node work (`.github/workflows/talos-nodes.yml`, `node-work.sh`)
 

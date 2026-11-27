@@ -94,7 +94,7 @@ spec:
         - ipBlock: {cidr: 0.0.0.0/0, except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10, 127.0.0.0/8, 169.254.0.0/16]}
         - ipBlock: {cidr: "::/0", except: ["fc00::/7", "fe80::/10", "::1/128"]}
       ports: [{port: 7844, protocol: TCP}, {port: 7844, protocol: UDP}, {port: 443, protocol: TCP}]
-    # the jump host yyc-nat1's SSH (tunnel route jump.yyc-internal.com; not a cluster node, so an ipBlock matches it)
+    # the jump host yyc-nat2's SSH (tunnel route jump.yyc-internal.com; not a cluster node, so an ipBlock matches it)
     - to: [{ipBlock: {cidr: 10.0.0.30/32}}]
       ports: [{port: 22, protocol: TCP}]
 ---

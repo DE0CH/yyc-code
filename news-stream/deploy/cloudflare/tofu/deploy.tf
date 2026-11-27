@@ -26,8 +26,8 @@ resource "cloudflare_zero_trust_tunnel_cloudflared_config" "yyc_deploy" {
   config = {
     ingress = [
       { hostname = "k8s-deploy.${local.domain}", service = "tcp://kubernetes.default.svc.cluster.local:443" },
-      # the operator's jump host: yyc-nat1's SSH on network yyc (from it, every node's Talos API and SSH over the
-      # private network; it replaced yyc-master1 as the jump host when the old cluster went, T6)
+      # the operator's jump host: yyc-nat2's SSH at its alias 10.0.0.30 on network yyc (from it, every node's Talos API
+      # and SSH over the private network; the NAT box replaced yyc-master1 as the jump host when the old cluster went, T6)
       { hostname = "jump.${local.domain}", service = "tcp://10.0.0.30:22" },
       { service = "http_status:404" },
     ]
@@ -87,7 +87,7 @@ resource "cloudflare_dns_record" "jump" {
   content = "${cloudflare_zero_trust_tunnel_cloudflared.yyc_deploy[0].id}.cfargotunnel.com"
   proxied = true
   ttl     = 1
-  comment = "yyc-nat1's SSH, the operator's jump host to yyc-talos (tunnel yyc-deploy, Access service token only)"
+  comment = "yyc-nat2's SSH, the operator's jump host to yyc-talos (tunnel yyc-deploy, Access service token only)"
 }
 
 resource "cloudflare_zero_trust_access_application" "jump" {
