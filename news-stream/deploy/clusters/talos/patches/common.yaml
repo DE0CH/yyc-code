@@ -7,7 +7,7 @@ nodeCIDRMaskSizeIPv4: 24
 ---
 apiVersion: v1alpha1
 kind: KubeFlannelCNIConfig
-$patch: delete            # no CNI from Talos: Cilium, installed by talos.sh addons (I2)
+$patch: delete            # no CNI from Talos: Cilium, installed by yyc-talos addons (I2)
 ---
 apiVersion: v1alpha1
 kind: KubeNodeConfig

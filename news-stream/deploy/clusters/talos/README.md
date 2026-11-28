@@ -17,14 +17,16 @@ https://1e6d165c-page.deyaochen.com/). Built 2026-11-04 (step T1: control plane 
   127.0.0.1 and all three addresses. GitHub Actions' OIDC tokens for `yyc-ai.yml` are trusted through Talos's
   `KubeAuthenticationConfig` (`patches/controlplane.yaml`). CA:
   `infra/yyc-talos-ca.pem`.
-- **Operator access:** nothing is public. `talos.sh tunnel` (or `~/artifacts/on-start/talos-tunnel.sh`) forwards the
-  three Talos APIs to 127.0.0.1:50001-50003 and the Kubernetes APIs to 127.0.0.1:6443-6445 through `yyc-master1`;
-  `talos.sh talosconfig` writes the talosconfig, `talosctl kubeconfig` the admin kubeconfig (server
-  https://127.0.0.1:6443).
+- **Operator access:** nothing is public. From a session, `yyc-talos tunnel` (the session image's tool:
+  DE0CH/jarvis4 `session-image/tools/src/yyc_talos.rs`; this folder's `yyc-talos.toml` holds the cluster's side)
+  forwards the three Talos APIs to 127.0.0.1:50001-50003 and the Kubernetes APIs to 127.0.0.1:6443-6445 through the
+  jump host (yyc-nat2's 10.0.0.30, below) and, once up, writes `~/talos/talosconfig` and the admin `~/talos/kubeconfig`
+  (server https://127.0.0.1:6443); `yyc-talos talosconfig` and `yyc-talos kubeconfig` write them again.
+  `yyc-talos tool kubectl|helm|talosctl` prints the pinned binary.
 - **Secrets:** machine secrets `YYC_TALOS_SECRETS` and the WARP keys in store `yyc`; machine configs are rendered by
-  `talos.sh gen NODE ROLE` into `~/talos/` and never committed. Sealed Secrets has this cluster's own key (cert
+  `yyc-talos gen NODE ROLE` into `~/talos/` and never committed. Sealed Secrets has this cluster's own key (cert
   `infra/sealed-secrets-talos.pem`).
-- **Add-ons** (`talos.sh addons`, values in `addons/`): Cilium, the Hetzner cloud controller and CSI driver
+- **Add-ons** (`yyc-talos addons`: charts and versions in `yyc-talos.toml`, values in `addons/`): Cilium, the Hetzner cloud controller and CSI driver
   (StorageClass `yyc-block`), Sealed Secrets 0.40.0, cert-manager v1.21.2, CloudNativePG 1.30.1 (the old cluster's
   version) and its Barman Cloud plugin, PriorityClasses `serving` and `batch`.
 
@@ -73,16 +75,16 @@ https://1e6d165c-page.deyaochen.com/). Built 2026-11-04 (step T1: control plane 
 
 ## Applying
 
-Machine config: `talos.sh gen <node> controlplane|worker`, then `talos.sh apply <node> <ip> --dry-run` and
-`talos.sh apply <node> <ip>`, one node at a time (the control nodes: wait for `talosctl health` between them).
-Helm add-ons: `talos.sh addons`. Manifests: `talos.sh manifests` (`kubectl apply -k` of this folder; needs the control
+Machine config: `yyc-talos gen <node> <role>` (roles in `yyc-talos.toml`), then `yyc-talos apply <node> <ip> --dry-run`
+and `yyc-talos apply <node> <ip>`, one node at a time (the control nodes: wait for `talosctl health` between them).
+Helm add-ons: `yyc-talos addons`. Manifests: `yyc-talos manifests` (`kubectl apply -k` of this folder; needs the control
 nodes' `KubeTalosAPIAccessConfig` first, which creates the `talos.dev` ServiceAccount CRD). Secrets: lines in
 `infra/secrets.txt`, sealed with `infra/seal.py --cert infra/sealed-secrets-talos.pem NS/NAME` into `sealed/`.
 
 ## A new node
 
 1. A control node: a WARP key first: `warp-register.py <name> | store-put.py …` (store key `YYC_TALOS_WARP_<suffix>`);
-   a worker needs none. Then `talos.sh gen <name> controlplane|worker` (a worker gets `patches/worker.yaml`: labels
+   a worker needs none. Then `yyc-talos gen <name> controlplane|worker` (a worker gets `patches/worker.yaml`: labels
    `yyc.hetzner/network=yyc`, `pool=apps`).
 2. A control node: `hcloud server create --name <name> --type <type> --location <loc> --image <snapshot>
    --without-ipv4 --label yyc-cluster=talos --placement-group … --firewall yyc-talos --user-data-from-file
@@ -116,7 +118,7 @@ ipv4", Deyao, 2026-11-27). The box is `nat/nat2.yaml`, its user data:
   restarted at most once in 10 min, so a restart that did not help left all IPv4 down for 10 min: YYC AI's site 530
   07:58-08:08 UTC on 2026-11-27, 47 min in all on 2026-11-26, when WARP needed 34 restarts.
 - **DNS:** dnsmasq on 10.0.0.29 and 10.0.0.30, forwarding to Hetzner's resolvers.
-- **The jump host:** sshd at 10.0.0.30 (`jump.yyc-internal.com`, talos.sh's tunnel, `deploy-access.yaml` name that
+- **The jump host:** sshd at 10.0.0.30 (`jump.yyc-internal.com`, `yyc-talos tunnel`, `deploy-access.yaml` name that
   address), root by the `yyc-cluster-admin` key; its host keys are the old yyc-nat1's, so `known_hosts` files stay
   valid. The address is a Hetzner alias IP: `yyc-jump-alias.service` adds it to the system only when the metadata
   lists it (carried earlier, while another server held it, the box answered that server to itself).

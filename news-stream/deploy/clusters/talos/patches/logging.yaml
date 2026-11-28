@@ -1,5 +1,5 @@
 # Talos's own service logs and the kernel log to the node's Alloy (../alloy.yaml). Not in the node configs until
-# Alloy runs (it needs a Grafana stack: README "Logs"); then talos.sh gen includes it.
+# Alloy runs (it needs a Grafana stack: README "Logs"); then yyc-talos.toml lists it in `[gen] common`.
 machine:
   logging:
     destinations:               # Talos's own services (machined, apid, kubelet, etcd, containerd...) to the node's

@@ -1,4 +1,4 @@
-# The JuiceFS CSI driver on yyc-talos (DE0CH/aviary yyc/refactor DESIGN 15.2 N6, 15.3; chart 0.33.0 by talos.sh addons): the
+# The JuiceFS CSI driver on yyc-talos (DE0CH/aviary yyc/refactor DESIGN 15.2 N6, 15.3; chart 0.33.0 by yyc-talos addons): the
 # values the old cluster's HelmRelease had (the old stack's juicefs.yaml, deleted in A6; git history) for JuiceFS
 # volume `yyc-ai` (hermit's /jfs; hermit 15.2): mount-pod mode, no controller (the PVs are static), no
 # dashboard, no webhook, one mount pod per node (fsShareMount) at 192 Mi request = limit, mount image JuiceFS 1.4.1

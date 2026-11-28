@@ -12,7 +12,7 @@
 #     restart pauses it about 3 s; yyc-nat1's watchdog waited 10 min between restarts, and a restart that did not
 #     help left IPv4 down for those 10 min).
 #   - DNS: dnsmasq on 10.0.0.29 and 10.0.0.30 forwarding to Hetzner's resolvers.
-#   - The jump host: sshd at 10.0.0.30 (an alias IP of this box: jump.yyc-internal.com, talos.sh tunnel and
+#   - The jump host: sshd at 10.0.0.30 (an alias IP of this box: jump.yyc-internal.com, yyc-talos tunnel and
 #     deploy-access.yaml name it), root by the yyc-cluster-admin key; its host keys are yyc-nat1's (known_hosts stay).
 # No public IPv6 (Hetzner counts every primary IP against the account's limit); the yyc-talos firewall lets in only
 # ICMP and UDP 51820.

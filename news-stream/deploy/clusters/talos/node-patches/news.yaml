@@ -1,7 +1,7 @@
 # The x86 app nodes of yyc-talos (T4; plan DE0CH/aviary yyc/refactor/talos-apps-move.md): the old cx23 and cpx32 servers
 # rebuilt into Talos (fsn1, keeping their primary IPv6), for the news stream, the mail merge and YYC AI watch, whose
 # images are amd64 only (../apps/kustomization.yaml). Rendered as a worker with a public interface and its own WARP
-# (talos.sh's gateway role minus worker.yaml's labels: the builder's tool), plus this patch. Not labelled
+# (yyc-talos's gateway role minus worker.yaml's labels: the builder's tool), plus this patch. Not labelled
 # yyc.hetzner/network=yyc nor pool=apps, on purpose: YYC AI's pods select those (DESIGN 15.7) and must not take this
 # room, and the JuiceFS CSI node plugin (384 Mi a node, addons/juicefs-csi.values.yaml) runs only on that label.
 # Checked with `talosctl validate --mode cloud` (v1.14.5), 2026-11-05.

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """warp-register.py NODE: registers a Cloudflare WARP account for one Talos node (a WireGuard key serves one peer only)
 and prints the node's warp0 facts as JSON {privateKey, address, peerPublicKey, endpoint}, for the yyc store key
-YYC_TALOS_WARP_<NODE> (talos.sh reads it). Same registration as ../../cluster/node-setup.sh. Prints the private key:
+YYC_TALOS_WARP_<NODE> (yyc-talos gen reads it). Same registration as ../../cluster/node-setup.sh. Prints the private key:
 pipe it straight into store-put.py, never to a terminal."""
 import base64, datetime, json, sys, urllib.request
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey

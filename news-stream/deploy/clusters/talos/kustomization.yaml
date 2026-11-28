@@ -1,5 +1,5 @@
-# yyc-talos's cluster-level manifests (kubectl apply -k of this folder: .github/workflows/talos-cluster.yml, or talos.sh
-# manifests from a session). The Helm add-ons are talos.sh addons (addons/*.values.yaml).
+# yyc-talos's cluster-level manifests (kubectl apply -k of this folder: .github/workflows/talos-cluster.yml, or yyc-talos
+# manifests from a session). The Helm add-ons are yyc-talos addons (addons/*.values.yaml).
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:

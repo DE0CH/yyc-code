@@ -3,7 +3,7 @@
 # interface and its own WARP, without patches/worker.yaml's labels yyc.hetzner/network and pool=apps, so neither YYC
 # AI's pods nor the JuiceFS node plugin come here), with this patch instead of news.yaml: only Cluster pg's instances
 # (which tolerate the taint) and the per-node DaemonSets run there, one instance of 6 Gi + its 128 Mi sidecar per 8 GB
-# node. talos.sh and patches/ are the builder's (plan "What the builder adds"). Checked with `talosctl validate --mode
+# node. yyc-talos.toml and patches/ are the builder's (plan "What the builder adds"). Checked with `talosctl validate --mode
 # cloud` (v1.14.5) on a generated worker config patched with it, 2026-11-05.
 apiVersion: v1alpha1
 kind: KubeNodeConfig
