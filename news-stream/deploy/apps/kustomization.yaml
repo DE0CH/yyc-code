@@ -37,7 +37,7 @@ configMapGenerator:
 images:
   - name: yyc-news-stream
     newName: ghcr.io/de0ch/yyc-news-stream
-    newTag: '9261f857bc83'
+    newTag: '6bf729d3ea51'
   - name: yyc-mcp
     newName: ghcr.io/de0ch/yyc-mcp
     newTag: '9261f857bc83'
