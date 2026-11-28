@@ -867,7 +867,7 @@ def _apply_schema(p):
 # Planned primary moves (a CloudNativePG switchover, db/README "Postgres high availability") cut every connection and
 # refuse new ones for a few seconds. Statements and transactions caught by it are run again on the new primary, so a
 # request waits instead of failing (Deyao, 2026-11-09: switchovers with zero downtime). Running again is always safe:
-# the switchover script fences writes first (news-stream/deploy/clusters/talos/db/switchover.sh: every table locked
+# the switchover script fences writes first (news-stream/deploy/clusters/talos/db/switchover.py: every table locked
 # EXCLUSIVE, so no write transaction is open when the old primary stops), so a cut session was reading or waiting
 # before its first write, and nothing of it was committed.
 RETRY_FOR = 30.0  # seconds a statement or transaction keeps trying while the database is away

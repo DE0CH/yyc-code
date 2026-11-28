@@ -193,7 +193,7 @@ WORKER = os.environ.get("HOSTNAME") or socket.gethostname()
 # A planned primary move (a CloudNativePG switchover) cuts every connection and refuses new ones for a few seconds:
 # statements and transactions caught by it run again on the new primary (retrying), so a page or a worker waits instead
 # of failing (Deyao, 2026-11-09: zero downtime). Safe because the switchover fences writes first (YYC
-# news-stream/deploy/clusters/talos/db/switchover.sh locks every table EXCLUSIVE before the old primary stops).
+# news-stream/deploy/clusters/talos/db/switchover.py locks every table EXCLUSIVE before the old primary stops).
 RETRY_FOR, RETRY_GAP = 30.0, 0.2
 from psycopg_pool.base import AttemptWithBackoff  # noqa: E402
 AttemptWithBackoff.INITIAL_DELAY, AttemptWithBackoff.DELAY_BACKOFF = RETRY_GAP, 1.0  # reopen every 0.2 s, no backoff

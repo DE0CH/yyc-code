@@ -60,7 +60,7 @@ spec:
   instances: 3
   imageName: ghcr.io/cloudnative-pg/postgresql:17.11-standard-trixie   # the old Cluster's image, exactly
   # supervised: a change that restarts the copies restarts the standbys and then waits; the primary moves only through
-  # db/switchover.sh, which fences writes first so the apps can safely run cut work again (Deyao, 2026-11-09: zero
+  # db/switchover.py, which fences writes first so the apps can safely run cut work again (Deyao, 2026-11-09: zero
   # downtime), never through the operator's own unfenced switchover
   primaryUpdateStrategy: supervised
   primaryUpdateMethod: switchover

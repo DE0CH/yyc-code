@@ -14,7 +14,7 @@ const types = { bigint: { to: 20, from: [20], parse: (x: string) => Number(x), s
 // A planned primary move (a CloudNativePG switchover) cuts every connection and refuses new ones for a few seconds.
 // A query caught by it runs again (every RETRY_GAP_MS for up to RETRY_FOR_MS), so a page or a yyc-mcp tool call waits
 // instead of failing (Deyao, 2026-11-09: zero downtime). Safe: the site only reads, and the switchover fences writes
-// first (news-stream/deploy/clusters/talos/db/switchover.sh locks every table EXCLUSIVE before the old primary stops),
+// first (news-stream/deploy/clusters/talos/db/switchover.py locks every table EXCLUSIVE before the old primary stops),
 // so yyc-mcp's own writes were waiting, not half done.
 export const RETRY_FOR_MS = 30_000;
 export const RETRY_GAP_MS = 200;
