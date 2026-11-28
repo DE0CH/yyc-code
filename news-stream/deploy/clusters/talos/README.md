@@ -42,7 +42,7 @@ https://1e6d165c-page.deyaochen.com/). Built 2026-11-04 (step T1: control plane 
   - Copies: `pg` 3 (db1, db2, db3: one per dedicated db node in fsn1) and `magpie-pg` 3 (w1-w3), both strict: a commit
     waits for one standby (`any 1`, dataDurability required) and a failover promotes only a standby holding every
     confirmed commit (failoverQuorum). Standbys can be swapped with no effect on writes. The db nodes are cpx42 (16 GB;
-    Deyao, 2026-11-09: the data tools' queries need the posts table in memory); `db/resize-node.sh NODE TYPE` resizes a
+    Deyao, 2026-11-09: the data tools' queries need the posts table in memory); `yyc-talos resize-db NODE TYPE` resizes a
     standby's node in place (disk kept).
   - Moving a primary (for a resize or upgrade of its node, or of Postgres) is `db/switchover.py CLUSTER TARGET`, with
     zero downtime: it fences writes first (an EXCLUSIVE lock on every table of every database: running write

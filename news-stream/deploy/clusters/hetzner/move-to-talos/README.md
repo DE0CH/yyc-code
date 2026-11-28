@@ -8,4 +8,3 @@ own commit.
 | `wisers-nodeport.yaml` | T4b-prep | NodePorts 30899/30898 for the WiseSearch relay, so yyc-talos's Service `wisers` reaches it until the wisers step |
 | `pg-shared-alias.yaml` | T4b-prep | `db/pg-shared` on the old cluster too (selector: the primary), so tunnel yyc-stream's `db.yyc-internal.com` route names one Service that exists on both clusters |
 | `pg-topology.yaml` | T5-prep, T5 | the old Cluster `pg` in CloudNativePG's distributed topology (`pg-k3s`), then its demotion (`primary: pg-talos`) |
-| `copy-volume.sh` | T4b-precopy, T4b-jobs | copies an old PVC's files into a yyc-talos PVC over network `yyc` |
