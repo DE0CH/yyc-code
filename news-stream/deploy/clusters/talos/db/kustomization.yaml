@@ -16,4 +16,4 @@ resources:
 images:   # pinned by .github/workflows/pg-heartbeat-image.yml (news-stream/deploy/pin-image.py, PIN_FILE=this file)
   - name: pg-heartbeat
     newName: ghcr.io/de0ch/pg-heartbeat
-    newTag: '21d310853e47'
+    newTag: '9261f857bc83'
