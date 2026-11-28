@@ -16,4 +16,4 @@ patches:
 images:
   - name: yyc-ai-watch
     newName: ghcr.io/de0ch/yyc-ai-watch
-    newTag: '59fd11c605dc'
+    newTag: '9261f857bc83'
