@@ -42,6 +42,8 @@ kube_server = "https://127.0.0.1:6443"
 # goes out through its own WARP warp0 (a public IPv6 and no NAT); without it, through yyc-nat2 (patches/private.yaml).
 [gen]
 common = ["patches/common.yaml"]
+# The nodes' roles (each node's live config differs from `gen NODE ROLE` only where a change is pending; checked
+# 2026-11-28): controlplane cp1-3; worker w1-3; news news1, news3; news-private news6-9; db db1, db2; db-private db3.
 
 [roles.controlplane]
 output = "controlplane"
