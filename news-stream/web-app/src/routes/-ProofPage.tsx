@@ -348,7 +348,10 @@ function Entry({ id, api, rec, setNotes, say }: { id: number; api: React.Mutable
   const saveNote = () => { change(r => { r.note = draft.trim(); }); setNoteOpen(false); say(draft.trim() ? "Note saved (this browser)" : "Note removed"); };
   useEffect(() => { if (noteOpen) noteRef.current?.focus(); }, [noteOpen]);
 
-  api.current = !E ? null : {
+  // what this entry does, for its own buttons and (through `api`, set after each commit) for the keyboard. Never
+  // assigned during render: React may render and throw away, and development's mount-unmount-mount left `api` null
+  // after the unmount half, so a click on Wrong did nothing until the entry happened to render again
+  const actions: EntryApi | null = !E ? null : {
     id,
     flag: () => { const on = rec?.verdict !== "wrong"; change(r => { r.verdict = on ? "wrong" : null; }); say(on ? "Flagged as wrong" : "Flag removed"); },
     ok: () => { const on = rec?.verdict !== "ok"; change(r => { r.verdict = on ? "ok" : null; }); say(on ? "Marked correct" : "Correct mark removed"); },
@@ -373,7 +376,10 @@ function Entry({ id, api, rec, setNotes, say }: { id: number; api: React.Mutable
     },
     open: () => { window.open(E.link, "_blank", "noopener,noreferrer"); },
   };
-  useEffect(() => () => { if (api.current?.id === id) api.current = null; }, [api, id]);
+  useLayoutEffect(() => {
+    api.current = actions;
+    return () => { if (api.current === actions) api.current = null; };
+  });
 
   if (q.isPending) return <Wait className="loading" what="load the post" label="Loading the post…" en onRetry={() => q.refetch()} />;
   if (q.isError) return <Wait className="loading" what="load the post" en failed onRetry={() => q.refetch()} />;
@@ -389,7 +395,7 @@ function Entry({ id, api, rec, setNotes, say }: { id: number; api: React.Mutable
         <AnswersCard E={E} />
         <NoteCard E={E} rec={rec} open={noteOpen} draft={draft} setDraft={setDraft} noteRef={noteRef}
           onOpen={() => { setDraft(rec?.note || ""); setNoteOpen(true); }} onSave={saveNote} onCancel={() => setNoteOpen(false)}
-          onFlag={() => api.current?.flag()} onOk={() => api.current?.ok()} />
+          onFlag={() => actions?.flag()} onOk={() => actions?.ok()} />
         <StateCard E={E} />
       </div>
     </article>

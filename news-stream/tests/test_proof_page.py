@@ -61,6 +61,14 @@ def ago(h):
     return (datetime.now(HKT).replace(microsecond=0) - timedelta(hours=h)).isoformat()
 
 
+def cut_off(text):
+    """WebKit's report of a load of the app's own that a navigation cut off ("… due to access control checks.",
+    its wording for a cross-origin refusal, which a same-origin load cannot get): the page's re-reads (the socket's
+    invalidations, the version check) can be in flight at any reload or page change"""
+    host = ops.BASE.split("//", 1)[1]
+    return text.strip().endswith("due to access control checks.") and f"{host}/" in text
+
+
 def only_data_update(text):
     """a hydration report whose only differing line is <html data-update="current">"""
     tree = text.split("hydration-mismatch", 1)[-1]
@@ -224,8 +232,9 @@ class ProofPage(unittest.TestCase):
         p.errors = []
         # (React's dev build also reports <html data-update="current">, which lib/update.ts sets before hydration on
         # every page: not this page's, and production React doesn't check attributes)
-        p.on("console", lambda m: m.type == "error" and not only_data_update(m.text) and p.errors.append(m.text))
-        p.on("pageerror", lambda e: p.errors.append(str(e)))
+        p.on("console", lambda m: m.type == "error" and not only_data_update(m.text) and not cut_off(m.text)
+             and p.errors.append(m.text))
+        p.on("pageerror", lambda e: not cut_off(str(e)) and p.errors.append(str(e)))
         p.entry_reqs = []
         p.on("request", lambda r: "/app/proof/entry" in r.url and p.entry_reqs.append(int(r.url.rsplit("=", 1)[1])))
         return ctx, p
